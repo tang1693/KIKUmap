@@ -93,7 +93,14 @@ final class TimelineView: NSView {
     private let rowTop: CGFloat = 34
     private let laneH: CGFloat = 26
     private var lanes: [String] { [tr("进行中", "Running"), tr("计划任务", "Scheduled")] }
-    private var lanesBottom: CGFloat { rowTop + laneH * CGFloat(lanes.count) }
+    private var lanesBottom: CGFloat { rowTop + runLaneH + laneH }
+    /// Chats Claude worked on at the same time get rows of their own in the Running lane (up to 4),
+    /// and the strip grows to fit them.
+    private let rowH: CGFloat = 18, maxRows = 4
+    private var runRows = 1
+    private var runLaneH: CGFloat { CGFloat(runRows) * rowH + 8 }
+    var preferredHeight: CGFloat { 130 + runLaneH - laneH }
+    var onHeightChange: (() -> Void)?
     private var ranges: [(String, Double)] {
         [(tr("3小时", "3h"), 3), (tr("6小时", "6h"), 6), (tr("12小时", "12h"), 12), (tr("2天", "2d"), 48), (tr("7天", "7d"), 168)]
     }
@@ -116,6 +123,8 @@ final class TimelineView: NSView {
         for r in usage.routines where r.enabled && !r.cron.isEmpty {
             cronRuns[r.id] = Cron(r.cron)?.runs(from: from, to: to) ?? []
         }
+        let rows = max(1, (runs(now: Date()).map(\.row).max() ?? 0) + 1)
+        if rows != runRows { runRows = rows; onHeightChange?() }
         needsDisplay = true
     }
 
@@ -146,7 +155,22 @@ final class TimelineView: NSView {
     private var plotW: CGFloat { bounds.width - labelW - 12 }
     private func x(_ t: Date) -> CGFloat { labelW + CGFloat(t.timeIntervalSince(start) / spp) }
     private func time(_ x: CGFloat) -> Date { start.addingTimeInterval(Double(x - labelW) * spp) }
-    private func laneY(_ i: Int) -> CGFloat { rowTop + laneH * CGFloat(i) }
+    private func laneY(_ i: Int) -> CGFloat { i == 0 ? rowTop : rowTop + runLaneH }
+
+    /// Every run with its row: runs are taken in order of start, each on the first row that's free by then.
+    private func runs(now: Date) -> [(id: String, s: Date, e: Date, live: Bool, row: Int)] {
+        var spans: [(String, Date, Date, Bool)] = store.intervals.compactMap { iv in
+            guard let s = Clock.parse(iv.start), let e = Clock.parse(iv.end) else { return nil }
+            return (iv.id, s, e, false)
+        }
+        for (id, s) in store.runStart { if let d = Clock.parse(s) { spans.append((id, d, now, true)) } }
+        var ends: [Date] = []
+        return spans.filter { store.isShown(id: $0.0) }.sorted { $0.1 < $1.1 }.map { sp in
+            let row = ends.firstIndex { $0 <= sp.1 } ?? ends.count
+            if row == ends.count { ends.append(sp.2) } else { ends[row] = sp.2 }
+            return (sp.0, sp.1, sp.2, sp.3, min(row, maxRows - 1))
+        }
+    }
 
     private func keepNow() {
         if follow { start = Date().addingTimeInterval(-Double(plotW) * spp * 0.3) }
@@ -232,16 +256,9 @@ final class TimelineView: NSView {
             day = cal.date(byAdding: .day, value: 1, to: day)!
         }
 
-        // lane 0: when Claude was working on each chat
-        let y0 = laneY(0) + 6
-        var spans: [(String, Date, Date, Bool)] = store.intervals.compactMap { iv in
-            guard let s = Clock.parse(iv.start), let e = Clock.parse(iv.end) else { return nil }
-            return (iv.id, s, e, false)
-        }
-        for (id, s) in store.runStart { if let d = Clock.parse(s) { spans.append((id, d, now, true)) } }
-        spans = spans.filter { store.isShown(id: $0.0) }
-        for (id, s, e, live) in spans where e >= left && s <= right {
-            let r = NSRect(x: x(s), y: y0, width: max(4, x(e) - x(s)), height: laneH - 12)
+        // lane 0: when Claude was working on each chat, one row per chat running at the same time
+        for (id, s, e, live, row) in runs(now: now) where e >= left && s <= right {
+            let r = NSRect(x: x(s), y: laneY(0) + 4 + rowH * CGFloat(row), width: max(4, x(e) - x(s)), height: rowH - 4)
             // your branch colour if the chat has one, otherwise neutral
             let base = store.branchColor(id) ?? Theme.muted
             (live ? base : base.withAlphaComponent(0.55)).setFill()

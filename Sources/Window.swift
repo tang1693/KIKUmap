@@ -785,6 +785,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         tags.autoresizingMask = [.maxYMargin]
         root.addSubview(tags)
         tags.onHighlight = { [weak self] id in self?.map.highlightTag = id }
+        timeline.onHeightChange = { [weak self] in self?.layoutPanes() }
 
         line.frame = NSRect(x: sideW, y: tlH, width: 1, height: H - headH - tlH)
         line.autoresizingMask = [.height]
@@ -879,7 +880,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         guard let root = window.contentView else { return }
         let W = root.bounds.width, H = root.bounds.height, headH = header.frame.height
         let sideW = Prefs.sideHidden ? 0 : Prefs.sideWidth
-        let tlH: CGFloat = Prefs.timelineHidden ? 0 : 130
+        let tlH: CGFloat = Prefs.timelineHidden ? 0 : timeline.preferredHeight
         timeline.frame = NSRect(x: 0, y: 0, width: W, height: tlH)
         timeline.isHidden = tlH == 0
         let midH = H - headH - tlH

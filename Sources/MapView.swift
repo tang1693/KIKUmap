@@ -1344,7 +1344,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             return m
         }
         let k = v.key, map = store.map
-        if v.kind != .chat {
+        if v.kind != .chat && v.kind != .root {           // on the centre, "New topic" already is one
             add(tr("新子主题", "New subtopic"), "\t") { [weak self] in self?.changed(select: map.addChild(k), edit: true) }
         }
         if v.kind != .root {
