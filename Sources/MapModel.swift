@@ -76,8 +76,6 @@ struct MapDoc: Codable {
     var v: Int = 1
     var root: MapNode
     var aliases: [String: String]
-    /// Set once the first-run topics were created from the chat titles.
-    var seeded: Bool?
     var tags: [Tag]?
     /// item key ("c:<chat>" or topic id) → tag ids
     var itemTags: [String: [String]]?
@@ -168,8 +166,6 @@ final class MapModel {
         for old in safety.dropLast(30) { try? fm.removeItem(at: dir.appendingPathComponent(old)) }
     }
 
-    var isEmpty: Bool { doc.root.children.isEmpty }
-    var needsSeed: Bool { isEmpty && doc.seeded != true }
 
     func save() {
         backup()
@@ -519,6 +515,39 @@ final class MapModel {
         }
     }
 
+    /// Several items into one place, keeping the order given, as one undo step. Chats that aren't
+    /// on the map yet (picked in the left column) are placed there.
+    @discardableResult
+    func move(_ keys: [String], to target: String, _ drop: Drop, side: Int? = nil) -> Bool {
+        commit {
+            var at = target
+            for k in keys where k != target {
+                var placed: Bool
+                if let loc = locate(k) {
+                    guard let parent = loc.parent else { continue }
+                    if let n = loc.item.node, contains(n, key: target) { continue }
+                    parent.children.remove(at: loc.index)
+                    placed = insert(loc.item, at: at, drop, side: side)
+                    if !placed { parent.children.insert(loc.item, at: loc.index) }
+                } else if k.hasPrefix("c:") {
+                    placed = insert(.chat(String(k.dropFirst(2))), at: at, drop, side: side)
+                } else {
+                    continue
+                }
+                if placed && drop == .after { at = k }        // each goes after the one before it
+            }
+        }
+    }
+
+    /// Removes several items as one undo step: topics with what's under them, chats back to the left column.
+    func remove(_ keys: [String]) {
+        commit {
+            for k in keys {
+                if let loc = locate(k), let parent = loc.parent { parent.children.remove(at: loc.index) }
+            }
+        }
+    }
+
     func place(chat id: String, at target: String, _ drop: Drop, side: Int? = nil) {
         if placedChats().contains(id) { move("c:" + id, to: target, drop, side: side); return }
         commit { _ = insert(.chat(id), at: target, drop, side: side) }
@@ -548,21 +577,5 @@ final class MapModel {
     func toggleFold(_ key: String) {
         guard let n = locate(key)?.item.node, !n.children.isEmpty, n !== doc.root else { return }
         commit { n.collapsed = n.isCollapsed ? nil : true }
-    }
-
-    /// First run: one topic per title prefix ("[Work] …", "[Home] …").
-    func seed(from chats: [Chat]) {
-        var order: [String] = []
-        var groups: [String: [String]] = [:]
-        for c in chats {
-            guard let g = c.title.titlePrefix else { continue }
-            if groups[g] == nil { order.append(g) }
-            groups[g, default: []].append(c.id)
-        }
-        for g in order {
-            let n = MapNode(title: g, children: (groups[g] ?? []).map { .chat($0) })
-            doc.root.children.append(.node(n))
-        }
-        if !order.isEmpty { doc.seeded = true; save() }
     }
 }

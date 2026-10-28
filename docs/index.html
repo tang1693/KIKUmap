@@ -148,6 +148,13 @@
   .tile .t > b { display: block; font-size: 17px; margin-bottom: 4px; }
   .tile span { color: var(--ink2); font-size: 15.5px; line-height: 1.5; }
 
+  /* Native */
+  .native { padding-top: 40px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 40px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 20px; }
+  .stat > b { display: block; font-size: 34px; line-height: 1.1; letter-spacing: -.02em; color: var(--accent); margin-bottom: 10px; }
+  .stat span { color: var(--ink2); font-size: 15px; line-height: 1.5; }
+
   /* Privacy */
   .privacy { background: var(--bg2); }
   .perms { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 40px; }
@@ -189,6 +196,7 @@
     .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
     .feature.flip .text { order: 0; }
     .perms, .steps { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 520px) {
     .wrap { padding: 0 16px; }
@@ -235,7 +243,7 @@
   <section class="hero" id="top">
     <div class="wrap">
       <img class="app-icon" src="icon.png" alt="">
-      <p class="pill"><span lang="en">Beta · Free and open source</span><span lang="zh">测试版 · 免费开源</span></p>
+      <p class="pill"><span lang="en">Native macOS · 2 MB · Free and open source</span><span lang="zh">原生 macOS · 2 MB · 免费开源</span></p>
       <h1><span lang="en">A mind map for your Claude chats.</span><span lang="zh">给 Claude 对话的思维导图。</span></h1>
       <p class="lead" lang="en">Kikumap lives in your Mac's menu bar and keeps track of every Claude chat: what's running, what's done, what needs your OK. Open it, and your pinned chats become a map you arrange yourself.</p>
       <p class="lead" lang="zh">Kikumap 住在 Mac 的菜单栏里，帮你盯着每个 Claude 对话：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的导图。</p>
@@ -243,7 +251,7 @@
         <a class="btn primary" href="https://github.com/tang1693/KIKU/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKU"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · 2 MB</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 2 MB</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · beta</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 测试版</span></p>
       <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
   </section>
@@ -280,17 +288,14 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Mind map</span><span lang="zh">导图</span></p>
           <h3><span lang="en">Your chats, as a map</span><span lang="zh">对话变成一张导图</span></h3>
-          <p lang="en">The left column mirrors the chats you pinned in Claude, <b>in Claude's order</b>. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
-          <p lang="zh">左栏就是你在 Claude 里置顶的对话，<b>顺序和 Claude 一样</b>。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
+          <p lang="en">The left column mirrors the chats you pinned in Claude, <b>in Claude's order</b>, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
+          <p lang="zh">左栏是你在 Claude 里置顶的对话，<b>顺序和 Claude 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
+          <p lang="en"><b>Several at once:</b> <kbd>⌘</kbd>-click or <kbd>⇧</kbd>-click in the left column, or <kbd>⇧</kbd>-drag a box on the map, then drag any one of them. They all come along, in order.</p>
+          <p lang="zh"><b>一次拖好几个：</b>在左栏 <kbd>⌘</kbd> 或 <kbd>⇧</kbd> 点击，或者在导图上按住 <kbd>⇧</kbd> 拖出选框，然后拖其中任意一个，选中的会按顺序一起过去。</p>
           <p lang="en">Real conversations carry a small orange mark. Double-click one, or press space, to open it in Claude.</p>
           <p lang="zh">真正的对话前面有橙色小标记。双击或按空格，就会在 Claude 里打开它。</p>
         </div>
-        <figure class="shot">
-          <picture>
-            <source media="(prefers-color-scheme: dark)" srcset="screenshots/map-dark.png">
-            <img src="screenshots/map-light.png" width="2560" height="1560" loading="lazy" alt="The Kikumap window: pinned chats on the left, the mind map in the middle, a timeline at the bottom">
-          </picture>
-        </figure>
+        <figure class="shot"><img src="demo/group.gif" width="1650" height="900" loading="lazy" alt="Shift-dragging a box selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></figure>
       </div>
 
       <div class="feature">
@@ -366,6 +371,20 @@
         <div class="tile"><img src="demo/backups.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Daily backups</b><b lang="zh">每日备份</b><span lang="en">A copy of your map every day, before your first change.</span><span lang="zh">每天第一次改动之前，自动存一份导图。</span></div></div>
         <div class="tile"><img src="demo/theme.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Light or dark</b><b lang="zh">浅色和深色</b><span lang="en">Follows your Mac, or flip it with the moon.</span><span lang="zh">跟随系统，或者点月亮按钮切换。</span></div></div>
         <div class="tile"><img src="demo/language.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b>English · 中文</b><span lang="en">Every label, menu and tag in either language.</span><span lang="zh">所有文字、菜单和标签，中英文都有。</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="native" id="native">
+    <div class="wrap">
+      <h2><span lang="en">Native, and featherlight</span><span lang="zh">原生，轻到几乎感觉不到</span></h2>
+      <p class="sub" lang="en">A real Mac app, not a web page in a window. It sits in your menu bar all day without you noticing.</p>
+      <p class="sub" lang="zh">真正的 Mac 原生应用，不是套了个窗口的网页。整天待在菜单栏里，你几乎感觉不到它。</p>
+      <div class="stats">
+        <div class="stat"><b>2 MB</b><span lang="en">The whole download; about 4 MB installed, for Apple silicon and Intel.</span><span lang="zh">整个安装包 2 MB，装好约 4 MB，Apple 芯片和 Intel 通用。</span></div>
+        <div class="stat"><b>Swift</b><span lang="en">Written with AppKit. No Electron, no web view, no helper processes.</span><span lang="zh">用 AppKit 原生开发。没有 Electron，没有网页套壳，没有后台助手进程。</span></div>
+        <div class="stat"><b>0</b><span lang="en">Third-party dependencies. Build it from source in one step.</span><span lang="zh">第三方依赖。一步就能从源码编译。</span></div>
+        <div class="stat"><b lang="en">Idle</b><b lang="zh">安静</b><span lang="en">It waits for changes instead of polling, and stops drawing entirely when the map is hidden.</span><span lang="zh">靠系统通知等变化，不频繁轮询；导图窗口一隐藏，绘制就完全停下。</span></div>
       </div>
     </div>
   </section>

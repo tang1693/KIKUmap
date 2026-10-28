@@ -226,6 +226,10 @@ final class SidebarView: NSView, NSDraggingSource {
     private var placed = Set<String>()
     private let schedRowH: CGFloat = 42
     private var sel: String?
+    /// Several rows picked at once (⌘-click, ⇧-click); dragging one of them takes them all to the map.
+    private var picked = Set<String>()
+    /// A plain click on one of the picked rows picks just it — unless the click turns into a drag.
+    private var narrowOnUp: String?
     private var pressed: (id: String, at: NSPoint)?
     private var dropOn = false
     private let rowH: CGFloat = 34
@@ -248,6 +252,7 @@ final class SidebarView: NSView, NSDraggingSource {
 
     func reload() {
         rows = store.pinnedList()
+        picked.formIntersection(rows.map(\.id))
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
         let content = schedTop + (sched.isEmpty ? 0 : 30 + CGFloat(sched.count) * schedRowH) + 20
@@ -274,7 +279,7 @@ final class SidebarView: NSView, NSDraggingSource {
         for (i, c) in rows.enumerated() {
             let r = NSRect(x: 10, y: top + CGFloat(i) * rowH, width: bounds.width - 20, height: rowH - 4)
             guard r.intersects(dirtyRect) else { continue }
-            if sel == c.id {
+            if sel == c.id || picked.contains(c.id) {
                 let b = NSBezierPath(roundedRect: r.insetBy(dx: -2, dy: 0), xRadius: 6, yRadius: 6)
                 Theme.hover.setFill(); b.fill()
             }
@@ -354,8 +359,22 @@ final class SidebarView: NSView, NSDraggingSource {
         window?.makeFirstResponder(self)
         let p = convert(e.locationInWindow, from: nil)
         if schedRow(at: p) != nil { onOpenRoutines?(); return }
-        guard let c = row(at: p) else { sel = nil; needsDisplay = true; return }
-        sel = c.id
+        guard let c = row(at: p) else { sel = nil; picked = []; needsDisplay = true; return }
+        narrowOnUp = nil
+        let f = e.modifierFlags
+        if f.contains(.command) {
+            if picked.isEmpty, let s = sel { picked = [s] }
+            if picked.contains(c.id) { picked.remove(c.id) } else { picked.insert(c.id) }
+            sel = c.id
+        } else if f.contains(.shift), let s = sel, let a = rows.firstIndex(where: { $0.id == s }),
+                  let b = rows.firstIndex(where: { $0.id == c.id }) {
+            picked = Set(rows[min(a, b)...max(a, b)].map(\.id))       // the first click stays the anchor
+        } else if picked.count > 1 && picked.contains(c.id) {
+            narrowOnUp = c.id
+        } else {
+            sel = c.id
+            picked = []
+        }
         needsDisplay = true
         if e.clickCount == 2 { onOpen?(c.id); return }
         pressed = (c.id, p)
@@ -366,15 +385,21 @@ final class SidebarView: NSView, NSDraggingSource {
         let p = convert(e.locationInWindow, from: nil)
         if hypot(p.x - pr.at.x, p.y - pr.at.y) < 5 { return }
         pressed = nil
+        narrowOnUp = nil
+        let ids = picked.count > 1 && picked.contains(pr.id) ? rows.map(\.id).filter { picked.contains($0) } : [pr.id]
         let item = NSPasteboardItem()
-        item.setString("side|c:" + pr.id, forType: dragType)
+        item.setString("side|" + ids.map { "c:" + $0 }.joined(separator: "\n"), forType: dragType)
         let di = NSDraggingItem(pasteboardWriter: item)
-        let img = MapView.dragImage(store.name(pr.id))
+        let img = MapView.dragImage(ids.count == 1 ? store.name(pr.id) : tr("\(ids.count) 个对话", "\(ids.count) chats"))
         di.setDraggingFrame(NSRect(x: p.x - 20, y: p.y - img.size.height / 2, width: img.size.width, height: img.size.height), contents: img)
         beginDraggingSession(with: [di], event: e, source: self)
     }
 
-    override func mouseUp(with e: NSEvent) { pressed = nil }
+    override func mouseUp(with e: NSEvent) {
+        if let id = narrowOnUp { sel = id; picked = []; needsDisplay = true }
+        narrowOnUp = nil
+        pressed = nil
+    }
 
     private static var terminal: NSImage? {          // built each time: follows light / dark
         let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
@@ -403,7 +428,9 @@ final class SidebarView: NSView, NSDraggingSource {
     }
 
     override func keyDown(with e: NSEvent) {
-        if e.keyCode == 49, let s = sel { onOpen?(s) } else { super.keyDown(with: e) }
+        if e.keyCode == 49, let s = sel { onOpen?(s) }
+        else if e.keyCode == 53, !picked.isEmpty { picked = []; needsDisplay = true }
+        else { super.keyDown(with: e) }
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
@@ -580,8 +607,8 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     private let searchCount = NSTextField(labelWithString: "")
 
     static func hintText() -> String {
-        tr("⌘F 搜索 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 双击对话/空格 打开 · ⌘0 适应窗口",
-           "⌘F search · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · space open · ⌘0 fit")
+        tr("⌘F 搜索 · ⇧拖动框选/⌘点击 多选 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 双击对话/空格 打开 · ⌘0 适应窗口",
+           "⌘F search · ⇧-drag or ⌘-click to select several · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · space open · ⌘0 fit")
             + (Prefs.hotKeyEnabled ? " · " + Prefs.hotKeyLabel() + tr(" 调出/收起", " show/hide") : "")
     }
 

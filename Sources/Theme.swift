@@ -211,15 +211,6 @@ extension String {
         let s = replacingOccurrences(of: #"^\s*[\[【][^\]】]*[\]】]\s*"#, with: "", options: .regularExpression)
         return s.isEmpty ? self : s
     }
-
-    /// "[二宝游戏2] …" → "二宝游戏"
-    var titlePrefix: String? {
-        guard let r = range(of: #"^\s*[\[【]([^\]】]+)[\]】]"#, options: .regularExpression) else { return nil }
-        var p = String(self[r])
-        p = p.trimmingCharacters(in: CharacterSet(charactersIn: " []【】"))
-        p = p.replacingOccurrences(of: #"\s*\d+$"#, with: "", options: .regularExpression)
-        return p.isEmpty ? nil : p
-    }
 }
 
 enum Clock {

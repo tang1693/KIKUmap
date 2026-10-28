@@ -62,6 +62,12 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var all: [VNode] = []
     private var byKey: [String: VNode] = [:]
     private(set) var sel: String?
+    /// Several items selected at once (⇧-drag a box, ⇧/⌘-click). Empty when one or none is; `sel` is then the selection.
+    private var group = Set<String>()
+    /// ⇧-drag on empty space: the box, and what was selected before it started.
+    private var band: (start: NSPoint, end: NSPoint, before: Set<String>)?
+    /// A plain click on one of several selected items selects just it — unless the click turns into a drag.
+    private var narrowOnUp: String?
     private var editing: (key: String, field: NSTextField)?
     private var editingText: String?
     private var pressed: (key: String, at: NSPoint)?
@@ -79,7 +85,8 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// that opens never moves the target.
     private struct Spot { let frame: NSRect; let dir: CGFloat; let parent: String?; let kind: VNode.Kind }
     private struct Drag {
-        let key: String
+        let key: String             // the item the pointer holds
+        let keys: [String]          // everything moving together, in map order (just `key` for one item)
         let fromMap: Bool           // false: a chat dragged in from the left column
         let grab: CGVector          // pointer − the item's top-left
         let dir0: CGFloat
@@ -126,7 +133,26 @@ final class MapView: NSView, NSTextFieldDelegate {
         super.init(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
         registerForDraggedTypes([dragType])
         minuteTimer = Timer.scheduledTimer(timeInterval: 60, target: self, selector: #selector(minute), userInfo: nil, repeats: true)
-        animTimer = Timer.scheduledTimer(timeInterval: 0.12, target: self, selector: #selector(animate), userInfo: nil, repeats: true)
+    }
+
+    /// The spinner timer only runs while the map is on screen; hidden, the map costs nothing.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
+        if let w = window {
+            NotificationCenter.default.addObserver(self, selector: #selector(occlusionChanged), name: NSWindow.didChangeOcclusionStateNotification, object: w)
+        }
+        occlusionChanged()
+    }
+
+    @objc private func occlusionChanged() {
+        let onScreen = window?.isVisible == true && window?.occlusionState.contains(.visible) == true
+        if onScreen && animTimer == nil {
+            animTimer = Timer.scheduledTimer(timeInterval: 0.12, target: self, selector: #selector(animate), userInfo: nil, repeats: true)
+        } else if !onScreen {
+            animTimer?.invalidate()
+            animTimer = nil
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -155,6 +181,8 @@ final class MapView: NSView, NSTextFieldDelegate {
         layoutTree(keep: keepRoot)
         glide(from: prev)
         if let s = sel, byKey[s] == nil { sel = nil }
+        group = group.filter { byKey[$0] != nil }
+        if group.count < 2 { group = [] }
         if let e = editing, let v = byKey[e.key] { e.field.frame = editRect(v) }
         if !searchQuery.isEmpty { updateMatches() }
         needsDisplay = true
@@ -438,9 +466,10 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let root = rootV else { return nil }
         if editing != nil { finishEdit() }
         let r = all.reduce(root.frame) { $0.union($1.frame) }.insetBy(dx: -40, dy: -40).intersection(bounds)
-        let keep = sel
+        let keep = (sel, group)
         sel = nil
-        defer { sel = keep; needsDisplay = true }
+        group = []
+        defer { (sel, group) = keep; needsDisplay = true }
         var d: Data?
         NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { d = dataWithPDF(inside: r) }
         return d
@@ -482,9 +511,26 @@ final class MapView: NSView, NSTextFieldDelegate {
         dirtyRect.intersection(bounds).fill()
         guard let root = rootV else { return }
         drawLandingSpot()
+        if root.kids.isEmpty && drag == nil {
+            // the map starts empty: what goes on it is up to you
+            let lines = [tr("把左边的置顶对话或 Claude Code 会话拖到这里", "Drag pinned chats or Claude Code sessions here from the left"),
+                         tr("双击空白处新建主题", "Double-click empty space for a topic")]
+            for (i, l) in lines.enumerated() {
+                let f = i == 0 ? Theme.ui(14, .medium) : Theme.ui(12.5)
+                let w = ceil(l.size(f).width) + 2
+                drawText(l, f, Theme.muted, x: root.frame.midX - w / 2, midY: root.frame.maxY + 34 + CGFloat(i) * 22, width: w)
+            }
+        }
         drawEdges(root)
         for v in all where !dragged.contains(v.key) && v.frame.insetBy(dx: -30, dy: -30).intersects(dirtyRect) { drawNode(v) }
         drawDragged()
+        if let b = band {
+            let r = bandRect(b.start, b.end)
+            Theme.ink.withAlphaComponent(0.06).setFill(); r.fill()
+            let p = NSBezierPath(rect: r.insetBy(dx: 0.5, dy: 0.5))
+            p.lineWidth = 1
+            Theme.ink.withAlphaComponent(0.35).setStroke(); p.stroke()
+        }
     }
 
     /// Connectors from `v` down through its subtree.
@@ -511,10 +557,13 @@ final class MapView: NSView, NSTextFieldDelegate {
             }
     }
 
-    /// While dragging: a faint outline of the gap the item will drop into.
+    /// While dragging: a faint outline of the gap the item (or items) will drop into.
     private func drawLandingSpot() {
-        guard let d = drag, d.to != nil, let v = byKey[d.key] else { return }
-        let p = NSBezierPath(roundedRect: v.layoutFrame.insetBy(dx: -4, dy: -3), xRadius: 6, yRadius: 6)
+        guard let d = drag, d.to != nil else { return }
+        let frames = d.keys.compactMap { byKey[$0]?.layoutFrame }
+        guard let first = frames.first else { return }
+        let gap = frames.dropFirst().reduce(first) { $0.union($1) }
+        let p = NSBezierPath(roundedRect: gap.insetBy(dx: -4, dy: -3), xRadius: 6, yRadius: 6)
         Theme.ink.withAlphaComponent(0.05).setFill(); p.fill()
         p.lineWidth = 1.2; p.setLineDash([4, 3], count: 2, phase: 0)
         Theme.ink.withAlphaComponent(0.3).setStroke(); p.stroke()
@@ -534,10 +583,19 @@ final class MapView: NSView, NSTextFieldDelegate {
             ctx.setAlpha(0.45)
         }
         ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-        if d.to == nil, let m = byKey[d.key] { drawEdges(m) }       // not attached anywhere: its own branches still show
+        if d.to == nil { for m in d.keys.compactMap({ byKey[$0] }) { drawEdges(m) } }   // not attached anywhere: their own branches still show
         all.filter { dragged.contains($0.key) }.forEach(drawNode)
         ctx.endTransparencyLayer()
         ctx.restoreGState()
+        if d.fromMap && d.keys.count > 1 {
+            // how many are moving, by the pointer
+            let s = String(d.keys.count)
+            let w = max(22, ceil(s.size(badgeF).width) + 10)
+            let b = NSRect(x: d.pointer.x + 10, y: d.pointer.y - 30, width: w, height: 22)
+            Theme.ink.setFill(); NSBezierPath(roundedRect: b, xRadius: 11, yRadius: 11).fill()
+            let ts = s.size(badgeF)
+            (s as NSString).draw(at: NSPoint(x: b.midX - ts.width / 2, y: b.midY - ts.height / 2), withAttributes: [.font: badgeF, .foregroundColor: Theme.bg])
+        }
     }
 
     private func anchorY(_ v: VNode) -> CGFloat { v.line ? v.frame.maxY - 1 : v.frame.midY }
@@ -623,7 +681,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         NSGraphicsContext.current?.restoreGraphicsState()
         // selection and drop outlines first, then badges and the fold handle on top of them
-        if sel == v.key && !isEditing {
+        if (sel == v.key || group.contains(v.key)) && !isEditing {
             let p = v.kind == .root ? NSBezierPath(ovalIn: r.insetBy(dx: -5, dy: -5)) : NSBezierPath(rect: r.insetBy(dx: -4, dy: -4))
             p.lineWidth = 2
             p.setLineDash([5, 3], count: 2, phase: 0)
@@ -780,8 +838,52 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     func select(_ key: String?) {
         sel = key
+        group = []
         needsDisplay = true
         if let k = key, let v = byKey[k] { scrollToVisible(v.frame.insetBy(dx: -40, dy: -40)) }
+    }
+
+    /// Everything selected: the group, or the one selected item.
+    private var selection: Set<String> { group.isEmpty ? Set(sel.map { [$0] } ?? []) : group }
+
+    /// Sets several items as the selection (the root never joins a group); `lead` gets the keyboard.
+    private func setSelection(_ keys: Set<String>, lead: String?) {
+        let s = keys.count > 1 ? keys.filter { byKey[$0]?.kind != .root } : keys
+        group = s.count > 1 ? s : []
+        sel = lead.flatMap { s.contains($0) ? $0 : nil } ?? s.first
+        needsDisplay = true
+    }
+
+    /// ⇧/⌘-click: adds the item to the selection, or takes it out.
+    private func toggle(_ key: String) {
+        var s = selection
+        if s.contains(key) { s.remove(key) } else { s.insert(key) }
+        setSelection(s, lead: s.contains(key) ? key : sel)
+    }
+
+    private func bandRect(_ a: NSPoint, _ b: NSPoint) -> NSRect {
+        NSRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+    }
+
+    /// The box covers what it touches, on top of what was selected when it started.
+    private func updateBand(to p: NSPoint) {
+        guard var b = band else { return }
+        b.end = p
+        band = b
+        let r = bandRect(b.start, b.end)
+        var s = b.before
+        for v in all where v.kind != .root && v.frame.intersects(r) { s.insert(v.key) }
+        setSelection(s, lead: sel)
+    }
+
+    /// The items that move together: no root, nothing whose parent topic is moving too, in map order.
+    private func movingKeys(_ keys: Set<String>) -> [String] {
+        func covered(_ v: VNode) -> Bool {
+            var p = v.parent
+            while let q = p { if keys.contains(q.key) { return true }; p = q.parent }
+            return false
+        }
+        return all.filter { keys.contains($0.key) && $0.kind != .root && !covered($0) }.map(\.key)
     }
 
     private func nav(_ d: String) {
@@ -835,6 +937,16 @@ final class MapView: NSView, NSTextFieldDelegate {
             }
             return
         }
+        if group.count > 1 {
+            switch e.keyCode {
+            case 53: select(nil); return                                                 // esc
+            case 51, 117:                                                                // delete them all
+                map.remove(movingKeys(group))
+                changed(select: nil)
+                return
+            default: break
+            }
+        }
         switch e.keyCode {
         case 53: select(nil)                                                             // esc
         case 48: changed(select: opt ? map.addParent(k) : map.addChild(k), edit: true)   // tab / ⌥tab
@@ -863,6 +975,9 @@ final class MapView: NSView, NSTextFieldDelegate {
         case ("z", _):
             let ok = f.contains(.shift) ? store.map.redo() : store.map.undo()
             if ok { store.notify() }
+            return true
+        case ("a", _):
+            setSelection(Set(all.filter { $0.kind != .root }.map(\.key)), lead: sel)
             return true
         case ("=", _), ("+", _): zoom(1.15); return true
         case ("-", _): zoom(1 / 1.15); return true
@@ -976,14 +1091,30 @@ final class MapView: NSView, NSTextFieldDelegate {
         let p = convert(e.locationInWindow, from: nil)
         if editing != nil { finishEdit() }
         window?.makeFirstResponder(self)
-        if let v = foldHit(p) { store.map.toggleFold(v.key); changed(select: v.key); return }
+        narrowOnUp = nil
+        let adding = !e.modifierFlags.intersection([.shift, .command]).isEmpty
+        if !adding, let v = foldHit(p) { store.map.toggleFold(v.key); changed(select: v.key); return }
         if let v = hit(p) {
-            select(v.key)
+            if adding {
+                // ⇧/⌘-click: in or out of the selection; holding on and dragging moves the whole selection
+                if v.kind != .root { toggle(v.key) }
+                if selection.contains(v.key) && v.kind != .root { pressed = (v.key, p) }
+                return
+            }
+            if group.contains(v.key) {
+                sel = v.key                 // keep the group: dragging moves all of it, a click narrows to this one
+                narrowOnUp = v.key
+                needsDisplay = true
+            } else {
+                select(v.key)
+            }
             if e.clickCount == 2 {
                 if let id = v.chatId { onOpen?(id) } else { startEdit(v.key) }
                 return
             }
             if v.kind != .root { pressed = (v.key, p) }
+        } else if adding {
+            band = (p, p, selection.filter { byKey[$0]?.kind != .root })
         } else if e.clickCount == 2 {
             addTopicUnderRoot()
         } else {
@@ -1000,16 +1131,25 @@ final class MapView: NSView, NSTextFieldDelegate {
             scroll(NSPoint(x: pn.origin.x - dx / m, y: pn.origin.y + dy / m))
             return
         }
+        if band != nil {
+            autoscroll(with: e)
+            updateBand(to: convert(e.locationInWindow, from: nil))
+            return
+        }
         if drag != nil { dragMoved(e); return }
         guard let pr = pressed else { return }
         let p = convert(e.locationInWindow, from: nil)
         if hypot(p.x - pr.at.x, p.y - pr.at.y) < 5 { return }
         pressed = nil
+        narrowOnUp = nil
         startDrag(pr.key, pressedAt: pr.at, pointer: p)
     }
 
     override func mouseUp(with e: NSEvent) {
         if pan != nil { NSCursor.pop() }
+        if band != nil { band = nil; needsDisplay = true }
+        if let k = narrowOnUp { select(k) }
+        narrowOnUp = nil
         pressed = nil
         pan = nil
         if drag?.fromMap == true { endDrag(e) }
@@ -1145,14 +1285,15 @@ final class MapView: NSView, NSTextFieldDelegate {
         return s
     }
 
-    /// Every item's place with `key` (and what's under it) taken out, the root staying where it is.
-    private func baseSpots(without key: String) -> [String: Spot] {
+    /// Every item's place with `keys` (and what's under them) taken out, the root staying where it is.
+    private func baseSpots(without keys: [String]) -> [String: Spot] {
         let rootAt = rootV?.layoutFrame.origin ?? .zero
         build()
         guard let root = rootV else { return [:] }
         var blocked = Set<String>()
-        if let v = byKey[key] {
-            blocked = subtreeKeys(v)
+        for k in keys {
+            guard let v = byKey[k] else { continue }
+            blocked.formUnion(subtreeKeys(v))
             v.parent?.kids.removeAll { $0 === v }
         }
         position(root)
@@ -1195,52 +1336,62 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     /// The map as it will be after the drop: the gap opens, the rest slides aside, and the dragged
-    /// branch hangs off its new parent wherever the pointer holds it.
+    /// branches hang off their new parent, together, wherever the pointer holds them.
     private func rebuildPreview(from prev: [String: NSPoint]? = nil) {
         guard let d = drag else { return }
         let prev = prev ?? snapshot()
         let rootAt = rootV?.layoutFrame.origin ?? .zero
         build()
         guard let root = rootV else { return }
-        var moving: VNode?
+        var moving: [VNode] = []
         if d.fromMap || d.to != nil {
-            moving = byKey[d.key]
-            if let m = moving { m.parent?.kids.removeAll { $0 === m } }
-        }
-        if moving == nil, !d.fromMap, d.to != nil {
-            // a chat from the left column that isn't on the map yet
-            let id = String(d.key.dropFirst(2))
-            let v = VNode(key: d.key, kind: .chat, title: store.mapLabel(id), color: Theme.line)
-            if let c = store.chat(id) {
-                v.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
-                v.time = store.timeLabel(c)
-                v.isCode = c.isCode
+            for k in d.keys {
+                if let m = byKey[k] {
+                    m.parent?.kids.removeAll { $0 === m }
+                    moving.append(m)
+                } else if !d.fromMap {
+                    // a chat from the left column that isn't on the map yet
+                    let id = String(k.dropFirst(2))
+                    let v = VNode(key: k, kind: .chat, title: store.mapLabel(id), color: Theme.line)
+                    if let c = store.chat(id) {
+                        v.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
+                        v.time = store.timeLabel(c)
+                        v.isCode = c.isCode
+                    }
+                    register(v)
+                    moving.append(v)
+                }
             }
-            register(v)
-            moving = v
         }
         var sides: [String: CGFloat] = [:]
         var attached = false
-        if let m = moving, let t = d.to, let pv = byKey[t.parent] {
+        if !moving.isEmpty, let t = d.to, let pv = byKey[t.parent] {
             var i = pv.kids.count
             if let b = t.before, let j = pv.kids.firstIndex(where: { $0.key == b }) {
                 i = j
             } else if pv.kind == .root, let j = pv.kids.lastIndex(where: { (store.map.side(of: $0.key) == -1 ? -1 : 1) == t.side }) {
                 i = j + 1
             }
-            pv.kids.insert(m, at: i)
-            m.parent = pv
-            if pv.kind == .root { sides[m.key] = t.side }
+            pv.kids.insert(contentsOf: moving, at: i)
+            for m in moving {
+                m.parent = pv
+                if pv.kind == .root { sides[m.key] = t.side }
+            }
             attached = true
         }
         position(root, sides: sides)
-        if let m = moving, !attached { measureSubtrees(m); place(m, 0, 0, d.dir0) }
+        if !attached && !moving.isEmpty {
+            // not attached anywhere yet: the branches hang together, stacked as they will land
+            moving.forEach(measureSubtrees)
+            var y = -(moving.reduce(0) { $0 + $1.sh } + 8 * CGFloat(moving.count - 1)) / 2
+            for m in moving { place(m, 0, y + m.sh / 2, d.dir0); y += m.sh + 8 }
+        }
         let dx = rootAt.x - root.origin.x, dy = rootAt.y - root.origin.y
         for v in all { v.origin.x += dx; v.origin.y += dy }
-        dragged = moving.map(subtreeKeys) ?? []
+        dragged = moving.reduce(into: Set<String>()) { $0.formUnion(subtreeKeys($1)) }
         followPointer()
         glide(from: prev)
-        if let m = moving, d.fromMap { m.offset = .zero }        // the item itself stays right under the pointer
+        if d.fromMap { for m in moving { m.offset = .zero } }        // the items themselves stay right under the pointer
     }
 
     /// The dragged branch sits where the pointer holds it.
@@ -1252,13 +1403,18 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     private func startDrag(_ key: String, pressedAt: NSPoint, pointer: NSPoint) {
-        guard let v = byKey[key], v.kind != .root else { return }
+        guard let pressedV = byKey[key], pressedV.kind != .root else { return }
         if editing != nil { finishEdit() }
+        // a selected item drags the whole selection with it
+        let keys = group.contains(key) ? movingKeys(group) : [key]
+        // the pointer holds the pressed item, or the selected topic it sits in
+        var lead: VNode? = pressedV
+        while let l = lead, !keys.contains(l.key) { lead = l.parent }
+        guard let v = lead else { return }
         let prev = snapshot()
         let grab = CGVector(dx: pressedAt.x - v.frame.minX, dy: pressedAt.y - v.frame.minY)
-        let dir0 = v.dir
-        let base = baseSpots(without: key)
-        drag = Drag(key: key, fromMap: true, grab: grab, dir0: dir0, pointer: pointer, to: dropAt(pointer, base), base: base)
+        let base = baseSpots(without: keys)
+        drag = Drag(key: v.key, keys: keys, fromMap: true, grab: grab, dir0: v.dir, pointer: pointer, to: dropAt(pointer, base), base: base)
         rebuildPreview(from: prev)
         NSCursor.closedHand.push()
     }
@@ -1268,7 +1424,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         autoscroll(with: e)
         let p = convert(e.locationInWindow, from: nil)
         d.pointer = p
-        let offMap = overSidebar?(e.locationInWindow, d.key.hasPrefix("c:")) ?? false
+        let offMap = overSidebar?(e.locationInWindow, d.keys.allSatisfy { $0.hasPrefix("c:") }) ?? false
         let t = offMap ? nil : dropAt(p, d.base)
         let moved = t != d.to
         d.to = t
@@ -1282,13 +1438,15 @@ final class MapView: NSView, NSTextFieldDelegate {
         let offMap = overSidebar?(e.locationInWindow, false) ?? false     // also turns the highlight off
         drag = nil
         if offMap {
-            if d.key.hasPrefix("c:") { _ = store.map.remove(d.key, keepChildren: false) }   // back to the left column only
+            // back to the left column: chats only
+            if d.keys.allSatisfy({ $0.hasPrefix("c:") }) { store.map.remove(d.keys) }
         } else if let t = d.to {
             land(d, t)
         }
         dragged = []
         reload()
         changed(select: offMap ? nil : d.key)
+        if !offMap && d.keys.count > 1 { setSelection(Set(d.keys), lead: d.key) }
     }
 
     private func cancelDrag() {
@@ -1311,7 +1469,9 @@ final class MapView: NSView, NSTextFieldDelegate {
         } else {
             target = t.parent; drop = .into
         }
-        if d.fromMap {
+        if d.keys.count > 1 {
+            map.move(d.keys, to: target, drop, side: Int(t.side))
+        } else if d.fromMap {
             map.move(d.key, to: target, drop, side: Int(t.side))
         } else {
             map.place(chat: String(d.key.dropFirst(2)), at: target, drop, side: Int(t.side))
@@ -1322,10 +1482,11 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if let s = sender.draggingPasteboard.string(forType: dragType), s.hasPrefix("side|c:"), drag == nil {
-            let key = String(s.dropFirst(5))
+            // one chat, or several picked in the left column (one key per line)
+            let keys = s.dropFirst(5).split(separator: "\n").map(String.init)
             let prev = snapshot()
-            let base = baseSpots(without: key)
-            drag = Drag(key: key, fromMap: false, grab: .zero, dir0: 1, pointer: .zero, to: nil, base: base)
+            let base = baseSpots(without: keys)
+            drag = Drag(key: keys[0], keys: keys, fromMap: false, grab: .zero, dir0: 1, pointer: .zero, to: nil, base: base)
             rebuildPreview(from: prev)
         }
         return draggingUpdated(sender)
@@ -1374,6 +1535,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         dragged = []
         reload()
         changed(select: d.key)
+        if d.keys.count > 1 { setSelection(Set(d.keys), lead: d.key) }
         return true
     }
 }

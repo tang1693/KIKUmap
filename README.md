@@ -31,6 +31,8 @@
 
 You pinned a dozen chats in Claude. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style.
 
+**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A 2 MB download that waits for changes instead of polling, and stops drawing entirely when its window is hidden.
+
 https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 > [!NOTE]
@@ -56,12 +58,14 @@ Works with the Claude desktop app and with Claude Code (Terminal, VS Code, the a
 
 ### Your chats, as a map
 
-The left column mirrors the chats you pinned in Claude, **in Claude's order**. Drag them onto your own topics. While you drag, the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.
+The left column mirrors the chats you pinned in Claude, **in Claude's order**, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics. While you drag, the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.
+
+**Several at once:** ⌘-click or ⇧-click in the left column, or ⇧-drag a box on the map, then drag any one of them. They all come along, in order.
 
 Real conversations carry a small orange mark, so they stand apart from plain topics. Double-click or press space on one to open it in Claude.
 
 </td>
-<td width="55%"><img src="docs/screenshots/map-light.png" width="100%" alt="The Kikumap window in light mode: pinned chats on the left, the mind map in the middle, a timeline at the bottom"></td>
+<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Shift-dragging a box selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
 </tr>
 <tr>
 <td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="Right-clicking the Thesis topic and stepping through shapes (square, circle, triangle, diamond, cross, star), then branch colours"></td>
@@ -193,6 +197,8 @@ Everything stays on your Mac, in `~/Library/Application Support/ClaudeConsole/`.
 | ⌫ | delete; chats go back to the left column |
 | ⌥. | fold / unfold |
 | ⌘↑ ⌘↓ | move among siblings |
+| ⇧-drag a box, ⇧/⌘-click | select several; drag any one to move them all |
+| ⌘A, ⌫ | select everything; delete what's selected |
 | ⌘Z / ⇧⌘Z | undo / redo |
 | ⌘F | search |
 | ⌘E / ⇧⌘E | export the map as PDF / export chats |
@@ -270,7 +276,7 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
 ## 中文说明
 
-**Kikumap · Claude 对话导图。** 一个 macOS 菜单栏小工具，给同时开着很多 Claude 对话的人用：一眼看到哪个还在跑、哪个做完了还没看、哪个在等你批准，再把置顶对话整理成一张导图。
+**Kikumap · Claude 对话导图。** 一个原生、轻量的 macOS 菜单栏小工具（纯 Swift + AppKit，没有 Electron，安装包 2 MB，没有任何第三方依赖），给同时开着很多 Claude 对话的人用：一眼看到哪个还在跑、哪个做完了还没看、哪个在等你批准，再把置顶对话整理成一张导图。
 
 **[⬇︎ 下载 Kikumap.dmg](https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg)**，打开后把 Kikumap 拖进「应用程序」。
 
@@ -279,7 +285,7 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 **功能**
 
 - **菜单栏一个图标**：橙色小菊花在转 = 有对话在跑；红色数字 = 做完了还没看；带 **!** = 有对话在等你批准。可以开提示音。支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。
-- **置顶对话，顺序和 Claude 一样**：拖到自己的主题下，用法像 MindNode。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
+- **置顶对话和 Claude Code 会话，顺序和 Claude 一样**：导图一开始是空的，放什么由你决定。拖到自己的主题下，用法像 MindNode；⌘/⇧ 点击或在导图上按住 ⇧ 拖框，可以一次选好几个一起拖。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
 - **按自己的习惯整理**：右键主题可以改分支颜色、选图形（方块、圆圈、三角、菱形、交叉、星星）、加标签。
 - **全部带走**：勾选主题，下面的对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：`memory.md`（Claude 写的交接总结）、`prompts.md`、`conversation.md`、`artifacts/`、`attachments/`。可以设成自动更新。「导入」会为每个文件夹开一个新的置顶对话，附上 artifacts、发进总结，在新账号里也能接着做。
 - **标签**：「进行中」「等别人」「幻灯片」……右键勾选，或者从标签栏拖到对话上；点一下标签，带这个标签的都会高亮。

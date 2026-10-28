@@ -80,7 +80,6 @@ final class Store {
         }
         reindex()
         let before = map.root.children.count
-        if map.needsSeed && !chats.isEmpty { map.seed(from: chats) }
         writeDefaultRules()
         log("\(Clock.iso()) start · data \(dir.path) · chats \(chats.count) · topics \(before)→\(map.root.children.count)\n", file: "app.log")
     }
