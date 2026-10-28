@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kikumap — A mind map for your Claude chats</title>
+<meta name="description" content="A free, open-source macOS menu-bar app that shows which Claude chats are running, done or waiting for you, and lays your pinned chats out as a mind map.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kikumap — A mind map for your Claude chats">
+<meta property="og:description" content="A macOS menu-bar app: see which Claude chats are running, done or waiting for you, and arrange them as a mind map. Free and open source.">
+<meta property="og:url" content="https://tang1693.github.io/KIKU/">
+<meta property="og:image" content="https://tang1693.github.io/KIKU/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F7F3EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1918" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.png">
+<script>
+  // Language: ?lang=zh|en, then the visitor's last choice, then the browser's language.
+  (function () {
+    var l = new URLSearchParams(location.search).get("lang");
+    if (l !== "en" && l !== "zh") { try { l = localStorage.getItem("lang"); } catch (e) {} }
+    if (l !== "en" && l !== "zh") l = /^zh/i.test(navigator.language) ? "zh" : "en";
+    document.documentElement.dataset.lang = l;
+    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+  })();
+</script>
+<style>
+  :root {
+    --bg: #F7F3EC; --bg2: #EFE7DA; --card: #FFFDF9;
+    --ink: #1F1E1D; --ink2: #6B655D; --line: rgba(31, 30, 29, .11);
+    --accent: #D97757; --accent-hover: #C8664A; --on-accent: #FFFFFF;
+    --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 12px 40px -12px rgba(60, 40, 20, .22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1A1918; --bg2: #22201E; --card: #262422;
+      --ink: #EDE9E3; --ink2: #A39D94; --line: rgba(255, 255, 255, .1);
+      --accent: #E08566; --accent-hover: #EA9578; --on-accent: #1A1918;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 16px 48px -16px rgba(0, 0, 0, .7);
+    }
+  }
+  :root[data-lang="en"] [lang="zh"], :root[data-lang="zh"] [lang="en"] { display: none !important; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  img, video { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; }
+  code { font: .88em ui-monospace, "SF Mono", Menlo, monospace; background: var(--bg2); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+  kbd {
+    font: 600 .82em -apple-system, BlinkMacSystemFont, sans-serif; display: inline-block; min-width: 1.7em; text-align: center;
+    padding: .05em .4em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--card);
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 88px 0; }
+  h1, h2, h3 { text-wrap: balance; }
+  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; letter-spacing: -.02em; text-align: center; }
+  .sub { color: var(--ink2); text-align: center; max-width: 620px; margin: 14px auto 0; }
+
+  /* The spinning flower from the menu bar */
+  .kiku { width: 22px; height: 22px; color: var(--accent); flex: none; }
+  .kiku.spin { animation: spin 7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .kiku.spin { animation: none; } html { scroll-behavior: auto; } }
+
+  /* Navigation */
+  .nav {
+    position: sticky; top: 0; z-index: 10; border-bottom: 1px solid transparent;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px);
+  }
+  .nav.scrolled { border-bottom-color: var(--line); }
+  .nav .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 18px; text-decoration: none; letter-spacing: -.01em; }
+  .nav nav { display: flex; gap: 22px; margin-right: auto; }
+  .nav nav a { color: var(--ink2); text-decoration: none; font-size: 15px; }
+  .nav nav a:hover { color: var(--ink); }
+  .nav-end { display: flex; gap: 8px; margin-left: auto; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1; text-decoration: none; cursor: pointer;
+  }
+  .chip:hover { border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+  .chip svg { width: 16px; height: 16px; }
+
+  /* Hero */
+  .hero { padding: 72px 0 40px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -20% -10% auto; height: 640px; z-index: -1;
+    background: radial-gradient(50% 50% at 50% 40%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
+  }
+  .app-icon { width: 92px; height: 92px; margin: 0 auto 22px; filter: drop-shadow(0 10px 18px rgba(40, 25, 10, .25)); }
+  .pill {
+    display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 4px 12px; border-radius: 999px; margin-bottom: 18px;
+  }
+  h1 { font-size: clamp(38px, 6.4vw, 68px); line-height: 1.05; letter-spacing: -.035em; max-width: 820px; margin: 0 auto; }
+  .lead { font-size: clamp(18px, 2vw, 21px); color: var(--ink2); max-width: 640px; margin: 22px auto 0; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; height: 50px; padding: 0 24px; border-radius: 14px;
+    font-weight: 600; font-size: 17px; text-decoration: none; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    transition: transform .15s, background-color .15s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn svg { width: 19px; height: 19px; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .meta { margin-top: 16px; font-size: 14px; color: var(--ink2); }
+  .shot { border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
+  .hero .shot { margin: 56px auto 0; max-width: 1000px; }
+
+  /* Tour video */
+  .tour { padding-top: 48px; }
+  .player { max-width: 860px; margin: 36px auto 0; aspect-ratio: 16 / 9; }
+  .player a, .player video { display: block; width: 100%; height: 100%; }
+  .player img, .player video { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Features */
+  .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: center; padding: 56px 0; }
+  .feature + .feature { border-top: 1px solid var(--line); }
+  .feature.flip { grid-template-columns: 7fr 5fr; }
+  .feature.flip .text { order: 2; }
+  .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  .feature h3 { font-size: clamp(25px, 3vw, 32px); line-height: 1.2; letter-spacing: -.02em; margin: 8px 0 4px; }
+  .feature .text p { color: var(--ink2); margin-top: 12px; }
+  .feature .text .eyebrow { color: var(--accent); margin-top: 0; }
+  .feature p b { color: var(--ink); font-weight: 600; }
+  .files { list-style: none; margin-top: 14px; display: grid; gap: 6px; color: var(--ink2); font-size: 15.5px; }
+
+  /* And also */
+  .also { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 40px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 20px; }
+  .tile > b { display: block; font-size: 16px; margin-bottom: 4px; }
+  .tile span { color: var(--ink2); font-size: 15px; line-height: 1.5; }
+
+  /* Privacy */
+  .privacy { background: var(--bg2); }
+  .perms { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 40px; }
+  .perm { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .perm > b { display: block; margin-bottom: 4px; }
+  .perm p { color: var(--ink2); font-size: 15.5px; }
+  .perm .tag { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--bg2); color: var(--ink2); }
+
+  /* Install */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; counter-reset: step; list-style: none; }
+  .steps li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; counter-increment: step; }
+  .steps li::before {
+    content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; margin-bottom: 14px;
+  }
+  .steps li > b { display: block; margin-bottom: 4px; }
+  .steps p { color: var(--ink2); font-size: 15.5px; }
+  .note { text-align: center; color: var(--ink2); font-size: 15px; margin-top: 24px; }
+
+  /* FAQ */
+  .faq { max-width: 760px; margin: 40px auto 0; }
+  details { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; list-style: none; padding: 18px 36px 18px 0; font-weight: 600; position: relative; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 22px; font-weight: 400; color: var(--ink2); }
+  details[open] summary::after { content: "−"; }
+  details p { color: var(--ink2); padding: 0 0 18px; }
+
+  /* Closing */
+  .closing { text-align: center; padding-bottom: 72px; }
+  .closing .kiku { width: 44px; height: 44px; margin: 0 auto 18px; }
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--ink2); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+  footer a { color: var(--ink2); }
+
+  @media (max-width: 860px) {
+    section { padding: 64px 0; }
+    .nav nav { display: none; }
+    .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
+    .feature.flip .text { order: 0; }
+    .also { grid-template-columns: repeat(2, 1fr); }
+    .perms, .steps { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding-top: 48px; }
+    .btn { width: 100%; justify-content: center; }
+    .also { grid-template-columns: 1fr; }
+    .nav-end .chip.gh span { display: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="kiku" viewBox="-12 -12 24 24">
+    <g stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none">
+      <circle r="2.4"/>
+      <path id="ray" d="M0-4.6V-10.6"/>
+      <use href="#ray" transform="rotate(30)"/><use href="#ray" transform="rotate(60)"/><use href="#ray" transform="rotate(90)"/>
+      <use href="#ray" transform="rotate(120)"/><use href="#ray" transform="rotate(150)"/><use href="#ray" transform="rotate(180)"/>
+      <use href="#ray" transform="rotate(210)"/><use href="#ray" transform="rotate(240)"/><use href="#ray" transform="rotate(270)"/>
+      <use href="#ray" transform="rotate(300)"/><use href="#ray" transform="rotate(330)"/>
+    </g>
+  </symbol>
+  <symbol id="github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol>
+  <symbol id="download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><svg class="kiku spin"><use href="#kiku"/></svg>Kikumap</a>
+    <nav>
+      <a href="#features"><span lang="en">Features</span><span lang="zh">功能</span></a>
+      <a href="#privacy"><span lang="en">Privacy</span><span lang="zh">隐私</span></a>
+      <a href="#install"><span lang="en">Install</span><span lang="zh">安装</span></a>
+      <a href="#faq"><span lang="en">FAQ</span><span lang="zh">常见问题</span></a>
+    </nav>
+    <div class="nav-end">
+      <button class="chip" id="lang" type="button" aria-label="Switch language / 切换语言"><span lang="en">中文</span><span lang="zh">EN</span></button>
+      <a class="chip gh" href="https://github.com/tang1693/KIKU"><svg><use href="#github"/></svg><span>GitHub</span></a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="top">
+    <div class="wrap">
+      <img class="app-icon" src="icon.png" alt="">
+      <p class="pill"><span lang="en">Beta · Free and open source</span><span lang="zh">测试版 · 免费开源</span></p>
+      <h1><span lang="en">A mind map for your Claude chats.</span><span lang="zh">给 Claude 对话的思维导图。</span></h1>
+      <p class="lead" lang="en">Kikumap lives in your Mac's menu bar and keeps track of every Claude chat: what's running, what's done, what needs your OK. Open it, and your pinned chats become a map you arrange yourself.</p>
+      <p class="lead" lang="zh">Kikumap 住在 Mac 的菜单栏里，帮你盯着每个 Claude 对话：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的导图。</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/tang1693/KIKU/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
+        <a class="btn" href="https://github.com/tang1693/KIKU"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
+      </div>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · 2 MB</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 2 MB</span></p>
+      <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
+    </div>
+  </section>
+
+  <section class="tour">
+    <div class="wrap">
+      <h2><span lang="en">The 40-second tour</span><span lang="zh">40 秒看懂</span></h2>
+      <div class="player shot">
+        <a id="tour" href="demo/kikumap-intro.mp4"><img src="demo/intro-poster.jpg" width="1280" height="720" alt="Play the 40-second tour of Kikumap"></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" style="padding-top:24px">
+    <div class="wrap">
+      <div class="feature">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Menu bar</span><span lang="zh">菜单栏</span></p>
+          <h3><span lang="en">Know what Claude is doing</span><span lang="zh">随时知道 Claude 在干什么</span></h3>
+          <p lang="en">One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval. Optional sounds tell you without looking.</p>
+          <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。还可以开提示音，不用一直盯着。</p>
+          <p lang="en">Works with the Claude desktop app and with Claude Code: Terminal, VS Code, and the app's Code mode.</p>
+          <p lang="zh">支持 Claude 桌面 App，也支持 Claude Code（终端、VS Code、App 的 Code 模式）。</p>
+        </div>
+        <figure class="shot"><img src="demo/menubar.gif" width="1440" height="495" loading="lazy" alt="The menu-bar icon spinning while Claude works, then showing a red unread badge, then an exclamation mark when a chat needs approval"></figure>
+      </div>
+
+      <div class="feature flip">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Mind map</span><span lang="zh">导图</span></p>
+          <h3><span lang="en">Your chats, as a map</span><span lang="zh">对话变成一张导图</span></h3>
+          <p lang="en">The left column mirrors the chats you pinned in Claude, <b>in Claude's order</b>. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
+          <p lang="zh">左栏就是你在 Claude 里置顶的对话，<b>顺序和 Claude 一样</b>。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
+          <p lang="en">Real conversations carry a small orange mark. Double-click one, or press space, to open it in Claude.</p>
+          <p lang="zh">真正的对话前面有橙色小标记。双击或按空格，就会在 Claude 里打开它。</p>
+        </div>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="screenshots/map-dark.png">
+            <img src="screenshots/map-light.png" width="2560" height="1560" loading="lazy" alt="The Kikumap window: pinned chats on the left, the mind map in the middle, a timeline at the bottom">
+          </picture>
+        </figure>
+      </div>
+
+      <div class="feature">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Style</span><span lang="zh">样式</span></p>
+          <h3><span lang="en">Make it yours</span><span lang="zh">按你的习惯整理</span></h3>
+          <p lang="en">Right-click any topic for a branch colour, a shape (square, circle, triangle, diamond, cross, star) and tags like <i>In progress</i>, <i>Waiting on others</i> or <i>Slides</i>. Click a tag to highlight everything that has it.</p>
+          <p lang="zh">右键任意主题：换分支颜色，选图形（方块、圆圈、三角、菱形、交叉、星星），加标签。点一下标签，带这个标签的内容都会高亮。</p>
+          <p lang="en">Keyboard-first, like a real mind-map app: <kbd>⇥</kbd> new subtopic, <kbd>⏎</kbd> sibling, <kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> reorder, <kbd>⌘</kbd><kbd>Z</kbd> undo.</p>
+          <p lang="zh">键盘操作和专业导图软件一样：<kbd>⇥</kbd> 新建子主题，<kbd>⏎</kbd> 同级主题，<kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> 调整顺序，<kbd>⌘</kbd><kbd>Z</kbd> 撤销。</p>
+        </div>
+        <figure class="shot"><img src="demo/shapes.gif" width="1440" height="840" loading="lazy" alt="Right-clicking the Thesis topic and stepping through shapes, then branch colours"></figure>
+      </div>
+
+      <div class="feature flip">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Export</span><span lang="zh">导出</span></p>
+          <h3><span lang="en">Take everything with you</span><span lang="zh">全部带走</span></h3>
+          <p lang="en">Tick topics and export every chat under them, pinned or not, one folder per chat:</p>
+          <p lang="zh">勾选主题，下面所有对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：</p>
+          <ul class="files">
+            <li><code>memory.md</code> <span lang="en">a hand-off summary Claude writes inside the chat</span><span lang="zh">Claude 在对话里写的交接总结</span></li>
+            <li><code>prompts.md</code> · <code>conversation.md</code></li>
+            <li><code>artifacts/</code> · <code>attachments/</code></li>
+          </ul>
+          <p lang="en" style="margin-top:14px">The export can keep itself up to date. <b>Import</b> starts a new pinned chat per folder, in a new Claude account for example, so you pick up where you left off.</p>
+          <p lang="zh" style="margin-top:14px">导出可以自动保持最新。<b>导入</b>会为每个文件夹开一个新的置顶对话，比如换到新的 Claude 账号，也能接着做。</p>
+        </div>
+        <figure class="shot"><img src="demo/export.gif" width="1650" height="1050" loading="lazy" alt="The export window: ticking Thesis, Writing and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></figure>
+      </div>
+
+      <h2 style="margin-top:56px"><span lang="en">And also</span><span lang="zh">还有这些</span></h2>
+      <div class="also">
+        <div class="tile"><b lang="en">Timeline</b><b lang="zh">时间线</b><span lang="en">When Claude worked on what, with scheduled tasks and countdowns.</span><span lang="zh">Claude 什么时候在做什么，计划任务带倒计时。</span></div>
+        <div class="tile"><b lang="en">Today</b><b lang="zh">今日回顾</b><span lang="en">Today's activity, right in the menu.</span><span lang="zh">在菜单里看今天做了什么。</span></div>
+        <div class="tile"><b lang="en">Usage</b><b lang="zh">用量</b><span lang="en">Your Claude usage at a glance.</span><span lang="zh">Claude 用量一眼看到。</span></div>
+        <div class="tile"><b lang="en">Search</b><b lang="zh">搜索</b><span lang="en"><kbd>⌘</kbd><kbd>F</kbd> to find anything on the map.</span><span lang="zh"><kbd>⌘</kbd><kbd>F</kbd> 搜索整张导图。</span></div>
+        <div class="tile"><b lang="en">PDF</b><b lang="zh">PDF</b><span lang="en">Export the whole map as a PDF.</span><span lang="zh">整张导图导出成 PDF。</span></div>
+        <div class="tile"><b lang="en">Daily backups</b><b lang="zh">每日备份</b><span lang="en">Your map is backed up every day.</span><span lang="zh">导图每天自动备份。</span></div>
+        <div class="tile"><b lang="en">Light and dark</b><b lang="zh">浅色和深色</b><span lang="en">Both themes, built in.</span><span lang="zh">两种主题都有。</span></div>
+        <div class="tile"><b>English · 中文</b><span lang="en">The whole app in either language.</span><span lang="zh">整个界面中英文都有。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="privacy" id="privacy">
+    <div class="wrap">
+      <h2><span lang="en">Stays on your Mac</span><span lang="zh">数据留在你的 Mac 上</span></h2>
+      <p class="sub" lang="en">Everything lives in <code>~/Library/Application Support/ClaudeConsole/</code>. The only network requests are usage checks to <code>api.anthropic.com</code>. No sign-up, no tracking.</p>
+      <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量。不用注册，没有统计追踪。</p>
+      <div class="perms">
+        <div class="perm">
+          <b lang="en">Finished, or needs your input</b><b lang="zh">做完了、等你回复</b>
+          <p lang="en">Read from the Claude app's notifications in Notification Center, read-only.</p>
+          <p lang="zh">只读通知中心里 Claude 的通知。</p>
+          <span class="tag"><span lang="en">Full Disk Access</span><span lang="zh">完全磁盘访问</span></span>
+        </div>
+        <div class="perm">
+          <b lang="en">Running, unread and pinned chats</b><b lang="zh">在跑、未读、置顶的对话</b>
+          <p lang="en">Read from the Claude app's sidebar through macOS Accessibility.</p>
+          <p lang="zh">通过 macOS「辅助功能」读 Claude 的侧边栏。</p>
+          <span class="tag"><span lang="en">Accessibility</span><span lang="zh">辅助功能</span></span>
+        </div>
+        <div class="perm">
+          <b lang="en">Claude Code sessions</b><b lang="zh">Claude Code 会话</b>
+          <p lang="en">Claude Code hooks, added to <code>~/.claude/settings.json</code> when you click <i>Connect</i>. The old file is backed up.</p>
+          <p lang="zh">点「连接」时写进 <code>~/.claude/settings.json</code> 的 hooks，原文件会先备份。</p>
+          <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
+        </div>
+        <div class="perm">
+          <b lang="en">Usage and scheduled tasks</b><b lang="zh">用量和计划任务</b>
+          <p lang="en">Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain.</p>
+          <p lang="zh">Anthropic 的用量接口，用的是 Claude Code 已经存在钥匙串里的登录。</p>
+          <span class="tag"><span lang="en">macOS asks once</span><span lang="zh">macOS 会问一次</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2><span lang="en">Install in a minute</span><span lang="zh">一分钟装好</span></h2>
+      <ol class="steps">
+        <li>
+          <b lang="en">Download Kikumap.dmg</b><b lang="zh">下载 Kikumap.dmg</b>
+          <p lang="en">Apple silicon or Intel, macOS 13 or later.</p>
+          <p lang="zh">Apple 芯片或 Intel，macOS 13 及以上。</p>
+        </li>
+        <li>
+          <b lang="en">Drag it to Applications</b><b lang="zh">拖进「应用程序」</b>
+          <p lang="en">Open the disk image and drag Kikumap onto the Applications folder.</p>
+          <p lang="zh">打开 DMG，把 Kikumap 拖到「应用程序」文件夹上。</p>
+        </li>
+        <li>
+          <b lang="en">Allow the first launch</b><b lang="zh">允许第一次打开</b>
+          <p lang="en">The app isn't notarized, so macOS blocks it once. Go to System Settings → Privacy &amp; Security, scroll down and click <b>Open Anyway</b>.</p>
+          <p lang="zh">没有付费的苹果开发者签名，第一次会被拦住：去「系统设置 → 隐私与安全性」，往下滑，点<b>「仍要打开」</b>。</p>
+        </li>
+      </ol>
+      <p class="note" lang="en">Prefer to build it yourself? Download the source and double-click <code>Install.command</code>. It compiles and signs on your Mac, so permissions survive reinstalls.</p>
+      <p class="note" lang="zh">想自己编译？下载源码，双击 <code>Install.command</code>，在本机编译并签名，以后重装不用重新授权。</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/tang1693/KIKU/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" style="padding-top:24px">
+    <div class="wrap">
+      <h2><span lang="en">Questions</span><span lang="zh">常见问题</span></h2>
+      <div class="faq">
+        <details>
+          <summary><span lang="en">Is this made by Anthropic?</span><span lang="zh">这是 Anthropic 官方做的吗？</span></summary>
+          <p lang="en">No. Kikumap is an independent open-source project, not made by or affiliated with Anthropic.</p>
+          <p lang="zh">不是。Kikumap 是个人独立开发的开源项目，与 Anthropic 无关。</p>
+        </details>
+        <details>
+          <summary><span lang="en">Why is it a beta?</span><span lang="zh">为什么是测试版？</span></summary>
+          <p lang="en">The Claude app has no public API, so Kikumap reads its window through macOS Accessibility. When Claude changes its interface, parts of Kikumap may stop working until it's updated.</p>
+          <p lang="zh">Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口。Claude 改界面后，部分功能可能要等 Kikumap 更新才能恢复。</p>
+        </details>
+        <details>
+          <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>
+          <p lang="en">Yes: in Terminal, VS Code and the Claude app's Code mode. Click <i>Connect</i> and Kikumap adds its hooks to <code>~/.claude/settings.json</code>, backing up the old file first.</p>
+          <p lang="zh">支持，终端、VS Code 和 Claude App 的 Code 模式都可以。点「连接」后，Kikumap 会把 hooks 写进 <code>~/.claude/settings.json</code>，原文件会先备份。</p>
+        </details>
+        <details>
+          <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span></summary>
+          <p lang="en">Yes. It's MIT-licensed, with no account and no paid tier.</p>
+          <p lang="zh">免费。MIT 开源协议，不用注册，没有付费版。</p>
+        </details>
+        <details>
+          <summary><span lang="en">What does the name mean?</span><span lang="zh">名字是什么意思？</span></summary>
+          <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little orange flower that spins in your menu bar while Claude works. Kikumap is the map that grows out of it.</p>
+          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是菜单栏里那朵 Claude 干活时会转的橙色小菊花；Kikumap 就是从它长出来的导图。</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <svg class="kiku spin"><use href="#kiku"/></svg>
+      <h2><span lang="en">Give your chats a map.</span><span lang="zh">给你的对话一张导图。</span></h2>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/tang1693/KIKU/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
+        <a class="btn" href="https://github.com/tang1693/KIKU"><svg><use href="#github"/></svg><span lang="en">Star on GitHub</span><span lang="zh">去 GitHub 点个 Star</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span lang="en">An independent open-source project, not affiliated with Anthropic.</span>
+    <span lang="zh">个人独立开源项目，与 Anthropic 无关。</span>
+    <span><a href="https://github.com/tang1693/KIKU/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/tang1693/KIKU">GitHub</a> · <a href="https://github.com/tang1693/KIKU/issues"><span lang="en">Report an issue</span><span lang="zh">反馈问题</span></a></span>
+  </div>
+</footer>
+
+<script>
+  var root = document.documentElement;
+  var titles = { en: "Kikumap — A mind map for your Claude chats", zh: "Kikumap · Claude 对话导图" };
+  document.title = titles[root.dataset.lang];
+
+  document.getElementById("lang").addEventListener("click", function () {
+    var l = root.dataset.lang === "zh" ? "en" : "zh";
+    root.dataset.lang = l;
+    root.lang = l === "zh" ? "zh-CN" : "en";
+    document.title = titles[l];
+    try { localStorage.setItem("lang", l); } catch (e) {}
+  });
+
+  // The tour plays in place; without JavaScript the link opens the video file.
+  var tour = document.getElementById("tour");
+  tour.addEventListener("click", function (e) {
+    e.preventDefault();
+    var v = document.createElement("video");
+    v.src = tour.getAttribute("href");
+    v.poster = "demo/intro-poster.jpg";
+    v.controls = true;
+    v.playsInline = true;
+    tour.replaceWith(v);
+    v.play().catch(function () {});
+  });
+
+  var nav = document.getElementById("nav");
+  addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
+</script>
+</body>
+</html>

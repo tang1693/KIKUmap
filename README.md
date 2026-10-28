@@ -19,6 +19,7 @@
 <h3 align="center"><a href="https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg">⬇︎ Download for macOS</a></h3>
 
 <p align="center">
+  <a href="https://tang1693.github.io/KIKU/">Website</a> ·
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#privacy">Privacy</a> ·
