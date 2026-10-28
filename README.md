@@ -250,7 +250,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 
 - **Hover the status in the top bar**: it says what's holding things up (Claude's sidebar hidden, its Pinned section folded, Code mode, the window closed…), what still works, and what to do.
 - **Nothing shows as running:** open the Claude app's sidebar. Settings → Access → *Write diagnostic log*, then look at `logs/claude-sidebar.txt` in the data folder.
-- **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. A downloaded build is signed differently each release, so macOS may ask again after an update.
+- **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session.
 - **No usage:** in Terminal run `claude`, then `/login`, and pick your Claude account.
 </details>

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds "Kikumap.app" for Apple silicon and Intel, signs it ad hoc and puts it in a disk image
-# in dist/ for a GitHub release. (No Apple Developer ID: people open it once with "Open Anyway".)
+# Builds "Kikumap.app" for Apple silicon and Intel, signs it and puts it in a disk image in dist/
+# for a GitHub release. (No Apple Developer ID: people open it once with "Open Anyway".)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
@@ -17,7 +17,19 @@ lipo -create -output "$APP/Contents/MacOS/ClaudeConsole" "$OUT/bin-arm64" "$OUT/
 rm -rf "$OUT"/bin-* "$OUT/.modules"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 "$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns"
-codesign --force --deep -s - "$APP"
+# Signed with the same certificate every release, so macOS keeps people's permissions across updates
+# (it recognises an app by its signature). The certificate is the self-signed one Install.command makes
+# once; without it, an ad-hoc signature, and permissions reset with every update.
+IDENT=""
+for c in "Kikumap Local Signing" "Claude Console Local Signing"; do
+  if security find-certificate -c "$c" >/dev/null 2>&1; then IDENT="$c"; break; fi
+done
+if [ -n "$IDENT" ] && codesign --force --deep -s "$IDENT" "$APP" 2>/dev/null; then
+  echo "Signed with \"$IDENT\" (permissions survive updates)"
+else
+  codesign --force --deep -s - "$APP"
+  echo "Signed ad hoc: no local signing certificate (run Install.command once to make one)"
+fi
 
 # The disk image: Kikumap and an Applications shortcut side by side over a background picture with an
 # arrow, Kikumap's icon on the volume. (makehybrid builds it straight from the folder, without mounting

@@ -94,7 +94,9 @@ final class TimelineView: NSView {
     private let laneH: CGFloat = 26
     private var lanes: [String] { [tr("进行中", "Running"), tr("计划任务", "Scheduled")] }
     private var lanesBottom: CGFloat { rowTop + laneH * CGFloat(lanes.count) }
-    private var ranges: [(String, Double)] { [(tr("12小时", "12h"), 12), (tr("2天", "2d"), 48), (tr("7天", "7d"), 168)] }
+    private var ranges: [(String, Double)] {
+        [(tr("3小时", "3h"), 3), (tr("6小时", "6h"), 6), (tr("12小时", "12h"), 12), (tr("2天", "2d"), 48), (tr("7天", "7d"), 168)]
+    }
 
     init(store: Store, usage: UsageMonitor) {
         self.store = store
@@ -178,26 +180,38 @@ final class TimelineView: NSView {
         } else if !usage.hint.isEmpty {
             text(usage.hint, Theme.ui(12), Theme.muted, at: NSPoint(x: hx, y: 10))
         }
-        var bx = bounds.width - 14
-        for (label, hours) in ranges.reversed() {
-            let w = label.size(smallB).width + 14
-            bx -= w
-            let r = NSRect(x: bx, y: 7, width: w, height: 20)
+        // the ranges: one segmented control
+        let segW = ranges.map { $0.0.size(smallB).width + 16 }
+        let group = NSRect(x: bounds.width - 14 - segW.reduce(0, +), y: 7, width: segW.reduce(0, +), height: 20)
+        let gp = NSBezierPath(roundedRect: group.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+        Theme.paper.setFill(); gp.fill()
+        Theme.line.setStroke(); gp.lineWidth = 1; gp.stroke()
+        var sx = group.minX
+        for (i, (label, hours)) in ranges.enumerated() {
+            let r = NSRect(x: sx, y: group.minY, width: segW[i], height: group.height)
             let on = abs(Double(plotW) * spp / 3600 - hours) < hours * 0.08
-            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 5, yRadius: 5)
-            (on ? Theme.ink : Theme.paper).setFill(); p.fill()
-            if !on { Theme.line.setStroke(); p.lineWidth = 1; p.stroke() }
-            text(label, smallB, on ? Theme.paper : Theme.ink, at: NSPoint(x: r.minX + 7, y: r.minY + 3))
+            if on {
+                Theme.ink.setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 2), xRadius: 4, yRadius: 4).fill()
+            } else if i > 0 {
+                Theme.faint.setFill(); NSRect(x: r.minX, y: r.minY + 5, width: 1, height: r.height - 10).fill()
+            }
+            text(label, smallB, on ? Theme.paper : Theme.ink, at: NSPoint(x: r.minX + 8, y: r.minY + 3))
             hits.append((r, "", { [weak self] in self?.setRange(hours) }))
-            bx -= 6
+            sx += segW[i]
         }
-        let nowL = tr("现在", "Now")
-        let nowW = nowL.size(smallB).width + 14
-        bx -= nowW
-        let nowBtn = NSRect(x: bx, y: 7, width: nowW, height: 20)
-        let np = NSBezierPath(roundedRect: nowBtn.insetBy(dx: 0.5, dy: 0.5), xRadius: 5, yRadius: 5)
-        Theme.paper.setFill(); np.fill(); Theme.line.setStroke(); np.lineWidth = 1; np.stroke()
-        text(nowL, smallB, Theme.ink, at: NSPoint(x: nowBtn.minX + 7, y: nowBtn.minY + 3))
+        // Now: a different kind of button (it moves, it doesn't zoom), solid when you've scrolled away
+        let nowL = "◎ " + tr("现在", "Now")
+        let nowW = nowL.size(smallB).width + 18
+        let nowBtn = NSRect(x: group.minX - 12 - nowW, y: 7, width: nowW, height: 20)
+        let np = NSBezierPath(roundedRect: nowBtn.insetBy(dx: 0.75, dy: 0.75), xRadius: 10, yRadius: 10)
+        if follow {
+            Theme.paper.setFill(); np.fill()
+            Logo.orange.setStroke(); np.lineWidth = 1.5; np.stroke()
+        } else {
+            Logo.orange.setFill(); np.fill()
+        }
+        text(nowL, smallB, follow ? Logo.orange : .white, at: NSPoint(x: nowBtn.minX + 9, y: nowBtn.minY + 3))
         hits.append((nowBtn, "", { [weak self] in self?.follow = true; self?.needsDisplay = true }))
 
         // lane labels and night shading
@@ -312,10 +326,27 @@ final class TimelineView: NSView {
             if b > a {
                 let today = cal.isDateInToday(d)
                 let r = NSRect(x: a + 1, y: dayY, width: b - a - 2, height: 20)
-                (today ? Theme.ink : Theme.faint).setFill(); r.fill()
                 let label = today ? tr("今天 ", "Today ") + df.string(from: d) : df.string(from: d)
-                if r.width > label.size(smallB).width + 10 {
-                    text(label, smallB, today ? Theme.paper : Theme.ink, at: NSPoint(x: r.minX + 6, y: r.minY + 3))
+                if today {
+                    // today: 45° stripes, its name on a solid tab at the start
+                    NSGraphicsContext.current?.saveGraphicsState()
+                    NSBezierPath(rect: r).addClip()
+                    Theme.faint.setFill(); r.fill()
+                    let stripes = NSBezierPath()
+                    var sx = r.minX - r.height
+                    while sx < r.maxX {
+                        stripes.move(to: NSPoint(x: sx, y: r.maxY)); stripes.line(to: NSPoint(x: sx + r.height, y: r.minY))
+                        sx += 7
+                    }
+                    stripes.lineWidth = 1.5
+                    Theme.ink.withAlphaComponent(0.3).setStroke(); stripes.stroke()
+                    NSGraphicsContext.current?.restoreGraphicsState()
+                    let tab = NSRect(x: r.minX, y: r.minY, width: min(r.width, label.size(smallB).width + 14), height: r.height)
+                    Theme.ink.setFill(); tab.fill()
+                    if r.width > label.size(smallB).width + 10 { text(label, smallB, Theme.paper, at: NSPoint(x: tab.minX + 7, y: tab.minY + 3)) }
+                } else {
+                    Theme.faint.setFill(); r.fill()
+                    if r.width > label.size(smallB).width + 10 { text(label, smallB, Theme.ink, at: NSPoint(x: r.minX + 6, y: r.minY + 3)) }
                 }
                 let dd = d
                 hits.append((r, "", { [weak self] in
