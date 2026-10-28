@@ -1455,9 +1455,25 @@ final class MapView: NSView, NSTextFieldDelegate {
         return out
     }
 
+    /// Where the dragged item attaches: the edge that faces the centre (its left edge on the right side,
+    /// its right edge on the left), at the height its branch joins. The drop is worked out from there,
+    /// as in MindNode, rather than from the pointer. Chats from the left column use the pointer.
+    private func dropProbe(_ d: Drag) -> (point: NSPoint, side: CGFloat?) {
+        guard d.fromMap, let v = byKey[d.key], let rk = rootV?.key, let root = d.base[rk] else { return (d.pointer, nil) }
+        let o = NSPoint(x: d.pointer.x - d.grab.dx, y: d.pointer.y - d.grab.dy)
+        let side: CGFloat = o.x + v.size.width / 2 < root.frame.midX ? -1 : 1
+        let y = o.y + (v.line ? v.size.height - 1 : v.size.height / 2)
+        return (NSPoint(x: side > 0 ? o.x : o.x + v.size.width, y: y), side)
+    }
+
+    private func dropAt(_ d: Drag) -> DropAt? {
+        let probe = dropProbe(d)
+        return dropAt(probe.point, d.base, side: probe.side)
+    }
+
     /// Where letting go at `p` puts the item: right on a topic → inside it; out past a topic → one of
-    /// its children; beside an item → its sibling, in the order the pointer is at.
-    private func dropAt(_ p: NSPoint, _ base: [String: Spot]) -> DropAt? {
+    /// its children; beside an item → its sibling, in the order `p` is at. `hint`: the side of the centre.
+    private func dropAt(_ p: NSPoint, _ base: [String: Spot], side hint: CGFloat? = nil) -> DropAt? {
         guard let rootKey = rootV?.key, let rs = base[rootKey] else { return nil }
         if let on = base.first(where: { ($0.value.kind == .main || $0.value.kind == .sub) && $0.value.frame.insetBy(dx: 2, dy: 0).contains(p) }) {
             let f = (p.y - on.value.frame.minY) / max(1, on.value.frame.height)
@@ -1473,7 +1489,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         let s = near.value
         let parent: String, side: CGFloat
         if s.kind == .root {
-            parent = rootKey; side = p.x < rs.frame.midX ? -1 : 1
+            parent = rootKey; side = hint ?? (p.x < rs.frame.midX ? -1 : 1)
         } else if s.kind != .chat && (s.dir > 0 ? p.x > s.frame.maxX + 14 : p.x < s.frame.minX - 14) {
             parent = near.key; side = s.dir
         } else {
@@ -1563,8 +1579,9 @@ final class MapView: NSView, NSTextFieldDelegate {
         let prev = snapshot()
         let grab = CGVector(dx: pressedAt.x - v.frame.minX, dy: pressedAt.y - v.frame.minY)
         let base = baseSpots(without: keys)
-        drag = Drag(key: v.key, keys: keys, fromMap: true, grab: grab, dir0: v.dir, pointer: pointer, to: dropAt(pointer, base), base: base)
+        drag = Drag(key: v.key, keys: keys, fromMap: true, grab: grab, dir0: v.dir, pointer: pointer, to: nil, base: base)
         rebuildPreview(from: prev)
+        if let d = drag, let t = dropAt(d) { drag?.to = t; rebuildPreview() }
         NSCursor.closedHand.push()
     }
 
@@ -1574,7 +1591,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         let p = convert(e.locationInWindow, from: nil)
         d.pointer = p
         let offMap = overSidebar?(e.locationInWindow, d.keys.allSatisfy { $0.hasPrefix("c:") }) ?? false
-        let t = offMap ? nil : dropAt(p, d.base)
+        let t = offMap ? nil : dropAt(d)
         let moved = t != d.to
         d.to = t
         drag = d

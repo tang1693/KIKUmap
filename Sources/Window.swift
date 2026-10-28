@@ -648,21 +648,86 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     private let sideScroll = NSScrollView()
     private let store: Store
     private let hint = NSTextField(labelWithString: "")
+    private let keysButton = NSButton(title: "", target: nil, action: nil)
     private let search = NSSearchField()
     private let searchCount = NSTextField(labelWithString: "")
     private let line = ColorView(Theme.faint)
     private let sideEdge = PaneDivider(sideways: true)
     private let timelineEdge = PaneDivider(sideways: false)
 
+    /// The few that matter most; the rest are one click away (`keysButton`).
     static func hintText() -> String {
-        tr("拖动空白处框选 · ⇧/⌘点击 加选 · 按住空格或双指 移动导图 · ⌘F 搜索 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 悬停对话：打开 / 标为未读（⇧⌘U）· ⌘0 适应窗口",
-           "drag empty space to select · ⇧/⌘-click adds · hold space or use two fingers to move the map · ⌘F search · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · hover a chat: open / mark unread (⇧⌘U) · ⌘0 fit")
-            + (Prefs.hotKeyEnabled ? " · " + Prefs.hotKeyLabel() + tr(" 调出/收起", " show/hide") : "")
+        tr("拖动空白处框选 · 按住空格移动导图 · ⇥ 子主题 · ⏎ 同级 · ⌘F 搜索 · 右键改颜色和标签",
+           "drag empty space to select · hold space to move the map · ⇥ subtopic · ⏎ sibling · ⌘F search · right-click for colours and tags")
+    }
+
+    /// Every shortcut in the map: (keys, what it does).
+    static func allShortcuts() -> [(String, String)] {
+        var list: [(String, String)] = [
+            (tr("拖动空白处", "Drag on empty space"), tr("框选", "Select with a box")),
+            (tr("⇧ / ⌘ 点击", "⇧ / ⌘-click"), tr("加选 / 取消选择", "Add to or remove from the selection")),
+            (tr("按住空格、双指滑动", "Hold space, two fingers"), tr("移动导图", "Move around the map")),
+            ("⇥ / ⌥⇥", tr("新建子主题 / 父主题", "New subtopic / parent topic")),
+            ("⏎ / ⌥⏎ / ⇧⏎", tr("下方同级 / 上方同级 / 新一级主题", "Sibling below / above / new main topic")),
+            (tr("双击空白处", "Double-click empty space"), tr("新主题", "New topic")),
+            (tr("⌘⏎、双击", "⌘⏎, double-click"), tr("改名（对话名只在本机）", "Rename (chat names stay on this Mac)")),
+            ("⌫", tr("删除；对话回到左栏", "Delete; chats go back to the left column")),
+            ("⌥.", tr("折叠 / 展开", "Fold / unfold")),
+            ("⌘↑ ⌘↓", tr("在同级之间移动", "Move among siblings")),
+            ("⌘A", tr("全选", "Select all")),
+            ("⌘Z / ⇧⌘Z", tr("撤销 / 重做", "Undo / redo")),
+            ("⌘F", tr("搜索；⏎ 下一个", "Search; ⏎ for the next match")),
+            (tr("右键", "Right-click"), tr("分支颜色、图形、标签", "Branch colour, shape, tags")),
+            (tr("悬停对话 → ↗、轻按空格", "Hover a chat → ↗, tap space"), tr("在 Claude 里打开", "Open it in Claude")),
+            (tr("⇧⌘U、悬停对话 → ✉", "⇧⌘U, hover a chat → ✉"), tr("标为未读 / 已读", "Mark unread / read")),
+            ("⌃⌘S / ⌃⌘T", tr("显示或隐藏左栏 / 时间线", "Show or hide the left column / timeline")),
+            (tr("⌘= ⌘- ⌘0、双指捏合", "⌘= ⌘- ⌘0, pinch"), tr("缩放、适应窗口", "Zoom, fit")),
+            ("⌘E / ⇧⌘E", tr("导出导图 PDF / 导出对话", "Export the map as PDF / export chats")),
+        ]
+        if Prefs.hotKeyEnabled { list.append((Prefs.hotKeyLabel(), tr("在任何地方呼出 / 收起导图", "Show / hide the map from anywhere"))) }
+        return list
+    }
+
+    static func keysTitle() -> NSAttributedString {
+        NSAttributedString(string: "⌨︎ " + tr("全部快捷键", "All shortcuts"),
+                           attributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.ink])
+    }
+
+    /// All the shortcuts, in a popover under the button.
+    @objc private func showKeys(_ sender: NSButton) {
+        let rows = MainWindow.allShortcuts().map { k, what -> [NSView] in
+            let key = NSTextField(labelWithString: k)
+            key.font = Theme.ui(12, .semibold)
+            key.textColor = Theme.ink
+            let text = NSTextField(labelWithString: what)
+            text.font = Theme.ui(12)
+            text.textColor = Theme.muted
+            return [key, text]
+        }
+        let grid = NSGridView(views: rows)
+        grid.rowSpacing = 7
+        grid.columnSpacing = 18
+        grid.column(at: 0).xPlacement = .trailing
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        let vc = NSViewController()
+        vc.view = NSView()
+        vc.view.addSubview(grid)
+        NSLayoutConstraint.activate([
+            grid.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 16),
+            grid.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -16),
+            grid.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor, constant: 18),
+            grid.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor, constant: -18),
+        ])
+        let pop = NSPopover()
+        pop.contentViewController = vc
+        pop.behavior = .transient
+        pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
     }
 
     /// Language changed: refresh every fixed label.
     func relabel() {
         hint.stringValue = MainWindow.hintText()
+        keysButton.attributedTitle = MainWindow.keysTitle()
         window.title = "Kikumap"
         header.relabel()
         reload()
@@ -761,7 +826,12 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         hint.lineBreakMode = .byTruncatingTail
         hint.frame = NSRect(x: sideW + 16, y: tlH + 6, width: W - sideW - 32, height: 16)
         hint.autoresizingMask = [.width, .maxYMargin]
+        keysButton.isBordered = false
+        keysButton.attributedTitle = MainWindow.keysTitle()
+        keysButton.target = self
+        keysButton.action = #selector(showKeys(_:))
         root.addSubview(hint)
+        root.addSubview(keysButton)
 
         timeline.frame = NSRect(x: 0, y: 0, width: W, height: tlH)
         timeline.autoresizingMask = [.width, .maxYMargin]
@@ -802,12 +872,18 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         sideScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: midH)
         let mapX = sideW == 0 ? 0 : sideW + 1
         mapScroll.frame = NSRect(x: mapX, y: tlH, width: W - mapX, height: midH)
-        hint.frame = NSRect(x: mapX + 16, y: tlH + 6, width: W - mapX - 32, height: 16)
+        let kw = ceil(keysButton.attributedTitle.size().width) + 8
+        keysButton.frame = NSRect(x: W - 16 - kw, y: tlH + 4, width: kw, height: 20)
+        hint.frame = NSRect(x: mapX + 16, y: tlH + 6, width: max(0, W - mapX - 32 - kw - 12), height: 16)
         sideEdge.frame = NSRect(x: max(0, sideW - 3), y: tlH, width: 6, height: midH)
         timelineEdge.frame = NSRect(x: 0, y: max(0, tlH - 3), width: W, height: 6)
         window.invalidateCursorRects(for: sideEdge)
         window.invalidateCursorRects(for: timelineEdge)
-        if sideW > 0 { layoutLeft() }
+        if sideW > 0 {
+            layoutLeft()
+            sidebar.reload()            // the list is laid out for the column's width and height
+            tags.needsDisplay = true
+        }
     }
 
     func toggleSidebar() { Prefs.sideHidden.toggle(); layoutPanes() }

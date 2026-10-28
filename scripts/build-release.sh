@@ -19,16 +19,22 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 "$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns"
 codesign --force --deep -s - "$APP"
 
-# The disk image: Kikumap and an Applications shortcut side by side, Kikumap's icon on the volume.
-# (makehybrid builds it straight from the folder, without mounting anything.)
+# The disk image: Kikumap and an Applications shortcut side by side over a background picture with an
+# arrow, Kikumap's icon on the volume. (makehybrid builds it straight from the folder, without mounting
+# anything; dmg-layout.py --fix then points the window at the picture.)
 STAGE="$OUT/Kikumap"
 mkdir -p "$STAGE"
 ditto "$APP" "$STAGE/Kikumap.app"
 ln -s /Applications "$STAGE/Applications"
 cp "$APP/Contents/Resources/AppIcon.icns" "$STAGE/.VolumeIcon.icns"
+mkdir -p "$STAGE/.background"
+xcrun swiftc -module-cache-path "$OUT/.modules" -o "$OUT/dmg-background" scripts/dmg-background.swift
+"$OUT/dmg-background" "$STAGE/.background/background.tiff"
+rm -rf "$OUT/dmg-background" "$OUT/.modules"
 xattr -wx com.apple.FinderInfo 0000000000000000040000000000000000000000000000000000000000000000 "$STAGE"
 python3 scripts/dmg-layout.py "$STAGE"
 hdiutil makehybrid -quiet -hfs -hfs-volume-name Kikumap -hfs-openfolder "$STAGE" -o "$OUT/raw.dmg" "$STAGE"
+python3 scripts/dmg-layout.py --fix "$OUT/raw.dmg" "$STAGE"
 hdiutil convert -quiet "$OUT/raw.dmg" -format UDZO -imagekey zlib-level=9 -o "$OUT/Kikumap.dmg"
 rm -rf "$STAGE" "$OUT/raw.dmg"
 echo "Done: $OUT/Kikumap.dmg (version $VER)"
