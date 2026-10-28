@@ -1,0 +1,34 @@
+#!/bin/bash
+# Builds "Kikumap.app" for Apple silicon and Intel, signs it ad hoc and puts it in a disk image
+# in dist/ for a GitHub release. (No Apple Developer ID: people open it once with "Open Anyway".)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
+OUT=dist
+APP="$OUT/Kikumap.app"
+rm -rf "$OUT"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+for arch in arm64 x86_64; do
+  echo "Building $arch…"
+  xcrun swiftc -O -parse-as-library -module-cache-path "$OUT/.modules" -target "$arch-apple-macos13.0" -o "$OUT/bin-$arch" Sources/*.swift \
+    -framework Cocoa -framework Security -framework Carbon -lsqlite3
+done
+lipo -create -output "$APP/Contents/MacOS/ClaudeConsole" "$OUT/bin-arm64" "$OUT/bin-x86_64"
+rm -rf "$OUT"/bin-* "$OUT/.modules"
+cp Resources/Info.plist "$APP/Contents/Info.plist"
+"$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns"
+codesign --force --deep -s - "$APP"
+
+# The disk image: Kikumap and an Applications shortcut side by side, Kikumap's icon on the volume.
+# (makehybrid builds it straight from the folder, without mounting anything.)
+STAGE="$OUT/Kikumap"
+mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/Kikumap.app"
+ln -s /Applications "$STAGE/Applications"
+cp "$APP/Contents/Resources/AppIcon.icns" "$STAGE/.VolumeIcon.icns"
+xattr -wx com.apple.FinderInfo 0000000000000000040000000000000000000000000000000000000000000000 "$STAGE"
+python3 scripts/dmg-layout.py "$STAGE"
+hdiutil makehybrid -quiet -hfs -hfs-volume-name Kikumap -hfs-openfolder "$STAGE" -o "$OUT/raw.dmg" "$STAGE"
+hdiutil convert -quiet "$OUT/raw.dmg" -format UDZO -imagekey zlib-level=9 -o "$OUT/Kikumap.dmg"
+rm -rf "$STAGE" "$OUT/raw.dmg"
+echo "Done: $OUT/Kikumap.dmg (version $VER)"

@@ -1,0 +1,12 @@
+# Only what's listed here is published. Your data, logs and old versions stay on this Mac.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/Install.command
+!/Sources/
+!/Resources/
+/Resources/AppIcon.iconset/
+!/scripts/
+!/docs/
+.DS_Store
