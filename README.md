@@ -2,6 +2,8 @@
 
 <h1 align="center">Kikumap</h1>
 
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
+
 <p align="center">
   <b>A mind map for your Claude chats.</b><br>
   See which chats are running and which are waiting for you, right from the menu bar.<br>
@@ -19,13 +21,15 @@
 
 <h3 align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg">⬇︎ Download for macOS</a></h3>
 
+<p align="center"><a href="https://ko-fi.com/vegligi"><img src="docs/kofi-en.svg" height="46" alt="Buy me a coffee on Ko-fi"></a></p>
+
 <p align="center">
   <a href="https://tang1693.github.io/KIKUmap/">Website</a> ·
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#privacy">Privacy</a> ·
   <a href="#faq">FAQ</a> ·
-  <a href="#中文说明">中文</a>
+  <a href="#support">Support ❤️</a>
 </p>
 
 <p align="center"><img src="docs/demo/drag.gif" width="100%" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></p>
@@ -98,7 +102,7 @@ Click a tag to highlight everything that has it; the rest of the map fades back.
 
 ### Keyboard-first
 
-Like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌘↑↓ reorder, ⌘Z undo. Also ⌫ delete, ⌥. fold, ⌘F search, and space to open a chat in Claude.
+Like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌘↑↓ reorder, ⌘Z undo. Also ⌫ delete, ⌥. fold, ⌘F search, and a tap on space to open a chat in Claude.
 
 </td>
 </tr>
@@ -170,7 +174,7 @@ Needs the Xcode Command Line Tools (macOS offers to install them).
 
 ```bash
 git clone https://github.com/tang1693/KIKUmap.git
-cd kiku
+cd KIKUmap
 open Install.command        # or double-click it in Finder
 ```
 
@@ -190,7 +194,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
 | Usage, scheduled tasks (optional, off by default) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
 
-**Exporting:** summaries are written by Claude inside each chat, so each adds one exchange and the Claude window switches chats while it runs. Prompts, conversations and artifacts come from Claude's own data export (Claude → Settings → Privacy → Export data); leave the zip in Downloads and Kikumap finds it. Import works the Claude window the same way; images and other binary files can't be carried over.
+**Exporting:** summaries are written by Claude inside each chat, so each adds one exchange and the Claude window switches chats while it runs. Prompts, conversations and artifacts come from Claude's own data export (Claude → Settings → Privacy → Export data); pick the zip in the export window (with Full Disk Access, a zip left in Downloads is found by itself). Import works the Claude window the same way; images and other binary files can't be carried over.
 
 ## Keys in the map
 
@@ -244,7 +248,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 <details>
 <summary><b>Something isn't showing</b></summary>
 
-- **⚠︎ in the top bar** says what's stopping the sync: Claude's sidebar hidden, its Pinned section collapsed, or Claude in Code mode.
+- **Hover the status in the top bar**: it says what's holding things up (Claude's sidebar hidden, its Pinned section folded, Code mode, the window closed…), what still works, and what to do.
 - **Nothing shows as running:** open the Claude app's sidebar. Settings → Access → *Write diagnostic log*, then look at `logs/claude-sidebar.txt` in the data folder.
 - **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. A downloaded build is signed differently each release, so macOS may ask again after an update.
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session.
@@ -285,37 +289,12 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
 ## Support
 
-Kikumap is free. If it saves you time, you can [buy me a coffee on Ko-fi](https://ko-fi.com/vegligi). A star or a bug report helps just as much.
+Kikumap is free, and it always will be. If it saves you a little tab-hunting every day, a coffee keeps it going ❤️
+
+<p><a href="https://ko-fi.com/vegligi"><img src="docs/kofi-en.svg" height="64" alt="Buy me a coffee on Ko-fi"></a></p>
+
+A ⭐ on GitHub or a bug report helps just as much.
 
 ## License
 
 [MIT](LICENSE). Claude is a trademark of Anthropic; this project is independent and not endorsed by Anthropic.
-
----
-
-## 中文说明
-
-**Kikumap · Claude 对话导图。** 一个原生、轻量的 macOS 菜单栏小工具（纯 Swift + AppKit，没有 Electron，安装包 2 MB，没有任何第三方依赖），给同时开着很多 Claude 对话的人用：一眼看到哪个还在跑、哪个做完了还没看、哪个在等你批准，再把置顶对话整理成一张导图。
-
-**[⬇︎ 下载 Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)**，打开后把 Kikumap 拖进「应用程序」。
-
-> **测试版。** Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口。Claude 改界面后，部分功能可能要等更新才能恢复。本项目由个人独立开发，与 Anthropic 无关。
-
-**功能**
-
-- **菜单栏一个图标**：橙色小菊花在转 = 有对话在跑；红色数字 = 做完了还没看；带 **!** = 有对话在等你批准。对话做完会响提示音，还可以念出是哪个对话（“实验计划做完了”），声音、语速、念的内容都能自己改，也能换成自己的声音文件。支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。
-- **置顶对话和 Claude Code 会话，顺序和 Claude 一样**：导图一开始是空的，放什么由你决定。拖到自己的主题下，用法像 MindNode；在导图空白处拖出选框（或 ⌘/⇧ 点击）可以一次选好几个一起拖；按住空格移动鼠标、或双指滑动来移动导图；左栏和时间线可以隐藏（⌃⌘S、⌃⌘T），也能拖边缘调宽窄。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
-- **按自己的习惯整理**：右键主题可以改分支颜色、选图形（方块、圆圈、三角、菱形、交叉、星星）、加标签。
-- **全部带走**：勾选主题，下面的对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：`memory.md`（Claude 写的交接总结）、`prompts.md`、`conversation.md`、`artifacts/`、`attachments/`。可以设成自动更新。「导入」会为每个文件夹开一个新的置顶对话，附上 artifacts、发进总结，在新账号里也能接着做。
-- **标签**：「进行中」「等别人」「幻灯片」……右键勾选，或者从标签栏拖到对话上；点一下标签，带这个标签的都会高亮。
-- **键盘就能搞定**：⇥ 子主题、⏎ 同级、⌘↑↓ 调顺序、⌘Z 撤销、⌘F 搜索、空格打开对话。
-- **时间线**：过去 Claude 在哪个对话上干了多久；往后拖能看到接下来的计划任务，每个都带倒计时。
-- 另外：做完没看的对话在导图上会亮起来、菜单里的今日回顾和用量、导图导出 PDF、每天自动备份、浅色和深色、中文和英文。
-
-**第一次打开**会被 macOS 拦住（没有付费的苹果开发者签名）：去「系统设置 → 隐私与安全性」，往下滑点「仍要打开」。也可以下载源码，双击 `Install.command` 自己编译安装，这样签名固定，重装不用重新授权。
-
-**隐私**：所有数据都在本机 `~/Library/Application Support/ClaudeConsole/`。唯一的网络请求是向 `api.anthropic.com` 查询用量，而且只在你开启用量功能之后（默认关闭）。所有系统授权弹窗，都会先告诉你要做什么、你同意了才出现。「完全磁盘访问」用来只读通知中心里 Claude 的通知；「辅助功能」用来读 Claude 侧边栏。
-
-**名字**：*Kiku*（菊）是日语里的菊花，就是菜单栏里那朵 Claude 干活时会转的橙色小菊花；Kikumap 就是从它长出来的导图。
-
-协议：[MIT](LICENSE)。觉得好用的话，点个 ⭐ 能让更多人看到；也可以在 [Ko-fi](https://ko-fi.com/vegligi) 请我喝杯咖啡。
