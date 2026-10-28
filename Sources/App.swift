@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         statusBar.openPermissions = { [weak self] in self?.settings.show(tab: 2) }
         statusBar.syncNote = { [weak self] in self?.sidebar.syncNote }
+        statusBar.syncHelp = { [weak self] in self?.sidebar.syncIssue?.help }
 
         settings.onLanguage = { [weak self] in self?.relabelAll() }
         settings.onHotKey = { [weak self] in self?.registerHotKey(); self?.relabelAll(rebuildSettings: false) }
@@ -159,6 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         h.usageHint = h.meters.isEmpty ? usage.hint : ""
         h.liveText = archive.busy ? tr("正在存档 ", "Archiving ") + archive.progress + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone") : syncText()
+        h.liveHelp = archive.busy
+            ? tr("Kikumap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止存档」。",
+                 "Kikumap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop archiving\".")
+            : syncHelp()
         main.sidebar.emptyNote = store.pinsKnown ? nil : pinsNote()
         var actions: [(String, Bool, () -> Void)] = []
         if notifications.status == .noAccess || sidebar.status == .noAccess {
@@ -188,6 +193,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let n = sidebar.syncNote { return "⚠︎ " + n }
             guard let d = sidebar.lastSync else { return tr("同步中…", "Syncing…") }
             return tr("已同步 · ", "Synced · ") + Clock.ago(Clock.iso(d))
+        }
+    }
+
+    /// On hovering the status: what it means, what it holds up, what to do.
+    private func syncHelp() -> String {
+        switch sidebar.status {
+        case .noAccess: return ""
+        case .noApp:
+            return tr("Claude 桌面 App 没在运行。\n不受影响：Claude Code 会话、导图上已有的内容。\n暂停：Claude App 里对话的进行中、做完、未读和置顶同步。\n怎么办：打开 Claude App，会自动接上。",
+                      "The Claude desktop app isn't running.\nStill works: Claude Code sessions and everything already on your map.\nPaused: running, finished, unread and pins for chats in the Claude app.\nFix: open Claude; Kikumap picks it up by itself.")
+        default:
+            if let i = sidebar.syncIssue { return i.help }
+            guard sidebar.lastSync != nil else {
+                return tr("正在第一次读取 Claude 的侧边栏…", "Reading Claude's sidebar for the first time…")
+            }
+            return tr("一切正常：Kikumap 刚读过 Claude 的侧边栏，Claude 一有变化就会再读。不需要做什么。",
+                      "All good: Kikumap just read Claude's sidebar and reads it again whenever Claude changes. Nothing to do.")
         }
     }
 

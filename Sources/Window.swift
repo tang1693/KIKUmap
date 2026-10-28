@@ -81,6 +81,9 @@ final class HeaderView: NSView {
     var meters: [(String, Double?, String)] = []
     var usageHint = ""
     var liveText = ""
+    /// Shown on hovering `liveText`: what the status means, what it holds up, what to do.
+    var liveHelp = ""
+    private var liveTip: (rect: NSRect, help: NSString, tag: NSView.ToolTipTag)?   // the string is kept: tool tips don't retain it
     private var buttons: [FlatButton] = []
     var actions: [(String, Bool, () -> Void)] = [] { didSet { rebuildButtons() } }
     var onSettings: (() -> Void)?
@@ -211,13 +214,25 @@ final class HeaderView: NSView {
             x += maxW + 22
         }
         let limit = (buttons.first?.frame.minX ?? (bounds.width - 90)) - 12
+        var liveRect: NSRect?
         for text in [usageHint, liveText] where !text.isEmpty {
             let s = text.size(small)
             guard x + s.width < limit else { break }
             let warn = text.hasPrefix("⚠︎")
             (text as NSString).draw(at: NSPoint(x: x, y: mid - s.height / 2), withAttributes: [.font: small, .foregroundColor: warn ? Theme.ink : Theme.muted])
+            if text == liveText { liveRect = NSRect(x: x, y: mid - s.height / 2, width: s.width, height: s.height) }
             x += s.width + 16
         }
+        setLiveTip(liveRect)
+    }
+
+    private func setLiveTip(_ r: NSRect?) {
+        if let t = liveTip, t.rect == r, t.help as String == liveHelp { return }
+        if let t = liveTip { removeToolTip(t.tag) }
+        liveTip = nil
+        guard let r = r, !liveHelp.isEmpty else { return }
+        let help = liveHelp as NSString
+        liveTip = (r, help, addToolTip(r.insetBy(dx: -4, dy: -8), owner: help, userData: nil))
     }
 }
 

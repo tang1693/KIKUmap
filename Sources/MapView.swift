@@ -77,6 +77,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var moveTracking: NSTrackingArea?
     /// The chat under the pointer: it shows its buttons (open in Claude, unread / read).
     private var hoverChat: String?
+    private var tipStrings: [NSString] = []          // tool tips don't retain their text
     private enum ChatAction { case open, unread }
     /// Keys of the item being dragged and everything under it.
     private var dragged = Set<String>()
@@ -862,11 +863,13 @@ final class MapView: NSView, NSTextFieldDelegate {
         hoverChat = k
         needsDisplay = true
         removeAllToolTips()
+        tipStrings = []
         if let k = k, let v = byKey[k], let id = v.chatId {
             for (r, a) in chatButtons(v) {
-                let tip = a == .open ? tr("在 Claude 里打开", "Open in Claude")
-                    : (store.isUnread(id: id) ? tr("标为已读  ⇧⌘U", "Mark as read  ⇧⌘U") : tr("标为未读  ⇧⌘U", "Mark as unread  ⇧⌘U"))
-                addToolTip(r, owner: tip as NSString, userData: nil)
+                let tip = (a == .open ? tr("在 Claude 里打开", "Open in Claude")
+                    : (store.isUnread(id: id) ? tr("标为已读  ⇧⌘U", "Mark as read  ⇧⌘U") : tr("标为未读  ⇧⌘U", "Mark as unread  ⇧⌘U"))) as NSString
+                tipStrings.append(tip)
+                addToolTip(r, owner: tip, userData: nil)
             }
         }
     }

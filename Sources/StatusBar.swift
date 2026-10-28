@@ -104,6 +104,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openSettings: (() -> Void)?
     var openAbout: (() -> Void)?
     var syncNote: (() -> String?)?
+    /// What the sync note means and what to do (shown on hover).
+    var syncHelp: (() -> String?)?
     private var spin: Timer?
     private var phase: CGFloat = 0
     private var appearanceWatch: NSKeyValueObservation?
@@ -234,6 +236,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         if let n = syncNote?() {
             header("⚠︎ " + n)
+            menu.items.last?.toolTip = syncHelp?()
             menu.addItem(.separator())
         }
         let run = store.runningChats, unread = store.unreadChats

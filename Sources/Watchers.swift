@@ -242,6 +242,44 @@ struct AXLink: Sendable {
     var pinned: Bool? = nil
 }
 
+/// Why the Claude app's sidebar can't be read right now: a short note for the header, and on hover,
+/// what it holds up and what to do.
+enum SyncIssue: Sendable {
+    case accessOff, noWindow, codeMode, pinsCollapsed, sidebarHidden
+
+    var note: String {
+        switch self {
+        case .accessOff: return tr("辅助功能授权失效，请在系统设置里删掉再加回来", "Accessibility is off for this build — remove and re-add it in System Settings")
+        case .noWindow: return tr("Claude 窗口关着：做完的提醒照常，「进行中」等窗口打开再更新",
+                                  "Claude's window is closed: finish alerts still come, live status resumes when it's open")
+        case .codeMode: return tr("Claude 在 Code 模式，切回 Chat 才能同步置顶对话", "Claude is in Code mode — switch back to Chat to sync pinned chats")
+        case .pinsCollapsed: return tr("Claude 的 Pinned 区折叠了，展开才能同步", "Claude's Pinned section is collapsed — expand it to sync")
+        case .sidebarHidden: return tr("Claude 的侧边栏收起来了，展开才能同步", "Claude's sidebar is hidden — show it to sync")
+        }
+    }
+
+    /// What it means, what it affects, what to do.
+    var help: String {
+        switch self {
+        case .accessOff:
+            return tr("macOS 关掉了 Kikumap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读。\n不受影响：做完的提醒和提示音、Claude Code。\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 Kikumap 删掉（−）再加回来。",
+                      "macOS switched off Kikumap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar.\nStill works: finished alerts and sounds, Claude Code.\nFix: System Settings → Privacy & Security → Accessibility: remove Kikumap (−) and add it again.")
+        case .noWindow:
+            return tr("Claude 的窗口关着（⌘W 只是把它藏起来，Claude 还在运行）。\n不受影响：做完的提醒、提示音、未读标记、Claude Code 会话。\n暂停：「进行中」的转圈和置顶对话的同步，窗口回来就自动恢复。\n怎么办：不用管；想看实时状态就点程序坞里的 Claude，或 ⌘Tab 切过去。",
+                      "Claude's window is closed (⌘W only hides it; Claude keeps running).\nStill works: finished alerts, sounds, unread, Claude Code sessions.\nPaused: the live \"running\" spinner and pin syncing; both come back with the window.\nFix: nothing needed. For live status, click Claude in the Dock or ⌘Tab to it.")
+        case .codeMode:
+            return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶对话同步、对话的进行中状态。\n不受影响：做完的提醒、Claude Code。\n怎么办：在 Claude 侧边栏顶部切回 Chat。",
+                      "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins and the running status of chats.\nStill works: finished alerts, Claude Code.\nFix: switch Claude back to Chat at the top of its sidebar.")
+        case .pinsCollapsed:
+            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，Kikumap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新）。\n不受影响：做完的提醒、进行中状态、Claude Code。\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。",
+                      "The Pinned section in Claude's sidebar is folded, so Kikumap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update).\nStill works: finished alerts, running status, Claude Code.\nFix: click \"Pinned\" in Claude's sidebar to unfold it.")
+        case .sidebarHidden:
+            return tr("Claude 的侧边栏收起来了，Kikumap 没有东西可读。\n暂停：进行中状态、置顶对话、侧边栏里的未读。\n不受影响：做完的提醒和提示音、Claude Code。\n怎么办：在 Claude 窗口左上角把侧边栏打开。",
+                      "Claude's sidebar is hidden, so there's nothing for Kikumap to read.\nPaused: running status, pinned chats, unread from the sidebar.\nStill works: finished alerts and sounds, Claude Code.\nFix: show the sidebar in Claude's window (top left).")
+        }
+    }
+}
+
 enum AXScan {
     static let uuidRx = try! NSRegularExpression(pattern: "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
@@ -452,8 +490,8 @@ enum AXScan {
 
     /// Every link to a chat in the Claude app's windows.
     /// Every chat in the Claude app's sidebar. `note` says why syncing can't work right now (nil = fine).
-    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:]) -> (links: [AXLink], dump: String, note: String?) {
-        var note: String?
+    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:]) -> (links: [AXLink], dump: String, issue: SyncIssue?) {
+        var issue: SyncIssue?
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 3.0)
         let manual = AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
@@ -531,9 +569,7 @@ enum AXScan {
             if webs.isEmpty { allWebs.append(w) }
         }
         if windows.isEmpty {
-            note = winErr == .apiDisabled ? tr("辅助功能授权失效，请在系统设置里删掉再加回来", "Accessibility is off for this build — remove and re-add it in System Settings")
-                                          : tr("Claude 窗口关着：做完的提醒照常，「进行中」等窗口打开再更新",
-                                               "Claude's window is closed: finish alerts still come, live status resumes when it's open")
+            issue = winErr == .apiDisabled ? .accessOff : .noWindow
         }
         // newer Claude apps: the sidebar has no links, read its rows instead
         var foundSidebar = !out.isEmpty
@@ -556,9 +592,9 @@ enum AXScan {
                 var headings: [String] = []
                 let rows = rows(in: sb, headings: &headings)
                 if codeMode {
-                    note = tr("Claude 在 Code 模式，切回 Chat 才能同步置顶对话", "Claude is in Code mode — switch back to Chat to sync pinned chats")
+                    issue = .codeMode
                 } else if headings.contains(where: { pinnedHeadings.contains($0) }) && !rows.contains(where: { $0.pinned }) {
-                    note = tr("Claude 的 Pinned 区折叠了，展开才能同步", "Claude's Pinned section is collapsed — expand it to sync")
+                    issue = .pinsCollapsed
                 }
                 if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · open chat '\(short(openTitle, 60))' \(openID ?? "-")\n" }
                 for r in rows {
@@ -585,11 +621,9 @@ enum AXScan {
                 dump += "\n== OUTLINE \(i) url='\(str(web, "AXURL"))'\n" + outline(web, limit: 700) + "\n"
             }
         }
-        if note == nil && !foundSidebar && !windows.isEmpty {
-            note = tr("Claude 的侧边栏收起来了，展开才能同步", "Claude's sidebar is hidden — show it to sync")
-        }
-        if wantDump, let n = note { dump = "# Sync problem: \(n)\n" + dump }
-        return (out, dump, note)
+        if issue == nil && !foundSidebar && !windows.isEmpty { issue = .sidebarHidden }
+        if wantDump, let n = issue { dump = "# Sync problem: \(n.note)\n" + dump }
+        return (out, dump, issue)
     }
 }
 
@@ -619,7 +653,8 @@ final class SidebarWatcher: NSObject {
     private var fallback: Timer?
     /// When the sidebar was last read cleanly, and what's stopping it otherwise.
     private(set) var lastSync: Date?
-    private(set) var syncNote: String?
+    private(set) var syncIssue: SyncIssue?
+    var syncNote: String? { syncIssue?.note }
 
     init(store: Store) {
         self.store = store
@@ -729,8 +764,8 @@ final class SidebarWatcher: NSObject {
                 MainActor.assumeIsolated {
                     guard let self = self else { return }
                     self.scanning = false
-                    self.syncNote = r.note
-                    if r.note == nil { self.lastSync = Date() }
+                    self.syncIssue = r.issue
+                    if r.issue == nil { self.lastSync = Date() }
                     if dump {
                         var head = "# Claude sidebar \(Clock.iso())  links=\(r.links.count)\n"
                         if r.links.isEmpty {
