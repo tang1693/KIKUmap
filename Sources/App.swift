@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.diagnose = { [weak self] in self?.diagnose() }
         statusBar.enableUsage = { [weak self] in self?.perms.connectUsage(); self?.refreshUI() }
         statusBar.openSettings = { [weak self] in self?.settings.show() }
+        statusBar.openAbout = { [weak self] in self?.settings.show(tab: SettingsWindow.aboutTab) }
         statusBar.permissionsNeeded = { [weak self] in
             guard let s = self else { return false }
             return s.notifications.status != .ok || s.sidebar.status == .noAccess
@@ -64,6 +65,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onIntro = { [weak self] in self?.intro.show() }
         settings.onDiagnose = { [weak self] in self?.diagnose() }
         settings.archive = archive
+        settings.sounds = sounds
+        sounds.nameOf = { [weak self] id in self?.store.mapLabel(id) ?? "" }
+        Sounds.folder = store.dir.appendingPathComponent("data/sounds")
         settings.onArchiveAll = { [weak self] in self?.archiveAll() }
         settings.onImport = { [weak self] in self?.importArchive() }
         exportWin.onImport = { [weak self] in self?.importArchive() }
@@ -348,6 +352,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() { settings.show() }
+    @objc private func showAbout() { settings.show(tab: SettingsWindow.aboutTab) }
+    @objc private func toggleSide() { main.toggleSidebar() }
+    @objc private func toggleTimeline() { main.toggleTimeline() }
     @objc private func findInMap() { main.showSearch() }
     @objc private func exportPDF() { main.show(); main.map.exportPDF() }
     @objc private func showExport() { exportWin.show() }
@@ -358,6 +365,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         main.addItem(appItem)
         let appMenu = NSMenu()
+        appMenu.addItem(withTitle: tr("关于 Kikumap", "About Kikumap"), action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(showSettings), keyEquivalent: ",")
         appMenu.addItem(withTitle: tr("导出对话…", "Export chats…"), action: #selector(showExport), keyEquivalent: "E")
         appMenu.addItem(withTitle: tr("导出导图 PDF…", "Export map as PDF…"), action: #selector(exportPDF), keyEquivalent: "e")
@@ -375,6 +384,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(.separator())
         edit.addItem(withTitle: tr("搜索导图", "Find in map"), action: #selector(findInMap), keyEquivalent: "f")
         editItem.submenu = edit
+        let viewItem = NSMenuItem()
+        main.addItem(viewItem)
+        let view = NSMenu(title: tr("显示", "View"))
+        let side = view.addItem(withTitle: tr("显示 / 隐藏左栏", "Show / Hide Left Column"), action: #selector(toggleSide), keyEquivalent: "s")
+        side.keyEquivalentModifierMask = [.control, .command]
+        let tl = view.addItem(withTitle: tr("显示 / 隐藏时间线", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
+        tl.keyEquivalentModifierMask = [.control, .command]
+        viewItem.submenu = view
         NSApp.mainMenu = main
     }
 

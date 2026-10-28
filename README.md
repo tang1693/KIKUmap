@@ -48,7 +48,9 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 ### Know what Claude is doing
 
-One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval. Optional sounds tell you without looking.
+One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval.
+
+**Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
 Works with the Claude desktop app and with Claude Code (Terminal, VS Code, the app's Code mode).
 
@@ -61,7 +63,7 @@ Works with the Claude desktop app and with Claude Code (Terminal, VS Code, the a
 
 The left column mirrors the chats you pinned in Claude, **in Claude's order**, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics. While you drag, the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.
 
-**Several at once:** ⌘-click or ⇧-click in the left column, or ⇧-drag a box on the map, then drag any one of them. They all come along, in order.
+**Several at once:** drag a box on empty space (or ⌘/⇧-click), or ⌘/⇧-click in the left column, then drag any one of them. They all come along, in order. Hold space and move the mouse, or swipe with two fingers, to move around the map. The left column and the timeline can be hidden (⌃⌘S, ⌃⌘T) or resized by dragging their edge.
 
 Real conversations carry a small orange mark, so they stand apart from plain topics. Double-click or press space on one to open it in Claude.
 
@@ -200,16 +202,25 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ⌫ | delete; chats go back to the left column |
 | ⌥. | fold / unfold |
 | ⌘↑ ⌘↓ | move among siblings |
-| ⇧-drag a box, ⇧/⌘-click | select several; drag any one to move them all |
+| drag on empty space, ⇧/⌘-click | select several; drag any one to move them all |
+| hold space, two-finger swipe | move around the map (a quick tap on space opens the chat) |
+| ⌃⌘S / ⌃⌘T | show or hide the left column / the timeline |
 | ⌘A, ⌫ | select everything; delete what's selected |
 | ⌘Z / ⇧⌘Z | undo / redo |
 | ⌘F | search |
 | ⌘E / ⇧⌘E | export the map as PDF / export chats |
-| space, double-click a chat | open it in Claude |
+| tap space, double-click a chat | open it in Claude |
 | pinch, ⌘= ⌘- ⌘0 | zoom, fit |
 | ⌃⌥C (changeable) | show / hide the map from anywhere |
 
 ## FAQ
+
+<details>
+<summary><b>What if I close Claude's window with ⌘W?</b></summary>
+
+That only hides it: Claude keeps running and still sends its "finished" notifications, so Kikumap still marks chats as done and plays its sound. The live "running" spinner and pin syncing read Claude's sidebar, so they pause until the window is back (click Claude in the Dock). Claude Code sessions aren't affected at all.
+
+</details>
 
 <details>
 <summary><b>Is this made by Anthropic?</b></summary>
@@ -291,8 +302,8 @@ Kikumap is free. If it saves you time, you can [buy me a coffee on Ko-fi](https:
 
 **功能**
 
-- **菜单栏一个图标**：橙色小菊花在转 = 有对话在跑；红色数字 = 做完了还没看；带 **!** = 有对话在等你批准。可以开提示音。支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。
-- **置顶对话和 Claude Code 会话，顺序和 Claude 一样**：导图一开始是空的，放什么由你决定。拖到自己的主题下，用法像 MindNode；⌘/⇧ 点击或在导图上按住 ⇧ 拖框，可以一次选好几个一起拖。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
+- **菜单栏一个图标**：橙色小菊花在转 = 有对话在跑；红色数字 = 做完了还没看；带 **!** = 有对话在等你批准。对话做完会响提示音，还可以念出是哪个对话（“实验计划做完了”），声音、语速、念的内容都能自己改，也能换成自己的声音文件。支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。
+- **置顶对话和 Claude Code 会话，顺序和 Claude 一样**：导图一开始是空的，放什么由你决定。拖到自己的主题下，用法像 MindNode；在导图空白处拖出选框（或 ⌘/⇧ 点击）可以一次选好几个一起拖；按住空格移动鼠标、或双指滑动来移动导图；左栏和时间线可以隐藏（⌃⌘S、⌃⌘T），也能拖边缘调宽窄。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
 - **按自己的习惯整理**：右键主题可以改分支颜色、选图形（方块、圆圈、三角、菱形、交叉、星星）、加标签。
 - **全部带走**：勾选主题，下面的对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：`memory.md`（Claude 写的交接总结）、`prompts.md`、`conversation.md`、`artifacts/`、`attachments/`。可以设成自动更新。「导入」会为每个文件夹开一个新的置顶对话，附上 artifacts、发进总结，在新账号里也能接着做。
 - **标签**：「进行中」「等别人」「幻灯片」……右键勾选，或者从标签栏拖到对话上；点一下标签，带这个标签的都会高亮。

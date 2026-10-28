@@ -532,7 +532,8 @@ enum AXScan {
         }
         if windows.isEmpty {
             note = winErr == .apiDisabled ? tr("辅助功能授权失效，请在系统设置里删掉再加回来", "Accessibility is off for this build — remove and re-add it in System Settings")
-                                          : tr("Claude 的窗口没打开", "No Claude window is open")
+                                          : tr("Claude 窗口关着：做完的提醒照常，「进行中」等窗口打开再更新",
+                                               "Claude's window is closed: finish alerts still come, live status resumes when it's open")
         }
         // newer Claude apps: the sidebar has no links, read its rows instead
         var foundSidebar = !out.isEmpty

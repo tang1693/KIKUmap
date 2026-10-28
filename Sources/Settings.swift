@@ -1,5 +1,6 @@
 import Cocoa
 import Carbon
+import AVFoundation
 
 /// The three things the app needs from macOS, checked live and opened one at a time.
 @MainActor
@@ -235,6 +236,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     var onArchiveAll: (() -> Void)?
     var onImport: (() -> Void)?
     var archive: Archive?
+    var sounds: Sounds?
     private var archiveStatus: NSTextField?
     private var archiveFolderLabel: NSTextField?
     private var archiveButtons: [NSButton] = []
@@ -295,6 +297,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         add(page(shortcuts()), tr("快捷键", "Shortcuts"), "keyboard")
         add(page(tagsPage()), tr("标签", "Tags"), "tag")
         add(page(archivePage()), tr("导出", "Export"), "square.and.arrow.up")
+        add(page(about()), tr("关于", "About"), "info.circle")
         let w = NSWindow(contentViewController: tabs)
         w.styleMask = [.titled, .closable]
         w.title = tr("设置", "Settings")
@@ -395,24 +398,105 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     }
 
     private func notifications() -> NSView {
-        let names = Sounds.choices + ["off"]
-        func soundPop(_ current: String, _ set: @escaping (String) -> Void) -> NSPopUpButton {
-            popup(names.map { $0 == "off" ? tr("不响", "None") : $0 }, selected: names.firstIndex(of: current) ?? 0) { i in
-                set(names[i])
-                if names[i] != "off" { NSSound(named: NSSound.Name(names[i]))?.play() }
+        // a system sound, your own file, or none
+        func soundPop(_ get: @escaping () -> String, _ set: @escaping (String) -> Void) -> NSPopUpButton {
+            var keys: [String] = []
+            var p: NSPopUpButton!
+            func fill() {
+                let cur = get()
+                keys = Sounds.choices + (cur.hasPrefix("/") ? [cur] : []) + ["other", "off"]
+                p.removeAllItems()
+                p.addItems(withTitles: keys.map { k in
+                    k == "off" ? tr("不响", "None")
+                        : k == "other" ? tr("其他声音文件…", "Other sound file…")
+                        : k.hasPrefix("/") ? "♪ " + URL(fileURLWithPath: k).deletingPathExtension().lastPathComponent : k
+                })
+                p.selectItem(at: keys.firstIndex(of: cur) ?? 0)
             }
+            p = popup([], selected: 0) { i in
+                guard i < keys.count else { return }
+                if keys[i] == "other" {
+                    if let path = Sounds.importFile() { set(path) }
+                    fill()
+                } else {
+                    set(keys[i])
+                }
+                Sounds.sound(get())?.play()
+            }
+            fill()
+            return p
         }
-        let done = soundPop(Prefs.soundDone) { Prefs.soundDone = $0 }
-        let input = soundPop(Prefs.soundInput) { Prefs.soundInput = $0 }
+        let done = soundPop({ Prefs.soundDone }) { Prefs.soundDone = $0 }
+        let input = soundPop({ Prefs.soundInput }) { Prefs.soundInput = $0 }
         let quiet = check(tr("正在看 Claude App 时不响", "Stay quiet while the Claude app is in front"), Prefs.quietWhenClaudeFront) { Prefs.quietWhenClaudeFront = $0 }
+
+        // the chat's name, read aloud after the sound
+        let speak = check(tr("响完再念出是哪个对话", "Then say which chat it was"), Prefs.speak) { Prefs.speak = $0 }
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") || $0.language.hasPrefix("zh") }
+            .sorted { ($0.language, $0.name) < ($1.language, $1.name) }
+        func grade(_ v: AVSpeechSynthesisVoice) -> String {
+            switch v.quality { case .premium: return " ★★"; case .enhanced: return " ★"; default: return "" }
+        }
+        let voicePop = popup([tr("自动（跟着文字的语言）", "Automatic (matches the language)")] + voices.map { "\($0.name) · \($0.language)\(grade($0))" },
+                             selected: (voices.firstIndex { $0.identifier == Prefs.speakVoice }).map { $0 + 1 } ?? 0) { i in
+            Prefs.speakVoice = i == 0 ? nil : voices[i - 1].identifier
+        }
+        let rates = Prefs.speakRates
+        let ratePop = popup([tr("慢", "Slow"), tr("正常", "Normal"), tr("快", "Fast"), tr("更快", "Faster")],
+                            selected: rates.firstIndex { abs($0 - Prefs.speakRate) < 0.01 } ?? 1) { i in Prefs.speakRate = rates[i] }
+        let doneText = ClosureField(string: Prefs.speakDone) { Prefs.speakDone = $0.isEmpty ? "{name}" : $0 }
+        let inputText = ClosureField(string: Prefs.speakInput) { Prefs.speakInput = $0.isEmpty ? "{name}" : $0 }
+        for f in [doneText, inputText] { f.widthAnchor.constraint(equalToConstant: 220).isActive = true }
+        let test = button(tr("试听", "Test")) { [weak self] in self?.window?.makeFirstResponder(nil); self?.sounds?.test() }
+
         let g = grid([
             [label(tr("做完了", "Finished"), width: 140), done],
             [label(tr("需要你操作", "Needs your input"), width: 140), input],
             [NSGridCell.emptyContentView, quiet],
+            [NSGridCell.emptyContentView, speak],
+            [label(tr("念的内容", "What it says"), width: 140), NSStackView(views: [doneText, label(tr("做完了", "finished"), small: true, width: 120)])],
+            [NSGridCell.emptyContentView, NSStackView(views: [inputText, label(tr("在等你", "waiting for you"), small: true, width: 120)])],
+            [label(tr("声音", "Voice"), width: 140), voicePop],
+            [label(tr("语速", "Speed"), width: 140), NSStackView(views: [ratePop, test])],
         ])
-        let note = label(tr("这些提示靠 Claude App 自己的通知。请在 Claude App → 设置 → 通知 里打开「Response completions」。",
-                            "These rely on the Claude app's own notifications. Turn on \"Response completions\" in Claude → Settings → Notifications."), small: true)
-        return vstack([g, note], spacing: 18)
+        let note = label(tr("Claude App 的对话靠它自己的通知：请在 Claude App → 设置 → 通知 里打开「Response completions」。Claude Code 会话靠 设置 → 授权 里连接的 hook。",
+                            "Chats in the Claude app rely on its own notifications: turn on \"Response completions\" in Claude → Settings → Notifications. Claude Code sessions use the hooks connected in Settings → Access."), small: true)
+        let voiceNote = label(tr("{name} 会换成对话名。名字会念出声，周围的人也听得到。想要更自然的声音：系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 管理声音，下载带 ★ 的高质量声音。",
+                                 "{name} becomes the chat's name. It's said out loud, so people nearby hear it too. For a more natural voice: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download a Premium or Enhanced one (★)."), small: true)
+        return vstack([g, voiceNote, note], spacing: 18)
+    }
+
+    static let aboutTab = 6
+    static let links = (site: "https://tang1693.github.io/KIKUmap/", repo: "https://github.com/tang1693/KIKUmap",
+                        issues: "https://github.com/tang1693/KIKUmap/issues", tip: "https://ko-fi.com/vegligi")
+
+    private func about() -> NSView {
+        func open(_ s: String) { if let u = URL(string: s) { NSWorkspace.shared.open(u) } }
+        let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
+        icon.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 72).isActive = true
+        let name = NSTextField(labelWithString: "Kikumap")
+        name.font = .systemFont(ofSize: 22, weight: .bold)
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let head = vstack([name, label(tr("Claude 对话导图", "A mind map for your Claude chats") + " · " + tr("版本 ", "version ") + version, small: true, width: 360)], spacing: 4)
+        let top = NSStackView(views: [icon, head])
+        top.spacing = 16
+        top.alignment = .centerY
+        let by = label(tr("作者：Yang Tang（GitHub @tang1693）", "Made by Yang Tang (GitHub @tang1693)"), bold: true)
+        let story = label(tr("我自己同时开着一堆 Claude 对话，总是忘了哪个做完了、哪个在等我，就做了这个小工具。免费、开源，所有数据都留在你的 Mac 上。",
+                             "I keep a lot of Claude chats open at once and kept losing track of which one had finished or was waiting for me, so I built this. It's free and open source, and everything stays on your Mac."))
+        let links = NSStackView(views: [
+            button(tr("网站", "Website")) { open(SettingsWindow.links.site) },
+            button("GitHub") { open(SettingsWindow.links.repo) },
+            button(tr("反馈问题", "Report an issue")) { open(SettingsWindow.links.issues) },
+        ])
+        links.spacing = 8
+        let tip = button(tr("☕ 请我喝杯咖啡（Ko-fi）", "☕ Buy me a coffee on Ko-fi")) { open(SettingsWindow.links.tip) }
+        let tipNote = label(tr("Kikumap 是免费的。如果它帮你省了时间，可以请我喝杯咖啡；点个 GitHub ⭐ 或者反馈问题也一样有帮助。",
+                               "Kikumap is free. If it saves you time, you can buy me a coffee; a GitHub star or a bug report helps just as much."), small: true)
+        let fine = label(tr("个人独立开源项目，与 Anthropic 无关。MIT 协议。", "An independent open-source project, not affiliated with Anthropic. MIT License."), small: true)
+        return vstack([top, by, story, links, tip, tipNote, fine], spacing: 14)
     }
 
     private func access() -> NSView {

@@ -63,6 +63,44 @@ enum Prefs {
         get { d.object(forKey: "QuietWhenFront") as? Bool ?? true }
         set { d.set(newValue, forKey: "QuietWhenFront") }
     }
+    /// The map window's left column (width, or tucked away) and timeline.
+    static var sideWidth: CGFloat {
+        get { let v = d.double(forKey: "SideWidth"); return v > 0 ? CGFloat(v) : 270 }
+        set { d.set(Double(newValue), forKey: "SideWidth") }
+    }
+    static var sideHidden: Bool {
+        get { d.bool(forKey: "SideHidden") }
+        set { d.set(newValue, forKey: "SideHidden") }
+    }
+    static var timelineHidden: Bool {
+        get { d.bool(forKey: "TimelineHidden") }
+        set { d.set(newValue, forKey: "TimelineHidden") }
+    }
+    /// After the sound, say which chat it was ("Experiment plan is done"). Off until you turn it on:
+    /// the names are spoken out loud.
+    static var speak: Bool {
+        get { d.bool(forKey: "Speak") }
+        set { d.set(newValue, forKey: "Speak") }
+    }
+    /// A voice identifier; nil picks one that matches the language of what's said.
+    static var speakVoice: String? {
+        get { d.string(forKey: "SpeakVoice") }
+        set { d.set(newValue, forKey: "SpeakVoice") }
+    }
+    static let speakRates: [Float] = [0.42, 0.5, 0.56, 0.62]
+    static var speakRate: Float {
+        get { (d.object(forKey: "SpeakRate") as? NSNumber)?.floatValue ?? 0.5 }
+        set { d.set(newValue, forKey: "SpeakRate") }
+    }
+    /// What's said; {name} is the chat.
+    static var speakDone: String {
+        get { d.string(forKey: "SpeakDone") ?? tr("{name} 做完了", "{name} is done") }
+        set { d.set(newValue, forKey: "SpeakDone") }
+    }
+    static var speakInput: String {
+        get { d.string(forKey: "SpeakInput") ?? tr("{name} 在等你", "{name} needs you") }
+        set { d.set(newValue, forKey: "SpeakInput") }
+    }
 
     @MainActor
     static func applyAppearance() {

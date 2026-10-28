@@ -1,22 +1,86 @@
 import Cocoa
+import AVFoundation
+import UniformTypeIdentifiers
 
-/// Attention sounds (macOS system sounds, chosen in the menu).
+/// Attention sounds (a macOS system sound or your own file, chosen in Settings) and, if you like,
+/// the chat's name read aloud right after.
 @MainActor
 final class Sounds {
     static let choices = ["Glass", "Hero", "Ping", "Submarine", "Funk", "Purr", "Pop"]
+    /// Your own sound files are copied here (data/sounds), so they still play if the original moves.
+    static var folder: URL?
+    /// The name to say for a chat.
+    var nameOf: ((String) -> String)?
     private var last = Date.distantPast
+    private var said: [String: Date] = [:]
+    private let voice = AVSpeechSynthesizer()
 
     func play(_ events: [Store.Event]) {
-        guard !events.isEmpty, Date().timeIntervalSince(last) > 3 else { return }
+        guard !events.isEmpty else { return }
         if Prefs.quietWhenClaudeFront && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == claudeBundleID { return }
         let needsInput = events.contains { if case .needsInput = $0 { return true }; return false }
-        preview(needsInput ? Prefs.soundInput : Prefs.soundDone)
+        var rang = false
+        if Date().timeIntervalSince(last) > 3 {
+            let s = needsInput ? Prefs.soundInput : Prefs.soundDone
+            preview(s)
+            rang = s != "off"
+        }
+        guard Prefs.speak, let nameOf = nameOf else { return }
+        for e in events.prefix(3) {
+            let (id, waiting): (String, Bool)
+            switch e { case .finished(let i): (id, waiting) = (i, false); case .needsInput(let i): (id, waiting) = (i, true) }
+            // the same news about the same chat is said once
+            let key = id + (waiting ? "?" : ".")
+            if let t = said[key], Date().timeIntervalSince(t) < 30 { continue }
+            said[key] = Date()
+            say((waiting ? Prefs.speakInput : Prefs.speakDone).replacingOccurrences(of: "{name}", with: nameOf(id)),
+                after: rang ? 0.7 : 0)
+            rang = false
+        }
     }
 
     func preview(_ name: String) {
         guard name != "off" else { return }
         last = Date()
-        NSSound(named: NSSound.Name(name))?.play()
+        Sounds.sound(name)?.play()
+    }
+
+    func say(_ text: String, after delay: Double = 0) {
+        let u = AVSpeechUtterance(string: text)
+        u.rate = Prefs.speakRate
+        u.preUtteranceDelay = delay
+        u.voice = Prefs.speakVoice.flatMap { AVSpeechSynthesisVoice(identifier: $0) }
+            ?? AVSpeechSynthesisVoice(language: text.range(of: "\\p{Han}", options: .regularExpression) != nil || !Prefs.english ? "zh-CN" : "en-US")
+        voice.speak(u)
+    }
+
+    /// Settings → Test: the "finished" sound, then the sentence with a made-up chat.
+    func test() {
+        last = .distantPast
+        preview(Prefs.soundDone)
+        if Prefs.speak {
+            say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("实验计划", "Experiment plan")), after: Prefs.soundDone == "off" ? 0 : 0.7)
+        }
+    }
+
+    /// A system sound by name, or one of your own files (a path).
+    static func sound(_ name: String) -> NSSound? {
+        name.hasPrefix("/") ? NSSound(contentsOf: URL(fileURLWithPath: name), byReference: true) : NSSound(named: NSSound.Name(name))
+    }
+
+    /// Picks an audio file and keeps a copy with your data. Returns its path.
+    static func importFile() -> String? {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [.audio]
+        p.message = tr("选一个声音文件，几秒钟的短音最合适", "Pick a sound file; a short one works best")
+        guard p.runModal() == .OK, let src = p.url, let dir = folder else { return nil }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dst = dir.appendingPathComponent(src.lastPathComponent)
+        if dst.standardizedFileURL != src.standardizedFileURL {
+            try? FileManager.default.removeItem(at: dst)
+            guard (try? FileManager.default.copyItem(at: src, to: dst)) != nil else { return nil }
+        }
+        return dst.path
     }
 }
 
@@ -38,6 +102,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openPermissions: (() -> Void)?
     var openRoutines: (() -> Void)?
     var openSettings: (() -> Void)?
+    var openAbout: (() -> Void)?
     var syncNote: (() -> String?)?
     private var spin: Timer?
     private var phase: CGFloat = 0
@@ -256,11 +321,14 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         let st = menu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(settings), keyEquivalent: ",")
         st.target = self
+        let ab = menu.addItem(withTitle: tr("关于 Kikumap", "About Kikumap"), action: #selector(about), keyEquivalent: "")
+        ab.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: tr("退出 Kikumap", "Quit Kikumap"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
     @objc private func settings() { openSettings?() }
+    @objc private func about() { openAbout?() }
 
     @objc private func openItem(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }

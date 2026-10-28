@@ -85,14 +85,18 @@ final class HeaderView: NSView {
     var actions: [(String, Bool, () -> Void)] = [] { didSet { rebuildButtons() } }
     var onSettings: (() -> Void)?
     var onLights: (() -> Void)?
+    var onToggleSide: (() -> Void)?
+    var onToggleTimeline: (() -> Void)?
     private lazy var gear = IconButton("gearshape", tip: tr("设置", "Settings")) { [weak self] in self?.onSettings?() }
     private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
+    private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
+    private lazy var timelineBtn = IconButton("rectangle.bottomthird.inset.filled", tip: tr("显示 / 隐藏时间线", "Show / hide the timeline")) { [weak self] in self?.onToggleTimeline?() }
 
     override var isFlipped: Bool { true }
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if gear.superview == nil { addSubview(lights); addSubview(gear) }
+        if gear.superview == nil { [sideBtn, timelineBtn, lights, gear].forEach(addSubview) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -100,12 +104,16 @@ final class HeaderView: NSView {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         lights.setSymbol(dark ? "sun.max" : "moon")
         gear.setSymbol("gearshape")
+        sideBtn.setSymbol("sidebar.left")
+        timelineBtn.setSymbol("rectangle.bottomthird.inset.filled")
         needsDisplay = true
     }
 
     func relabel() {
         gear.toolTip = tr("设置", "Settings")
         lights.toolTip = tr("开关灯（浅色 / 深色）", "Lights (light / dark)")
+        sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
+        timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
     }
 
     private func rebuildButtons() {
@@ -128,7 +136,7 @@ final class HeaderView: NSView {
         super.layout()
         let midY = (bounds.height - 1) / 2
         var x = bounds.width - 14
-        for b in [gear, lights] {
+        for b in [gear, lights, timelineBtn, sideBtn] {
             x -= 28
             b.frame = NSRect(x: x, y: midY - 13, width: 28, height: 26)
         }
@@ -590,6 +598,28 @@ final class TagShelfView: NSView, NSDraggingSource {
     }
 }
 
+/// The edge of the left column or the timeline: drag it to resize, or past a point to tuck the pane
+/// away (drag it back out to bring it back). Double-click shows or hides it.
+final class PaneDivider: NSView {
+    let sideways: Bool
+    var onDrag: ((CGFloat) -> Void)?        // the pointer in the window's content view
+    var onToggle: (() -> Void)?
+
+    init(sideways: Bool) {
+        self.sideways = sideways
+        super.init(frame: .zero)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: sideways ? .resizeLeftRight : .resizeUpDown) }
+    override func mouseDown(with e: NSEvent) { if e.clickCount == 2 { onToggle?() } }
+    override func mouseDragged(with e: NSEvent) {
+        guard let s = superview else { return }
+        let p = s.convert(e.locationInWindow, from: nil)
+        onDrag?(sideways ? p.x : p.y)
+    }
+}
+
 /// The map window: header, sidebar, map.
 @MainActor
 final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
@@ -605,10 +635,13 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     private let hint = NSTextField(labelWithString: "")
     private let search = NSSearchField()
     private let searchCount = NSTextField(labelWithString: "")
+    private let line = ColorView(Theme.faint)
+    private let sideEdge = PaneDivider(sideways: true)
+    private let timelineEdge = PaneDivider(sideways: false)
 
     static func hintText() -> String {
-        tr("⌘F 搜索 · ⇧拖动框选/⌘点击 多选 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 双击对话/空格 打开 · ⌘0 适应窗口",
-           "⌘F search · ⇧-drag or ⌘-click to select several · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · space open · ⌘0 fit")
+        tr("拖动空白处框选 · ⇧/⌘点击 加选 · 按住空格或双指 移动导图 · ⌘F 搜索 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 双击对话/空格 打开 · ⌘0 适应窗口",
+           "drag empty space to select · ⇧/⌘-click adds · hold space or use two fingers to move the map · ⌘F search · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · tap space open · ⌘0 fit")
             + (Prefs.hotKeyEnabled ? " · " + Prefs.hotKeyLabel() + tr(" 调出/收起", " show/hide") : "")
     }
 
@@ -661,7 +694,6 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         root.addSubview(tags)
         tags.onHighlight = { [weak self] id in self?.map.highlightTag = id }
 
-        let line = ColorView(Theme.faint)
         line.frame = NSRect(x: sideW, y: tlH, width: 1, height: H - headH - tlH)
         line.autoresizingMask = [.height]
         root.addSubview(line)
@@ -720,9 +752,51 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         timeline.autoresizingMask = [.width, .maxYMargin]
         root.addSubview(timeline)
 
+        // the column's and the timeline's edges: drag to resize or tuck away
+        sideEdge.onDrag = { [weak self] x in
+            if x < 120 { Prefs.sideHidden = true } else { Prefs.sideHidden = false; Prefs.sideWidth = min(440, max(200, x)) }
+            self?.layoutPanes()
+        }
+        sideEdge.onToggle = { [weak self] in self?.toggleSidebar() }
+        timelineEdge.onDrag = { [weak self] y in
+            Prefs.timelineHidden = y < 60
+            self?.layoutPanes()
+        }
+        timelineEdge.onToggle = { [weak self] in self?.toggleTimeline() }
+        root.addSubview(sideEdge)
+        root.addSubview(timelineEdge)
+        header.onToggleSide = { [weak self] in self?.toggleSidebar() }
+        header.onToggleTimeline = { [weak self] in self?.toggleTimeline() }
+        layoutPanes()
+
         window.center()
         window.setFrameAutosaveName("ClaudeConsoleMain")
     }
+
+    /// Where the panes go, from the window size and whether the left column and the timeline are shown.
+    func layoutPanes() {
+        guard let root = window.contentView else { return }
+        let W = root.bounds.width, H = root.bounds.height, headH = header.frame.height
+        let sideW = Prefs.sideHidden ? 0 : Prefs.sideWidth
+        let tlH: CGFloat = Prefs.timelineHidden ? 0 : 130
+        timeline.frame = NSRect(x: 0, y: 0, width: W, height: tlH)
+        timeline.isHidden = tlH == 0
+        let midH = H - headH - tlH
+        [sideScroll, tags, line].forEach { $0.isHidden = sideW == 0 }
+        line.frame = NSRect(x: sideW, y: tlH, width: 1, height: midH)
+        sideScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: midH)
+        let mapX = sideW == 0 ? 0 : sideW + 1
+        mapScroll.frame = NSRect(x: mapX, y: tlH, width: W - mapX, height: midH)
+        hint.frame = NSRect(x: mapX + 16, y: tlH + 6, width: W - mapX - 32, height: 16)
+        sideEdge.frame = NSRect(x: max(0, sideW - 3), y: tlH, width: 6, height: midH)
+        timelineEdge.frame = NSRect(x: 0, y: max(0, tlH - 3), width: W, height: 6)
+        window.invalidateCursorRects(for: sideEdge)
+        window.invalidateCursorRects(for: timelineEdge)
+        if sideW > 0 { layoutLeft() }
+    }
+
+    func toggleSidebar() { Prefs.sideHidden.toggle(); layoutPanes() }
+    func toggleTimeline() { Prefs.timelineHidden.toggle(); layoutPanes() }
 
     /// The tag shelf grows with its tags; the pinned list takes the rest of the column.
     private func layoutLeft() {
@@ -733,11 +807,11 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         sideScroll.frame = NSRect(x: 0, y: bottom + h, width: sideW, height: max(60, top - bottom - h))
     }
 
-    func windowDidResize(_ notification: Notification) { layoutLeft() }
+    func windowDidResize(_ notification: Notification) { layoutPanes() }
 
     func reload() {
         sidebar.phase = map.spinPhase
-        layoutLeft()
+        if !Prefs.sideHidden { layoutLeft() }
         tags.reload()
         sidebar.reload()
         map.reload()

@@ -72,6 +72,9 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var editingText: String?
     private var pressed: (key: String, at: NSPoint)?
     private var pan: (start: NSPoint, origin: NSPoint)?
+    /// Space held down: the map follows the mouse, no click needed. A quick tap still opens the chat.
+    private var spaceHeld: (at: Date, last: NSPoint, moved: Bool)?
+    private var moveTracking: NSTrackingArea?
     /// Keys of the item being dragged and everything under it.
     private var dragged = Set<String>()
     private var drag: Drag?
@@ -924,6 +927,13 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func keyDown(with e: NSEvent) {
         if drag?.fromMap == true, e.keyCode == 53 { cancelDrag(); return }        // esc: put it back
+        if e.keyCode == 49 && e.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            if spaceHeld == nil && !e.isARepeat {
+                spaceHeld = (Date(), window?.mouseLocationOutsideOfEventStream ?? .zero, false)
+                NSCursor.openHand.push()
+            }
+            return
+        }
         let f = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let cmd = f.contains(.command), opt = f.contains(.option), shift = f.contains(.shift)
         let map = store.map
@@ -955,7 +965,6 @@ final class MapView: NSView, NSTextFieldDelegate {
             else if shift { addTopicUnderRoot() }
             else { changed(select: map.addSibling(k, above: opt), edit: true) }
         case 51, 117: changed(select: map.remove(k, keepChildren: opt))                  // delete
-        case 49: if let id = byKey[k]?.chatId { onOpen?(id) }                            // space
         case 120: startEdit(k)                                                           // F2
         case 126: if cmd { map.reorder(k, by: -1); changed(select: k) } else { nav("up") }
         case 125: if cmd { map.reorder(k, by: 1); changed(select: k) } else { nav("down") }
@@ -964,6 +973,45 @@ final class MapView: NSView, NSTextFieldDelegate {
         case 47 where opt: map.toggleFold(k); changed(select: k)                         // ⌥.
         default: super.keyDown(with: e)
         }
+    }
+
+    override func keyUp(with e: NSEvent) {
+        guard e.keyCode == 49, let h = endSpace() else { super.keyUp(with: e); return }
+        // a quick tap: open the chat in Claude
+        if !h.moved && Date().timeIntervalSince(h.at) < 0.35, let k = sel, let id = byKey[k]?.chatId { onOpen?(id) }
+    }
+
+    @discardableResult
+    private func endSpace() -> (at: Date, last: NSPoint, moved: Bool)? {
+        guard let h = spaceHeld else { return nil }
+        spaceHeld = nil
+        NSCursor.pop()
+        return h
+    }
+
+    override func resignFirstResponder() -> Bool {
+        endSpace()
+        return super.resignFirstResponder()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let t = moveTracking { removeTrackingArea(t) }
+        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(t)
+        moveTracking = t
+    }
+
+    override func mouseMoved(with e: NSEvent) {
+        guard var h = spaceHeld else { return }
+        let m = enclosingScrollView?.magnification ?? 1
+        let p = e.locationInWindow
+        let dx = p.x - h.last.x, dy = p.y - h.last.y
+        h.last = p
+        if dx != 0 || dy != 0 { h.moved = true }
+        spaceHeld = h
+        let o = visibleRect.origin
+        scroll(NSPoint(x: o.x - dx / m, y: o.y + dy / m))
     }
 
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
@@ -976,9 +1024,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             let ok = f.contains(.shift) ? store.map.redo() : store.map.undo()
             if ok { store.notify() }
             return true
-        case ("a", _):
-            setSelection(Set(all.filter { $0.kind != .root }.map(\.key)), lead: sel)
-            return true
+        case ("a", _): selectAll(nil); return true
         case ("=", _), ("+", _): zoom(1.15); return true
         case ("-", _): zoom(1 / 1.15); return true
         case ("0", _): fit(); return true
@@ -1113,15 +1159,32 @@ final class MapView: NSView, NSTextFieldDelegate {
                 return
             }
             if v.kind != .root { pressed = (v.key, p) }
-        } else if adding {
-            band = (p, p, selection.filter { byKey[$0]?.kind != .root })
-        } else if e.clickCount == 2 {
+        } else if e.clickCount == 2 && !adding {
             addTopicUnderRoot()
+        } else if e.modifierFlags.contains(.option) || spaceHeld != nil {
+            // ⌥-drag moves the map (a trackpad does it with two fingers, a mouse with its middle button)
+            startPan(e)
         } else {
-            select(nil)
-            pan = (e.locationInWindow, visibleRect.origin)
-            NSCursor.closedHand.push()
+            // dragging on empty space draws a box: what it touches gets selected (⇧/⌘: added to the selection)
+            if !adding { select(nil) }
+            band = (p, p, adding ? selection.filter { byKey[$0]?.kind != .root } : [])
         }
+    }
+
+    private func startPan(_ e: NSEvent) {
+        if spaceHeld == nil { select(nil) }
+        spaceHeld?.moved = true
+        pan = (e.locationInWindow, visibleRect.origin)
+        NSCursor.closedHand.push()
+    }
+
+    override func otherMouseDown(with e: NSEvent) { startPan(e) }
+    override func otherMouseDragged(with e: NSEvent) { mouseDragged(with: e) }
+    override func otherMouseUp(with e: NSEvent) { mouseUp(with: e) }
+
+    /// Edit → Select All (⌘A).
+    override func selectAll(_ sender: Any?) {
+        setSelection(Set(all.filter { $0.kind != .root }.map(\.key)), lead: sel)
     }
 
     override func mouseDragged(with e: NSEvent) {

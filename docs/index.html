@@ -277,8 +277,10 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Menu bar</span><span lang="zh">菜单栏</span></p>
           <h3><span lang="en">Know what Claude is doing</span><span lang="zh">随时知道 Claude 在干什么</span></h3>
-          <p lang="en">One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval. Optional sounds tell you without looking.</p>
-          <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。还可以开提示音，不用一直盯着。</p>
+          <p lang="en">One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval.</p>
+          <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
+          <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。</p>
+          <p lang="zh"><b>听声音就知道：</b>对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”），声音、语速、念的内容都能自己改，也可以换成自己的声音文件。</p>
           <p lang="en">Works with the Claude desktop app and with Claude Code: Terminal, VS Code, and the app's Code mode.</p>
           <p lang="zh">支持 Claude 桌面 App，也支持 Claude Code（终端、VS Code、App 的 Code 模式）。</p>
         </div>
@@ -291,8 +293,8 @@
           <h3><span lang="en">Your chats, as a map</span><span lang="zh">对话变成一张导图</span></h3>
           <p lang="en">The left column mirrors the chats you pinned in Claude, <b>in Claude's order</b>, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
           <p lang="zh">左栏是你在 Claude 里置顶的对话，<b>顺序和 Claude 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
-          <p lang="en"><b>Several at once:</b> <kbd>⌘</kbd>-click or <kbd>⇧</kbd>-click in the left column, or <kbd>⇧</kbd>-drag a box on the map, then drag any one of them. They all come along, in order.</p>
-          <p lang="zh"><b>一次拖好几个：</b>在左栏 <kbd>⌘</kbd> 或 <kbd>⇧</kbd> 点击，或者在导图上按住 <kbd>⇧</kbd> 拖出选框，然后拖其中任意一个，选中的会按顺序一起过去。</p>
+          <p lang="en"><b>Several at once:</b> drag a box on empty space (or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click), or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click in the left column, then drag any one of them. They all come along, in order. Hold <kbd>space</kbd> and move the mouse, or swipe with two fingers, to move around.</p>
+          <p lang="zh"><b>一次拖好几个：</b>在导图空白处拖出选框（或 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击），或在左栏 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住<kbd>空格</kbd>移动鼠标、或双指滑动，就能移动导图。</p>
           <p lang="en">Real conversations carry a small orange mark. Double-click one, or press space, to open it in Claude.</p>
           <p lang="zh">真正的对话前面有橙色小标记。双击或按空格，就会在 Claude 里打开它。</p>
         </div>
@@ -470,6 +472,11 @@
           <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>
           <p lang="en">Yes: in Terminal, VS Code and the Claude app's Code mode. Click <i>Connect</i> and Kikumap adds its hooks to <code>~/.claude/settings.json</code>, backing up the old file first.</p>
           <p lang="zh">支持，终端、VS Code 和 Claude App 的 Code 模式都可以。点「连接」后，Kikumap 会把 hooks 写进 <code>~/.claude/settings.json</code>，原文件会先备份。</p>
+        </details>
+        <details>
+          <summary><span lang="en">What if I close Claude's window with ⌘W?</span><span lang="zh">用 ⌘W 关了 Claude 的窗口怎么办？</span></summary>
+          <p lang="en">That only hides it: Claude keeps running and still sends its "finished" notifications, so Kikumap still marks chats as done and plays its sound. The live "running" spinner reads Claude's sidebar, so it waits until the window is back. Claude Code sessions aren't affected.</p>
+          <p lang="zh">Claude 的 ⌘W 其实只是把窗口藏起来，App 还在运行，做完的通知照常发出，所以 Kikumap 照样标记做完、照样响提示音。只有「进行中」的转圈要读 Claude 的侧边栏，要等窗口回来再更新。Claude Code 会话完全不受影响。</p>
         </details>
         <details>
           <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span></summary>
