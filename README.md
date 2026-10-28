@@ -65,7 +65,7 @@ The left column mirrors the chats you pinned in Claude, **in Claude's order**, a
 
 **Several at once:** drag a box on empty space (or ⌘/⇧-click), or ⌘/⇧-click in the left column, then drag any one of them. They all come along, in order. Hold space and move the mouse, or swipe with two fingers, to move around the map. The left column and the timeline can be hidden (⌃⌘S, ⌃⌘T) or resized by dragging their edge.
 
-Real conversations carry a small orange mark, so they stand apart from plain topics. Double-click or press space on one to open it in Claude.
+Real conversations carry a small orange mark, so they stand apart from plain topics. Hover one for two buttons: open it in Claude, or mark it unread again (⇧⌘U) so it waits for you until you've opened it.
 
 </td>
 <td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Shift-dragging a box selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
@@ -209,7 +209,8 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ⌘Z / ⇧⌘Z | undo / redo |
 | ⌘F | search |
 | ⌘E / ⇧⌘E | export the map as PDF / export chats |
-| tap space, double-click a chat | open it in Claude |
+| hover a chat → ↗, tap space | open it in Claude |
+| ⇧⌘U, hover a chat → ✉ | mark a chat unread / read |
 | pinch, ⌘= ⌘- ⌘0 | zoom, fit |
 | ⌃⌥C (changeable) | show / hide the map from anywhere |
 

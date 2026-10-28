@@ -640,8 +640,8 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     private let timelineEdge = PaneDivider(sideways: false)
 
     static func hintText() -> String {
-        tr("拖动空白处框选 · ⇧/⌘点击 加选 · 按住空格或双指 移动导图 · ⌘F 搜索 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 双击对话/空格 打开 · ⌘0 适应窗口",
-           "drag empty space to select · ⇧/⌘-click adds · hold space or use two fingers to move the map · ⌘F search · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · tap space open · ⌘0 fit")
+        tr("拖动空白处框选 · ⇧/⌘点击 加选 · 按住空格或双指 移动导图 · ⌘F 搜索 · 右键 颜色/标签 · ⇥ 子主题 · ⏎ 同级主题 · 双击空白 新主题 · ⌘⏎/双击 改名 · ⌫ 删除 · ⌥. 折叠 · ⌘↑↓ 调顺序 · ⌘Z 撤销 · 悬停对话：打开 / 标为未读（⇧⌘U）· ⌘0 适应窗口",
+           "drag empty space to select · ⇧/⌘-click adds · hold space or use two fingers to move the map · ⌘F search · right-click colour/tags · ⇥ subtopic · ⏎ sibling · double-click empty space new topic · ⌘⏎ rename · ⌫ delete · ⌥. fold · ⌘↑↓ reorder · ⌘Z undo · hover a chat: open / mark unread (⇧⌘U) · ⌘0 fit")
             + (Prefs.hotKeyEnabled ? " · " + Prefs.hotKeyLabel() + tr(" 调出/收起", " show/hide") : "")
     }
 

@@ -75,6 +75,9 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// Space held down: the map follows the mouse, no click needed. A quick tap still opens the chat.
     private var spaceHeld: (at: Date, last: NSPoint, moved: Bool)?
     private var moveTracking: NSTrackingArea?
+    /// The chat under the pointer: it shows its buttons (open in Claude, unread / read).
+    private var hoverChat: String?
+    private enum ChatAction { case open, unread }
     /// Keys of the item being dragged and everything under it.
     private var dragged = Set<String>()
     private var drag: Drag?
@@ -708,6 +711,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             p.lineWidth = 2; p.stroke()
         }
         if v.kind != .chat { drawBadges(v) }
+        if v.kind == .chat && showsButtons(v) { drawChatButtons(v) }
         if (v.kind == .main || v.kind == .sub) && v.hasKids && (v.collapsed || sel == v.key) { drawFold(v) }
     }
 
@@ -817,6 +821,69 @@ final class MapView: NSView, NSTextFieldDelegate {
         let label = v.collapsed ? String(v.count) : "−"
         let ts = label.size(badgeF)
         (label as NSString).draw(at: NSPoint(x: f.midX - ts.width / 2, y: f.midY - ts.height / 2), withAttributes: [.font: badgeF, .foregroundColor: Theme.ink])
+    }
+
+    // MARK: a chat's buttons
+
+    private func showsButtons(_ v: VNode) -> Bool {
+        drag == nil && band == nil && editing?.key != v.key && (hoverChat == v.key || (sel == v.key && group.isEmpty))
+    }
+
+    /// Open in Claude, and unread / read (not while it's running), just outside the chat's outer edge.
+    private func chatButtons(_ v: VNode) -> [(NSRect, ChatAction)] {
+        guard let id = v.chatId else { return [] }
+        let acts: [ChatAction] = store.isRunning(id) ? [.open] : [.open, .unread]
+        let w: CGFloat = 24, h: CGFloat = 20, gap: CGFloat = 4
+        let midY = v.state == 0 ? v.frame.minY + 3 + textH(chatF) / 2 : v.frame.midY
+        var x = v.dir > 0 ? v.frame.maxX + 8 : v.frame.minX - 8 - w
+        return acts.map { a in
+            defer { x += v.dir > 0 ? w + gap : -(w + gap) }
+            return (NSRect(x: x, y: midY - h / 2, width: w, height: h), a)
+        }
+    }
+
+    private func chatButtonHit(_ p: NSPoint) -> (String, ChatAction)? {
+        for v in all where v.kind == .chat && showsButtons(v) {
+            if let b = chatButtons(v).first(where: { $0.0.insetBy(dx: -2, dy: -2).contains(p) }) { return (v.key, b.1) }
+        }
+        return nil
+    }
+
+    private func run(_ a: ChatAction, on key: String) {
+        guard let id = byKey[key]?.chatId else { return }
+        switch a {
+        case .open: onOpen?(id)
+        case .unread: store.setUnread([id], !store.isUnread(id: id))
+        }
+    }
+
+    private func setHover(_ k: String?) {
+        guard k != hoverChat else { return }
+        hoverChat = k
+        needsDisplay = true
+        removeAllToolTips()
+        if let k = k, let v = byKey[k], let id = v.chatId {
+            for (r, a) in chatButtons(v) {
+                let tip = a == .open ? tr("在 Claude 里打开", "Open in Claude")
+                    : (store.isUnread(id: id) ? tr("标为已读  ⇧⌘U", "Mark as read  ⇧⌘U") : tr("标为未读  ⇧⌘U", "Mark as unread  ⇧⌘U"))
+                addToolTip(r, owner: tip as NSString, userData: nil)
+            }
+        }
+    }
+
+    private func drawChatButtons(_ v: VNode) {
+        guard let id = v.chatId else { return }
+        let cfg = NSImage.SymbolConfiguration(pointSize: 10.5, weight: .semibold)
+        for (r, a) in chatButtons(v) {
+            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+            Theme.paper.setFill(); p.fill()
+            Theme.line.setStroke(); p.lineWidth = 1; p.stroke()
+            let name = a == .open ? "arrow.up.forward" : (store.isUnread(id: id) ? "envelope.open" : "envelope.badge")
+            guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { continue }
+            let tinted = NSImage(size: img.size, flipped: false) { b in img.draw(in: b); Theme.ink.set(); b.fill(using: .sourceAtop); return true }
+            let s = img.size
+            tinted.draw(in: NSRect(x: r.midX - s.width / 2, y: r.midY - s.height / 2, width: s.width, height: s.height))
+        }
     }
 
     // MARK: hit testing
@@ -997,13 +1064,21 @@ final class MapView: NSView, NSTextFieldDelegate {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let t = moveTracking { removeTrackingArea(t) }
-        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil)
+        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil)
         addTrackingArea(t)
         moveTracking = t
     }
 
+    override func mouseExited(with e: NSEvent) { setHover(nil) }
+
     override func mouseMoved(with e: NSEvent) {
-        guard var h = spaceHeld else { return }
+        guard var h = spaceHeld else {
+            // a chat under the pointer (or its buttons, still) shows its buttons
+            let p = convert(e.locationInWindow, from: nil)
+            if let k = hoverChat, let v = byKey[k], chatButtons(v).contains(where: { $0.0.insetBy(dx: -4, dy: -4).contains(p) }) { return }
+            setHover(hit(p).flatMap { $0.kind == .chat ? $0.key : nil })
+            return
+        }
         let m = enclosingScrollView?.magnification ?? 1
         let p = e.locationInWindow
         let dx = p.x - h.last.x, dy = p.y - h.last.y
@@ -1025,6 +1100,10 @@ final class MapView: NSView, NSTextFieldDelegate {
             if ok { store.notify() }
             return true
         case ("a", _): selectAll(nil); return true
+        case ("u", _) where f.contains(.shift):
+            let ids = selection.compactMap { byKey[$0]?.chatId }
+            if !ids.isEmpty { store.setUnread(ids, !ids.allSatisfy { store.isUnread(id: $0) }) }
+            return true
         case ("=", _), ("+", _): zoom(1.15); return true
         case ("-", _): zoom(1 / 1.15); return true
         case ("0", _): fit(); return true
@@ -1139,6 +1218,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(self)
         narrowOnUp = nil
         let adding = !e.modifierFlags.intersection([.shift, .command]).isEmpty
+        if !adding, let (k, a) = chatButtonHit(p) { run(a, on: k); return }
         if !adding, let v = foldHit(p) { store.map.toggleFold(v.key); changed(select: v.key); return }
         if let v = hit(p) {
             if adding {
@@ -1154,10 +1234,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             } else {
                 select(v.key)
             }
-            if e.clickCount == 2 {
-                if let id = v.chatId { onOpen?(id) } else { startEdit(v.key) }
-                return
-            }
+            if e.clickCount == 2 { startEdit(v.key); return }
             if v.kind != .root { pressed = (v.key, p) }
         } else if e.clickCount == 2 && !adding {
             addTopicUnderRoot()
@@ -1245,7 +1322,13 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         m.addItem(.separator())
         if let id = v.chatId {
-            add(tr("在 Claude 里打开", "Open in Claude"), " ") { [weak self] in self?.onOpen?(id) }
+            add(tr("在 Claude 里打开", "Open in Claude")) { [weak self] in self?.onOpen?(id) }
+            if !store.isRunning(id) {
+                let unread = store.isUnread(id: id)
+                add(unread ? tr("标为已读", "Mark as read") : tr("标为未读", "Mark as unread"), "u", [.shift, .command]) { [weak self] in
+                    self?.store.setUnread([id], !unread)
+                }
+            }
             if store.chat(id)?.isCode == false {
                 add(tr("让 Claude 写总结存档…", "Archive a summary…")) { [weak self] in self?.onArchive?(id) }
             }

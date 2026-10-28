@@ -221,6 +221,20 @@ final class Store {
 
     func markAllSeen() { markSeen(unreadChats.map { $0.id }) }
 
+    /// Unread again (from the map): stays until you open the chat in Claude, or mark it read.
+    func setUnread(_ ids: [String], _ on: Bool) {
+        guard on else { markSeen(ids); return }
+        var changed = false
+        for id in ids {
+            guard let i = index[id], !running.contains(id) else { continue }
+            if chats[i].updated_at.isEmpty { chats[i].updated_at = Clock.iso(); changed = true }
+            seen[id] = ""
+        }
+        if changed { saveChats() }
+        saveSeen()
+        notify()
+    }
+
     private func saveSeen() {
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys, .prettyPrinted]
