@@ -31,9 +31,7 @@
 
 You pinned a dozen chats in Claude. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style.
 
-<p align="center">
-  <a href="https://tang1693.github.io/KIKU/#tour"><img src="docs/demo/intro-poster.jpg" width="560" alt="Watch the 40-second tour"></a>
-</p>
+https://github.com/user-attachments/assets/3b1f6eea-4903-423b-8a90-609a24e03a06
 
 > [!NOTE]
 > **Beta.** The Claude app has no public API, so Kikumap reads its window through macOS Accessibility. When Claude changes its interface, parts of Kikumap may stop working until it's updated. Kikumap is an independent project, not made by or affiliated with Anthropic.
