@@ -56,6 +56,9 @@ final class Store {
     private(set) var seen: [String: String] = [:]
     var running = Set<String>()
     var axUnread = Set<String>()
+    /// ChatGPT threads unread here, following the dot ChatGPT shows (`gptListed` is its own list as last read).
+    var gptUnread = Set<String>()
+    private var gptListed: Set<String>?
     let map: MapModel
     private var observers: [() -> Void] = []
     private(set) var intervals: [Interval] = []
@@ -120,7 +123,8 @@ final class Store {
 
     func isUnread(_ c: Chat) -> Bool {
         if running.contains(c.id) { return false }
-        if axUnread.contains(c.id) { return true }
+        if axUnread.contains(c.id) || gptUnread.contains(c.id) { return true }
+        if c.isGPT && gptListed != nil { return false }       // ChatGPT says which ones are unread
         return !c.updated_at.isEmpty && c.updated_at > (seen[c.id] ?? "")
     }
 
@@ -129,12 +133,12 @@ final class Store {
         return isUnread(c)
     }
 
-    /// Only pinned chats are shown. Until the Claude sidebar has been read, nothing is (the sidebar
-    /// says why) — never every chat. Claude Code sessions show while they run or wait for you, for 12 hours after, or for good once
-    /// you pin them here or file them on the map.
+    /// Only pinned chats are shown — pinned in Claude, or in ChatGPT for its threads. Until the Claude sidebar has
+    /// been read, nothing is (the sidebar says why) — never every chat. Claude Code sessions show while they run or
+    /// wait for you, for 12 hours after, or for good once you pin them here or file them on the map.
     var pinsKnown: Bool { chats.contains { !$0.outsideClaude && $0.pinned != nil } }
     func isShown(_ c: Chat) -> Bool {
-        if c.outsideClaude {
+        if c.isCode {
             // linked to the Claude app (Remote Control): shown through Claude's chat — only if that one is pinned
             if c.linked == true && chats.contains(where: { !$0.isCode && $0.pinned == true && $0.title == c.title }) { return false }
             if c.pinned == true || running.contains(c.id) || isUnread(c) || map.placedChats().contains(c.id) { return true }
@@ -258,6 +262,7 @@ final class Store {
             let u = chat(id)?.updated_at ?? ""
             seen[id] = u.isEmpty ? Clock.iso() : u
             axUnread.remove(id)
+            gptUnread.remove(id)
         }
         saveSeen()
         notify()
@@ -273,6 +278,7 @@ final class Store {
             guard let i = index[id], !running.contains(id) else { continue }
             if chats[i].updated_at.isEmpty { chats[i].updated_at = Clock.iso(); changed = true }
             seen[id] = ""
+            if chats[i].isGPT { gptUnread.insert(id) }
         }
         if changed { saveChats() }
         saveSeen()
@@ -487,14 +493,14 @@ final class Store {
     // MARK: ChatGPT
 
     /// The ChatGPT app's threads, read from ~/.codex. Returns sounds to play. Pins follow ChatGPT's.
-    func apply(gpt threads: [GPTThread], front: Bool) -> [Event] {
+    func apply(gpt threads: [GPTThread], unread: Set<String>?, front: Bool) -> [Event] {
         var events: [Event] = []
-        var changed = false, seenChanged = false
+        var changed = false, seenChanged = false, dotsChanged = false
         let now = Clock.iso()
         for t in threads {
             let id = "gpt-" + t.id
             guard let i = index[id] else {
-                // already there before Kikumap saw it: not unread
+                // already there before Kikumap saw it: not unread (unless ChatGPT's own list says so)
                 chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
                                   last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd, app: GPTWatcher.bundleID))
                 seen[id] = Clock.iso(t.finished ?? t.updated)
@@ -515,7 +521,8 @@ final class Store {
                 chats[i].updated_at = when
                 if t.finished != nil {
                     events.append(.finished(id))
-                    if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT
+                    if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT (when its own list can't be read)
+                    if gptListed?.contains(id) == true { gptUnread.insert(id) }   // still unread there, and new again
                 }
                 changed = true
             } else if !t.running, let f = t.finished.map(Clock.iso), f > chats[i].updated_at {
@@ -526,20 +533,33 @@ final class Store {
         // archived or gone from the list: no longer running
         let listed = Set(threads.map { "gpt-" + $0.id })
         for id in running where id.hasPrefix("gpt-") && !listed.contains(id) { running.remove(id); changed = true }
+        // ChatGPT's own unread dots: one that appears there is unread here too, one read there is read here
+        // (marking it read here holds until ChatGPT has something new)
+        if let list = unread.map({ Set($0.map { "gpt-" + $0 }) }), list != gptListed {
+            let before = gptListed ?? []
+            gptUnread.formUnion(list.subtracting(before))
+            gptUnread.subtract(before.subtracting(list))
+            gptListed = list
+            dotsChanged = true
+        }
         if changed {
             track(running, at: now)
             saveChats()
         }
         if seenChanged { saveSeen() }
-        if changed || seenChanged { notify() }
+        if changed || seenChanged || dotsChanged { notify() }
         return events.filter(shown)
     }
 
-    /// ChatGPT was turned off: forget its threads' running state.
+    /// ChatGPT was turned off: forget its threads' running and unread state.
     func clearGPT() {
         let before = running
         running = running.filter { !$0.hasPrefix("gpt-") }
-        if running != before { track(running, at: Clock.iso()); notify() }
+        let dots = !gptUnread.isEmpty || gptListed != nil
+        gptUnread = []
+        gptListed = nil
+        if running != before { track(running, at: Clock.iso()) }
+        if running != before || dots { notify() }
     }
 
     /// The name Claude Code gave the session (or yours, if you renamed it there).

@@ -8,6 +8,23 @@ private func hotKeyHandler(_ next: EventHandlerCallRef?, _ event: EventRef?, _ u
     return OSStatus(noErr)
 }
 
+/// While one of Kikumap's windows is open it's a regular app — the menu bar is its own, and it's in the Dock and
+/// ⌘-Tab; with all of them closed it lives in the menu bar only again.
+@MainActor
+enum Front {
+    /// Comes forward to show a window.
+    static func activate() {
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// A window closed or went away: back to the menu bar only if none is left.
+    static func settle() {
+        let open = NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) && !($0 is NSPanel) }
+        if !open && NSApp.activationPolicy() == .regular { NSApp.setActivationPolicy(.accessory) }
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var store = Store()
@@ -25,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var archive = Archive(store: store)
     lazy var exportWin = ExportWindow(store: store, archive: archive)
     lazy var stats = StatsWindow(store: store)
-    lazy var widget = WidgetFeed(store: store, usage: usage)
+    lazy var widget = WidgetFeed(store: store, usage: usage, gpt: gpt)
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
@@ -35,6 +52,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         Prefs.applyAppearance()
         buildMainMenu()
+        for n in [NSWindow.willCloseNotification, NSWindow.didResignKeyNotification] {
+            NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { _ in
+                DispatchQueue.main.async { MainActor.assumeIsolated { Front.settle() } }
+            }
+        }
 
         main.map.onOpen = { [weak self] id in self?.open(id) }
         main.map.onHide = { [weak self] in self?.main.hide() }
@@ -49,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.timeline.onTurnOnUsage = { [weak self] in self?.perms.connectUsage(); self?.refreshUI() }
         main.header.onSettings = { [weak self] in self?.settings.show() }
         main.header.onLights = { Prefs.toggleLights() }
+        main.header.onStats = { [weak self] in self?.stats.show() }
         statusBar.openRoutines = { AppDelegate.openRoutines() }
         perms.onGPT = { [weak self] on in
             guard let self = self else { return }
@@ -124,11 +147,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.sounds.play(sounds)
         }
-        gpt.onThreads = { [weak self] threads in
+        gpt.onThreads = { [weak self] threads, unread in
             guard let self = self else { return }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == GPTWatcher.bundleID
-            let ev = self.store.apply(gpt: threads, front: front)
+            let ev = self.store.apply(gpt: threads, unread: unread, front: front)
             self.sounds.play(ev)
+            self.widget.update()                                   // ChatGPT's usage may have moved
         }
         sidebar.onStatus = { [weak self] in self?.refreshUI() }
         usage.onChange = { [weak self] in self?.refreshUI() }

@@ -83,7 +83,8 @@ fi
 # the widget first, with its sandbox entitlements, then the app around it (not --deep: that would
 # sign the widget again without them)
 sign() {
-  if [ -d "$WX" ]; then codesign --force -s "$1" --entitlements Widget/Widget.entitlements "$WX" || return 1; fi
+  # the widget ad hoc (macOS won't list one signed with an untrusted certificate; it needs no permissions)
+  if [ -d "$WX" ]; then codesign --force -s - --entitlements Widget/Widget.entitlements "$WX" || return 1; fi
   codesign --force -s "$1" "$APP"
 }
 if sign "$IDENT" 2>/dev/null; then

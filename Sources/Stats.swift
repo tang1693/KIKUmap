@@ -36,7 +36,7 @@ final class StatsWindow: NSObject, NSWindowDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.chart?.reload() }
         }
-        NSApp.activate(ignoringOtherApps: true)
+        Front.activate()
         window?.makeKeyAndOrderFront(nil)
     }
 

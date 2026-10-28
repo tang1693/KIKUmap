@@ -50,7 +50,7 @@ final class Permissions {
                 • 只发给 api.anthropic.com，只用来查用量和计划任务
                 • 随时可以在 设置 → 授权 里关掉
 
-                点「继续」后，macOS 会问一次是否允许 Kikumap 使用这个钥匙串项目。选「始终允许」，以后就不会再问。
+                Kikumap 和 Claude Code 用同一种方式读取它，所以 macOS 一般不会问。如果问了，选「始终允许」。
                 """, """
                 Kikumap can look up your plan usage and scheduled tasks by borrowing the sign-in Claude Code already keeps in this Mac's Keychain — no second login.
 
@@ -58,7 +58,7 @@ final class Permissions {
                 • It's only sent to api.anthropic.com, to look up usage and scheduled tasks
                 • You can turn it off any time in Settings → Access
 
-                After "Continue", macOS asks once whether Kikumap may use this Keychain item. Choose "Always Allow" and it won't ask again.
+                Kikumap reads it the same way Claude Code does, so macOS usually doesn't ask. If it does, choose "Always Allow".
                 """)
             a.addButton(withTitle: tr("继续", "Continue"))
             a.addButton(withTitle: tr("先不用", "Not now"))
@@ -263,7 +263,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     func show(tab: Int? = nil) {
         if window == nil { build() }
         if let t = tab, let tc = window?.contentViewController as? NSTabViewController { tc.selectedTabViewItemIndex = t }
-        NSApp.activate(ignoringOtherApps: true)
+        Front.activate()
         window?.makeKeyAndOrderFront(nil)
         startPolling()
     }
@@ -550,8 +550,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                    "Adds a few hooks to ~/.claude/settings.json → Claude Code sessions in Terminal or VS Code show as running / unread too. The old file is backed up. Applies to sessions started afterwards."),
                 tr("连接", "Connect"), { p.codeHooks }, { p.connectCode() }),
             row("ChatGPT",
-                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的对话列表（~/.codex，只读）→ ChatGPT 的对话也显示「进行中 / 未读」，置顶跟 ChatGPT 一致。不改任何东西，不上传。",
-                   "Reads the thread list the ChatGPT desktop app keeps on this Mac (~/.codex, read-only) → ChatGPT threads show as running / unread too, pinned as in ChatGPT. Changes nothing, uploads nothing."),
+                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的对话列表、未读和用量（~/.codex，只读）→ 在 ChatGPT 里置顶的对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。不改任何东西，不上传。",
+                   "Reads the thread list, unread dots and usage the ChatGPT desktop app keeps on this Mac (~/.codex, read-only) → threads pinned in ChatGPT show as running / unread too, and the widget can show ChatGPT's usage. Changes nothing, uploads nothing."),
                 tr("连接", "Connect"), { p.gptOK }, { [weak self] in p.connectGPT(); self?.refreshPerms() }),
         ]
         let tip = label(tr("重装（重新编译）后，如果这里显示未开启、但系统设置里已经勾上：在系统设置里把 Kikumap 删掉（−）再重新加一次。",

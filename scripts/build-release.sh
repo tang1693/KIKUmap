@@ -33,9 +33,10 @@ cp Widget/Info.plist "$WX/Contents/Info.plist"
 # (it recognises an app by its signature). The certificate is the self-signed one Install.command makes
 # once; without it, an ad-hoc signature, and permissions reset with every update.
 # The widget first, with its sandbox entitlements, then the app around it (not --deep: that would
-# sign the widget again without them).
+# sign the widget again without them). The widget is signed ad hoc, as Xcode signs local builds: macOS
+# won't list a widget whose certificate it doesn't trust (the self-signed one), and it needs no permissions.
 sign() {
-  codesign --force -s "$1" --entitlements Widget/Widget.entitlements "$WX" && codesign --force -s "$1" "$APP"
+  codesign --force -s - --entitlements Widget/Widget.entitlements "$WX" && codesign --force -s "$1" "$APP"
 }
 IDENT=""
 for c in "Claude Console Local Signing" "Kikumap Local Signing"; do            # the order Install.command uses

@@ -56,7 +56,7 @@ One icon in the menu bar. The orange flower spins while a chat is running. A red
 
 **Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
-Works with the Claude desktop app and Claude Code (Terminal, VS Code, the app's Code mode). **New in 0.9.5:** the ChatGPT desktop app too. Its threads show as running and unread, with ChatGPT's pins, marked **GPT**.
+Works with the Claude desktop app and Claude Code (Terminal, VS Code, the app's Code mode). **New in 0.9.5:** the ChatGPT desktop app too. Threads you pin in ChatGPT show next to Claude's, marked **GPT**, with running and unread as ChatGPT shows them.
 
 </td>
 </tr>
@@ -139,7 +139,7 @@ The export can keep itself up to date. **Import** starts a new pinned chat per f
 <table>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/stats.png" width="100%" alt="Statistics: one stacked bar per day, a colour per chat, with totals and a legend"><br><b>Statistics</b> <sup>new</sup><br>How long Claude worked each day, one bar per day split by chat, over 7, 14, 30 or 90 days. Hover for details, click a segment to open the chat. View → Statistics (⌘Y) or the menu.</td>
-<td width="50%" valign="top"><img src="docs/demo/widget.png" width="100%" alt="The desktop widget: running and unread chats and usage on top, the last 24 hours as stacked bars below"><br><b>Desktop widget</b> <sup>new</sup><br>Running and unread chats and both usage meters on top, the last 24 hours as bars below. Small, medium and large. macOS 14 or later.</td>
+<td width="50%" valign="top"><img src="docs/demo/widget.png" width="100%" alt="The desktop widget: running and unread chats and usage on top, the last 24 hours as stacked bars below"><br><b>Desktop widget</b> <sup>new</sup><br>Running and unread chats and your usage on top (Claude's, ChatGPT's, or both), the last 24 hours as bars below. Small, medium and large. macOS 14 or later.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b><br>A chat that's done but unread turns solid on the map, with a red dot.</td>
@@ -196,7 +196,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | Finished / needs your input | The Claude app's notifications in Notification Center (read-only) | Full Disk Access |
 | Running, unread, pinned chats | The Claude app's sidebar, through Accessibility | Accessibility |
 | Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
-| ChatGPT threads | The thread list the ChatGPT desktop app keeps in `~/.codex` (read-only; nothing is changed). Turn it off in Settings → Access | none |
+| ChatGPT threads | What the ChatGPT desktop app keeps in `~/.codex`: its thread list, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
 | Desktop widget | One file Kikumap writes for it (`widget.json`); the widget is sandboxed and can read only that file | none |
 | Usage, scheduled tasks (optional, off by default) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
 
@@ -260,8 +260,8 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 - **Nothing shows as running:** open the Claude app's sidebar. Settings → Access → *Write diagnostic log*, then look at `logs/claude-sidebar.txt` in the data folder.
 - **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session.
-- **ChatGPT threads don't show:** Kikumap reads the current ChatGPT desktop app (the one built on Codex). Check Settings → Access → ChatGPT. Threads show while they run, while unread, for 12 hours after, or always if pinned in ChatGPT.
-- **The widget isn't in the widget gallery:** it needs macOS 14 or later and Kikumap in Applications. Open Kikumap once, then right-click the desktop → *Edit Widgets* and search for Kikumap.
+- **ChatGPT threads don't show:** Kikumap reads the current ChatGPT desktop app (the one built on Codex). Check Settings → Access → ChatGPT. Like Claude's chats, a thread shows once you pin it in ChatGPT.
+- **The widget isn't in the widget gallery:** it needs macOS 14 or later and Kikumap 0.9.5 (build 4) or later in Applications. Open Kikumap once, then right-click the desktop → *Edit Widgets* and search for Kikumap. Still missing? Run `pluginkit -m -v -i ninja.tang.claudeconsole.widget` in Terminal and open an issue with what it prints.
 - **No usage:** it's off until you turn it on: Settings → Access → Usage → *Connect*. If it still says signed out, run `claude` in Terminal, then `/login`, and pick your Claude account.
 </details>
 

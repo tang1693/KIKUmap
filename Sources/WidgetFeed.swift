@@ -13,7 +13,7 @@ final class WidgetFeed {
     /// Same shape as WidgetState in Widget/WidgetViews.swift — keep the two in step.
     private struct State: Codable {
         struct Item: Codable { var id: String; var title: String }
-        struct Meter: Codable { var label: String; var percent: Double; var resets: String? }
+        struct Meter: Codable { var label: String; var percent: Double; var resets: String?; var group: String? }
         struct Hour: Codable { var start: String; var parts: [Double] }
         var updated: String
         var english: Bool
@@ -30,13 +30,15 @@ final class WidgetFeed {
 
     let store: Store
     let usage: UsageMonitor
+    let gpt: GPTWatcher
     private var lastKey = ""
     private var lastBody = Data()
     private var lastWrite = Date.distantPast
 
-    init(store: Store, usage: UsageMonitor) {
+    init(store: Store, usage: UsageMonitor, gpt: GPTWatcher) {
         self.store = store
         self.usage = usage
+        self.gpt = gpt
     }
 
     func update(force: Bool = false) { write(closed: false, force: force) }
@@ -47,16 +49,27 @@ final class WidgetFeed {
     private func write(closed: Bool, force: Bool) {
         let run = closed ? [] : store.runningChats, unread = closed ? [] : store.unreadChats
         var meters: [State.Meter] = []
+        // whole percents and minutes, so small wobbles don't cost a redraw
+        func meter(_ label: String, _ percent: Double, _ resets: Date?, _ group: String) -> State.Meter {
+            let r = resets.map { Date(timeIntervalSince1970: ($0.timeIntervalSince1970 / 60).rounded() * 60) }
+            return State.Meter(label: label, percent: percent.rounded(), resets: r.map { Clock.iso($0) }, group: group)
+        }
         if UsageMonitor.enabled {
             for (label, w) in [(tr("会话", "Session"), usage.session), (tr("本周", "Week"), usage.weekly)] {
-                guard let w = w else { continue }
-                // whole percents and minutes, so small wobbles don't cost a redraw
-                let resets = w.resets.map { Date(timeIntervalSince1970: ($0.timeIntervalSince1970 / 60).rounded() * 60) }
-                meters.append(State.Meter(label: label, percent: w.percent.rounded(), resets: resets.map { Clock.iso($0) }))
+                if let w = w { meters.append(meter(label, w.percent, w.resets, "claude")) }
+            }
+        }
+        // ChatGPT's, as its latest answer left them; a window that has reset since starts again at zero
+        let gptOn = GPTWatcher.enabled && GPTWatcher.available
+        if gptOn, let u = gpt.usage {
+            for w in u.windows {
+                let label = w.minutes > 0 && w.minutes <= 1440 ? tr("会话", "Session") : tr("本周", "Week")
+                let over = w.resets.map { $0 < Date() } ?? false
+                meters.append(meter(label, over ? 0 : w.percent, over ? nil : w.resets, "gpt"))
             }
         }
         let key = [run.map(\.id).joined(separator: ","), unread.map(\.id).joined(separator: ","),
-                   meters.map { "\($0.label)\($0.percent)\($0.resets ?? "")" }.joined(separator: ","),
+                   meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")" }.joined(separator: ","),
                    Prefs.english ? "en" : "zh", closed ? "closed" : ""].joined(separator: "|")
         guard force || key != lastKey || Date().timeIntervalSince(lastWrite) >= 300 else { return }
 
@@ -77,7 +90,7 @@ final class WidgetFeed {
         func items(_ cs: [Chat]) -> [State.Item] { cs.prefix(6).map { State.Item(id: $0.id, title: store.name($0.id)) } }
         var state = State(updated: "", english: Prefs.english, closed: closed ? true : nil,
                           running: items(run), unread: items(unread), runningCount: run.count, unreadCount: unread.count,
-                          meters: meters, usageOff: !UsageMonitor.enabled, hours: hours, legend: top.map { store.name($0) })
+                          meters: meters, usageOff: !UsageMonitor.enabled && !gptOn, hours: hours, legend: top.map { store.name($0) })
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         guard let body = try? e.encode(state) else { return }

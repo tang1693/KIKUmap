@@ -2,8 +2,9 @@ import Cocoa
 import SQLite3
 
 // The ChatGPT desktop app (built on Codex) keeps its threads on this Mac in ~/.codex: a SQLite list
-// (title, pinned, archived, last change) and a log per thread whose last "task started / complete" line
-// says whether it's working. Kikumap only reads them; nothing is changed or sent anywhere.
+// (title, pinned, archived, last change), a log per thread whose last "task started / complete" line
+// says whether it's working and whose answers carry the plan limits, and the window state with its
+// unread dots. Kikumap only reads them; nothing is changed or sent anywhere.
 
 struct GPTThread {
     let id: String
@@ -14,6 +15,17 @@ struct GPTThread {
     let running: Bool
     /// When its last task ended (nil while running or when unknown).
     let finished: Date?
+}
+
+/// ChatGPT's plan limits (a 5-hour and/or a weekly window), as its latest answer reported them.
+struct GPTUsage: Equatable {
+    struct Window: Equatable {
+        let percent: Double
+        let minutes: Int
+        let resets: Date?
+    }
+    let windows: [Window]
+    let at: Date
 }
 
 @MainActor
@@ -37,12 +49,23 @@ final class GPTWatcher {
         set { UserDefaults.standard.set(newValue, forKey: "ChatGPTOn") }
     }
 
-    var onThreads: (([GPTThread]) -> Void)?
+    /// The threads, and the ones ChatGPT shows as unread (nil when its window state can't be read).
+    var onThreads: (([GPTThread], Set<String>?) -> Void)?
+    /// Plan usage as of the latest answer (nil until one is found).
+    private(set) var usage: GPTUsage?
     private var watcher: FileWatcher?
     private var timer: Timer?
-    /// Each log's last lifecycle line, cached by size so a quiet thread isn't read again.
-    private var tails: [String: (size: UInt64, started: Bool?, at: Date?)] = [:]
+    private var cache = Cache()
     private var pending = false
+
+    /// What's been read, so files that didn't change aren't read again.
+    private struct Cache {
+        /// Each log's last lifecycle line, by size.
+        var tails: [String: (size: UInt64, started: Bool?, at: Date?)] = [:]
+        /// The newest logs' last limits line, by size.
+        var limits: [String: (size: UInt64, usage: GPTUsage?)] = [:]
+        var dots: (stamp: Date, ids: Set<String>?)?
+    }
 
     func start() {
         stop()
@@ -60,27 +83,34 @@ final class GPTWatcher {
         watcher = nil
         timer?.invalidate()
         timer = nil
+        usage = nil
     }
 
     func read() {
         guard !pending, let db = GPTWatcher.database else { return }
         pending = true
-        let cache = tails
+        let state = GPTWatcher.home.appendingPathComponent(".codex-global-state.json").path
+        let start = cache
         DispatchQueue.global(qos: .utility).async {
-            var cache = cache
-            let threads = GPTWatcher.load(db.path, &cache)
+            var c = start
+            let found = GPTWatcher.load(db.path, &c.tails)
+            let usage = GPTWatcher.limits(found?.newest ?? [], &c.limits)
+            let unread = GPTWatcher.unread(state, &c.dots)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.pending = false
-                    self.tails = cache
-                    if let t = threads { self.onThreads?(t) }
+                    guard self.watcher != nil else { return }          // turned off meanwhile
+                    self.cache = c
+                    if let u = usage { self.usage = u }
+                    if let t = found?.threads { self.onThreads?(t, unread) }
                 }
             }
         }
     }
 
-    /// Threads you started (not helpers), not archived, pinned or changed in the last three days.
-    nonisolated private static func load(_ path: String, _ cache: inout [String: (size: UInt64, started: Bool?, at: Date?)]) -> [GPTThread]? {
+    /// Threads you started (not helpers), not archived, pinned or changed in the last three days;
+    /// and the logs of the three last changed threads of any kind (for the plan limits).
+    nonisolated private static func load(_ path: String, _ cache: inout [String: (size: UInt64, started: Bool?, at: Date?)]) -> (threads: [GPTThread], newest: [String])? {
         var db: OpaquePointer?
         guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { sqlite3_close(db); return nil }
         defer { sqlite3_close(db) }
@@ -123,13 +153,21 @@ final class GPTWatcher {
                                  updated: Date(timeIntervalSince1970: Double(sqlite3_column_int64(st, 2)) / 1000),
                                  cwd: text(5), running: running, finished: c.started == false ? c.at : nil))
         }
-        return out
+        var newest: [String] = []
+        var q: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT rollout_path FROM threads ORDER BY updated_at_ms DESC LIMIT 3", -1, &q, nil) == SQLITE_OK {
+            while sqlite3_step(q) == SQLITE_ROW { if let p = sqlite3_column_text(q, 0) { newest.append(String(cString: p)) } }
+        }
+        sqlite3_finalize(q)
+        return (out, newest)
     }
 
-    /// The last "task_started" or "task_complete" / "turn_aborted" in a thread's log. Only what was added
-    /// since `known` is read; with nothing known, it reads backwards from the end until it finds one.
-    nonisolated private static func lastTask(_ path: String, after known: UInt64?) -> (started: Bool?, at: Date?)? {
-        guard let h = FileHandle(forReadingAtPath: path) else { return nil }
+    private enum Scan { case found(Data, mark: Int), none, unchanged }
+
+    /// The last line in a log holding one of `marks`. Only what was added since `known` is read; with nothing
+    /// known, it reads backwards from the end until it finds one.
+    nonisolated private static func scan(_ path: String, after known: UInt64?, for marks: [Data]) -> Scan {
+        guard let h = FileHandle(forReadingAtPath: path) else { return .unchanged }
         defer { try? h.close() }
         let size = (try? h.seekToEnd()) ?? 0
         let chunk: UInt64 = 1 << 20
@@ -138,22 +176,78 @@ final class GPTWatcher {
             // a little overlap, so a line cut at the edge is still seen whole
             let start = max(known.map { $0 > 4096 ? $0 - 4096 : 0 } ?? 0, end > chunk ? end - chunk : 0)
             try? h.seek(toOffset: start)
-            guard let data = try? h.read(upToCount: Int(min(end + 4096, size) - start)) else { return nil }
+            guard let data = try? h.read(upToCount: Int(min(end + 4096, size) - start)) else { return .unchanged }
             for line in data.split(separator: 0x0A).reversed() {
-                guard let hit = marks.first(where: { line.range(of: $0.0) != nil }) else { continue }
-                let o = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any]
-                return (hit.1, (o?["timestamp"] as? String).flatMap(isoFrac.date(from:)))
+                if let m = marks.firstIndex(where: { line.range(of: $0) != nil }) { return .found(Data(line), mark: m) }
             }
-            if let k = known, start <= k { return nil }           // nothing new: keep what we had
+            if let k = known, start <= k { return .unchanged }    // nothing new: keep what we had
             if size - start > 64 << 20 { break }                   // don't read huge logs whole
             end = start
         }
-        return (nil, nil)
+        return .none
+    }
+
+    /// The last "task_started" or "task_complete" / "turn_aborted" in a thread's log (nil: nothing new).
+    nonisolated private static func lastTask(_ path: String, after known: UInt64?) -> (started: Bool?, at: Date?)? {
+        switch scan(path, after: known, for: marks.map(\.0)) {
+        case .unchanged: return nil
+        case .none: return (nil, nil)
+        case .found(let line, let m):
+            let o = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any]
+            return (marks[m].1, (o?["timestamp"] as? String).flatMap(isoFrac.date(from:)))
+        }
     }
 
     nonisolated private static let marks: [(Data, Bool)] =
         [("\"type\":\"task_started\"", true), ("\"type\":\"task_complete\"", false), ("\"type\":\"turn_aborted\"", false)]
         .map { (Data($0.0.utf8), $0.1) }
+
+    /// The plan limits as of the newest answer in these logs (each answer's log line carries them).
+    nonisolated private static func limits(_ paths: [String], _ cache: inout [String: (size: UInt64, usage: GPTUsage?)]) -> GPTUsage? {
+        var fresh: [String: (size: UInt64, usage: GPTUsage?)] = [:]
+        for p in paths {
+            let size = ((try? FileManager.default.attributesOfItem(atPath: p))?[.size] as? NSNumber)?.uint64Value ?? 0
+            let old = cache[p]
+            var u = old?.usage
+            if old?.size != size {
+                let grew = old.flatMap { size > $0.size ? $0.size : nil }
+                if case .found(let line, _) = scan(p, after: grew, for: [limitMark]), let n = parseLimits(line) { u = n }
+            }
+            fresh[p] = (size, u)
+        }
+        cache = fresh
+        return fresh.values.compactMap(\.usage).max { $0.at < $1.at }
+    }
+
+    nonisolated private static let limitMark = Data("\"rate_limits\":{".utf8)
+
+    nonisolated private static func parseLimits(_ line: Data) -> GPTUsage? {
+        guard let o = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
+              let r = (o["payload"] as? [String: Any])?["rate_limits"] as? [String: Any] else { return nil }
+        let at = (o["timestamp"] as? String).flatMap(isoFrac.date(from:)) ?? .distantPast
+        let windows = ["primary", "secondary"].compactMap { k -> GPTUsage.Window? in
+            guard let w = r[k] as? [String: Any], let pct = (w["used_percent"] as? NSNumber)?.doubleValue else { return nil }
+            var resets = (w["resets_at"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) }
+            if resets == nil, let s = (w["resets_in_seconds"] as? NSNumber)?.doubleValue { resets = at.addingTimeInterval(s) }
+            return GPTUsage.Window(percent: pct, minutes: (w["window_minutes"] as? NSNumber)?.intValue ?? 0, resets: resets)
+        }
+        return windows.isEmpty ? nil : GPTUsage(windows: windows.sorted { $0.minutes < $1.minutes }, at: at)
+    }
+
+    /// The threads ChatGPT shows a dot for, from the window state it keeps in ~/.codex (nil if that can't be read).
+    nonisolated private static func unread(_ path: String, _ cache: inout (stamp: Date, ids: Set<String>?)?) -> Set<String>? {
+        guard let stamp = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date else { return nil }
+        if let c = cache, c.stamp == stamp { return c.ids }
+        var ids: Set<String>?
+        if let data = FileManager.default.contents(atPath: path),
+           let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           let state = o["electron-thread-read-state-v1"] as? [String: Any],
+           let byAccount = state["unreadByIdentity"] as? [String: [String: [String]]] {
+            ids = Set(byAccount.values.flatMap { $0.values.joined() })
+        }
+        cache = (stamp, ids)
+        return ids
+    }
 
     nonisolated(unsafe) private static let isoFrac: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()

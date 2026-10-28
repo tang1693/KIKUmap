@@ -7,7 +7,8 @@ import SwiftUI
 /// (Sources/WidgetFeed.swift writes the same shape — keep the two in step).
 struct WidgetState: Codable {
     struct Item: Codable, Hashable { var id: String; var title: String }
-    struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String? }
+    /// One usage window; `group` is whose: "claude" (also when missing) or "gpt".
+    struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String?; var group: String? }
     /// One hour: seconds Claude worked per colour slot (legend order); the last one is every other chat.
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
@@ -170,7 +171,7 @@ struct KikumapWidgetView: View {
                 count(s.unreadCount, running: false)
                 Spacer(minLength: 0)
             }
-            if stale { staleMark } else { meters(s, labelWidth: nil, compact: true) }
+            if stale { staleMark } else { meters(s, labelWidth: nil, compact: true, limit: 3) }
             chart(s, compact: true)
         }
     }
@@ -184,10 +185,10 @@ struct KikumapWidgetView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 4) {
-                    meters(s, labelWidth: en ? 44 : 26, compact: true)
+                    meters(s, labelWidth: en ? 44 : 26, compact: true, limit: 3)
                     if stale { staleMark }
                 }
-                .frame(width: 150)
+                .frame(width: tagged(s) ? 174 : 150)
             }
             chart(s, compact: false)
         }
@@ -209,7 +210,7 @@ struct KikumapWidgetView: View {
                 list(t("进行中", "Running"), s.runningCount, s.running, running: true)
                 list(t("未读", "Unread"), s.unreadCount, s.unread, running: false)
             }
-            meters(s, labelWidth: 40, compact: false)
+            meters(s, labelWidth: 40, compact: false, limit: 4)
             Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
             chart(s, compact: false)
             legend(s)
@@ -289,24 +290,43 @@ struct KikumapWidgetView: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
+    /// ChatGPT's meters are there too: each group gets its mark (Claude's alone look as they always did).
+    private func tagged(_ s: WidgetState) -> Bool { s.meters.contains { $0.group == "gpt" } }
+
+    /// Claude's meters, then ChatGPT's. More than `limit`: only the fullest of each.
+    private func shown(_ s: WidgetState, limit: Int) -> [WidgetState.Meter] {
+        let groups = ["claude", "gpt"].map { g in s.meters.filter { ($0.group ?? "claude") == g } }
+        if s.meters.count <= limit { return groups.flatMap { $0 } }
+        return groups.compactMap { $0.max { $0.percent < $1.percent } }
+    }
+
     @ViewBuilder
-    private func meters(_ s: WidgetState, labelWidth: CGFloat?, compact: Bool) -> some View {
+    private func meters(_ s: WidgetState, labelWidth: CGFloat?, compact: Bool, limit: Int) -> some View {
         if s.usageOff || s.meters.isEmpty {
             Text(s.usageOff ? t("用量未开启", "Usage off") : t("用量读取中…", "Usage loading…"))
                 .font(.system(size: 10)).foregroundStyle(Color.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
+            let list = shown(s, limit: limit), tag = tagged(s)
             VStack(alignment: .leading, spacing: compact ? 4 : 5) {
-                ForEach(s.meters, id: \.self) { m in meter(m, labelWidth: labelWidth, compact: compact) }
+                ForEach(list.indices, id: \.self) { i in
+                    let first = i == 0 || (list[i - 1].group ?? "claude") != (list[i].group ?? "claude")
+                    meter(list[i], labelWidth: labelWidth, compact: compact, mark: tag ? first : nil)
+                }
             }
         }
     }
 
-    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool) -> some View {
+    /// `mark`: nil without marks; otherwise whether this row (its group's first) shows it.
+    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, mark: Bool?) -> some View {
         let high = m.percent >= 90
         // the small widget: "S" / "W", or the two-character Chinese label
         let label = size == .small && en ? String(m.label.prefix(1)) : m.label
         return HStack(spacing: 6) {
+            if let show = mark {
+                Group { if show { ProviderMark(gpt: m.group == "gpt") } else { Color.clear } }
+                    .frame(width: 20, height: 10, alignment: .leading)
+            }
             Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
                 .frame(width: labelWidth ?? (en ? 10 : 22), alignment: .leading)
             GeometryReader { g in
@@ -368,6 +388,39 @@ struct KikumapWidgetView: View {
             Spacer(minLength: 0)
         }
         .frame(height: 12)
+    }
+}
+
+/// Whose meter it is: Claude's mark, or ChatGPT's "GPT" tag — as in Kikumap's sidebar.
+struct ProviderMark: View {
+    let gpt: Bool
+
+    var body: some View {
+        if gpt {
+            Text("GPT").font(.system(size: 6.5, weight: .heavy)).kerning(-0.2).foregroundStyle(Color.secondary)
+                .padding(.horizontal, 2).frame(height: 10)
+                .overlay(RoundedRectangle(cornerRadius: 2.2).stroke(Color.secondary, lineWidth: 0.9))
+        } else {
+            Spark().stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.1, lineCap: .round)).frame(width: 10, height: 10)
+        }
+    }
+}
+
+/// Kikumap's twelve uneven rays (Sources/Logo.swift draws the same mark in the app).
+struct Spark: Shape {
+    private static let rays: [CGFloat] = [1.0, 0.66, 0.92, 0.72, 0.97, 0.62, 0.9, 0.7, 0.95, 0.64, 0.88, 0.74]
+
+    func path(in r: CGRect) -> Path {
+        let s = min(r.width, r.height), c = CGPoint(x: r.midX, y: r.midY)
+        let inner = s * 0.11, outer = s / 2 - 0.55
+        var p = Path()
+        for (i, len) in Self.rays.enumerated() {
+            let a = (90 - 360 * CGFloat(i) / CGFloat(Self.rays.count)) * .pi / 180
+            let r1 = inner + (outer - inner) * len
+            p.move(to: CGPoint(x: c.x + cos(a) * inner, y: c.y - sin(a) * inner))
+            p.addLine(to: CGPoint(x: c.x + cos(a) * r1, y: c.y - sin(a) * r1))
+        }
+        return p
     }
 }
 

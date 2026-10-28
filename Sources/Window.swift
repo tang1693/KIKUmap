@@ -90,16 +90,18 @@ final class HeaderView: NSView {
     var onLights: (() -> Void)?
     var onToggleSide: (() -> Void)?
     var onToggleTimeline: (() -> Void)?
+    var onStats: (() -> Void)?
     private lazy var gear = IconButton("gearshape", tip: tr("设置", "Settings")) { [weak self] in self?.onSettings?() }
     private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
     private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
     private lazy var timelineBtn = IconButton("rectangle.bottomthird.inset.filled", tip: tr("显示 / 隐藏时间线", "Show / hide the timeline")) { [weak self] in self?.onToggleTimeline?() }
+    private lazy var statsBtn = IconButton("chart.bar.xaxis", tip: tr("统计", "Statistics")) { [weak self] in self?.onStats?() }
 
     override var isFlipped: Bool { true }
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if gear.superview == nil { [sideBtn, timelineBtn, lights, gear].forEach(addSubview) }
+        if gear.superview == nil { [sideBtn, timelineBtn, statsBtn, lights, gear].forEach(addSubview) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -109,6 +111,7 @@ final class HeaderView: NSView {
         gear.setSymbol("gearshape")
         sideBtn.setSymbol("sidebar.left")
         timelineBtn.setSymbol("rectangle.bottomthird.inset.filled")
+        statsBtn.setSymbol("chart.bar.xaxis")
         needsDisplay = true
     }
 
@@ -117,6 +120,7 @@ final class HeaderView: NSView {
         lights.toolTip = tr("开关灯（浅色 / 深色）", "Lights (light / dark)")
         sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
         timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
+        statsBtn.toolTip = tr("统计  ⌘Y", "Statistics  ⌘Y")
     }
 
     private func rebuildButtons() {
@@ -139,7 +143,7 @@ final class HeaderView: NSView {
         super.layout()
         let midY = (bounds.height - 1) / 2
         var x = bounds.width - 14
-        for b in [gear, lights, timelineBtn, sideBtn] {
+        for b in [gear, lights, statsBtn, timelineBtn, sideBtn] {
             x -= 28
             b.frame = NSRect(x: x, y: midY - 13, width: 28, height: 26)
         }
@@ -298,9 +302,12 @@ final class SidebarView: NSView, NSDraggingSource {
         (head as NSString).draw(at: NSPoint(x: 16, y: 14), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
         let n = String(rows.count)
         (n as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 15), withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
-        (tr("和 Claude 的置顶同步 · 拖到右边归类", "Synced with Claude's pins · drag to file") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+        let gpt = GPTWatcher.enabled && GPTWatcher.available
+        (tr(gpt ? "Claude、ChatGPT 置顶 · 拖到右边归类" : "和 Claude 的置顶同步 · 拖到右边归类",
+            gpt ? "Pins from Claude & ChatGPT · drag to file" : "Synced with Claude's pins · drag to file") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         if rows.isEmpty {
-            let msg = emptyNote ?? tr("在 Claude 里置顶对话，就会出现在这里", "Pin chats in Claude and they show up here")
+            let msg = emptyNote ?? (gpt ? tr("在 Claude 或 ChatGPT 里置顶对话，就会出现在这里", "Pin chats in Claude or ChatGPT and they show up here")
+                                        : tr("在 Claude 里置顶对话，就会出现在这里", "Pin chats in Claude and they show up here"))
             (msg as NSString).draw(with: NSRect(x: 18, y: top + 8, width: bounds.width - 36, height: rowH * 2),
                                    options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
                                    attributes: [.font: Theme.ui(13), .foregroundColor: Theme.muted])
@@ -320,7 +327,7 @@ final class SidebarView: NSView, NSDraggingSource {
             let state = store.isRunning(c.id) ? 2 : (store.isUnread(c) ? 1 : 0)
             if state > 0 { Theme.drawStatus(state, in: NSRect(x: r.minX, y: r.midY - 5, width: 10, height: 10), phase: phase) }
             let tf = Theme.ui(13, state > 0 ? .semibold : .regular)
-            // Claude Code sessions: a small terminal mark before the name
+            // where it lives, before the name: Claude's mark, a terminal for Claude Code, "GPT" for ChatGPT
             var nameX = r.minX + 16
             if c.isCode, let img = SidebarView.terminal {
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: 14, height: 12))
@@ -329,6 +336,9 @@ final class SidebarView: NSView, NSDraggingSource {
                 let img = GPTWatcher.mark(Theme.muted, height: 12)
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
                 nameX += img.size.width + 5
+            } else {
+                Logo.draw(in: NSRect(x: nameX + 0.5, y: r.midY - 6.5, width: 13, height: 13), color: Theme.muted)
+                nameX += 19
             }
             let time = store.timeLabel(c)
             let timeF = Theme.ui(11.5)
@@ -973,7 +983,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     var isShown: Bool { window.isVisible && window.isKeyWindow && NSApp.isActive }
 
     func show() {
-        NSApp.activate(ignoringOtherApps: true)
+        Front.activate()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         reload()

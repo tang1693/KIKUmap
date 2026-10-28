@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 **听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
 
-支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。**0.9.5 新增：** ChatGPT 桌面 App。它的对话同样显示进行中和未读，置顶和 ChatGPT 一致，前面标着 **GPT**。
+支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。**0.9.5 新增：** ChatGPT 桌面 App。在 ChatGPT 里置顶的对话会和 Claude 的放在一起，前面标着 **GPT**，进行中、未读和 ChatGPT 里一致。
 
 </td>
 </tr>
@@ -139,7 +139,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 <table>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/stats.png" width="100%" alt="统计：每天一根分段柱，每个对话一种颜色，带总计和图例"><br><b>统计</b> <sup>新</sup><br>每天 Claude 干了多久，一天一根柱，按对话分段，可看 7 / 14 / 30 / 90 天。鼠标停上去看详情，点一段就打开那个对话。显示 → 统计（⌘Y）或菜单栏里打开。</td>
-<td width="50%" valign="top"><img src="docs/demo/widget.png" width="100%" alt="桌面小组件：上面是进行中、未读和用量，下面是最近 24 小时的分段柱状图"><br><b>桌面小组件</b> <sup>新</sup><br>上面是进行中、未读和两条用量，下面是最近 24 小时的柱状图。小、中、大三种尺寸，需要 macOS 14 或更新。</td>
+<td width="50%" valign="top"><img src="docs/demo/widget.png" width="100%" alt="桌面小组件：上面是进行中、未读和用量，下面是最近 24 小时的分段柱状图"><br><b>桌面小组件</b> <sup>新</sup><br>上面是进行中、未读和用量（Claude 的、ChatGPT 的，或两个都有），下面是最近 24 小时的柱状图。小、中、大三种尺寸，需要 macOS 14 或更新。</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="做完的对话会亮"><br><b>做完的对话会亮</b><br>做完还没看的对话，在导图上变成实心，还带一个红点。</td>
@@ -196,7 +196,7 @@ open Install.command        # 或者在 Finder 里双击它
 | 做完了 / 等你回复 | 通知中心里 Claude 的通知（只读） | 完全磁盘访问 |
 | 进行中、未读、置顶对话 | 通过「辅助功能」读 Claude 的侧边栏 | 辅助功能 |
 | Claude Code 会话 | 点「连接」时写进 `~/.claude/settings.json` 的 hooks（原文件会备份） | 不需要 |
-| ChatGPT 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的对话列表（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
+| ChatGPT 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
 | 桌面小组件 | Kikumap 专门写给它的一个文件（`widget.json`）；小组件在沙盒里，只能读这一个文件 | 不需要 |
 | 用量、计划任务（可选，默认关闭） | Anthropic 用量接口，用 Claude Code 已存在钥匙串里的登录：只读、不保存 | 钥匙串，你开启后才问 |
 
@@ -260,8 +260,8 @@ Claude App 没有“哪些对话在跑”的接口。Kikumap 通过「辅助功�
 - **没有任何对话显示“进行中”**：打开 Claude App 的侧边栏。设置 → 授权 → *写诊断日志*，然后看数据文件夹里的 `logs/claude-sidebar.txt`。
 - **系统设置里开了权限，这里却显示没开**：在系统设置的列表里把 Kikumap 删掉（−）再加回来。从 0.9.1 起，每个版本都用同一张证书签名，更新后权限会保留。
 - **Claude Code 会话没显示**：设置 → 授权 → Claude Code → *连接*，然后开一个新会话。
-- **ChatGPT 对话没显示**：Kikumap 读的是新版 ChatGPT 桌面 App（Codex 内核）。看一下 设置 → 授权 → ChatGPT。对话在进行中、未读、做完后 12 小时内，或在 ChatGPT 里置顶时显示。
-- **小组件库里找不到 Kikumap**：需要 macOS 14 或更新，并且 Kikumap 在「应用程序」里。先打开一次 Kikumap，再在桌面右键 → *编辑小组件*，搜 Kikumap。
+- **ChatGPT 对话没显示**：Kikumap 读的是新版 ChatGPT 桌面 App（Codex 内核）。看一下 设置 → 授权 → ChatGPT。和 Claude 的对话一样，在 ChatGPT 里置顶后才会显示。
+- **小组件库里找不到 Kikumap**：需要 macOS 14 或更新，并且「应用程序」里是 Kikumap 0.9.5（build 4）或更新。先打开一次 Kikumap，再在桌面右键 → *编辑小组件*，搜 Kikumap。还是没有的话，在终端运行 `pluginkit -m -v -i ninja.tang.claudeconsole.widget`，把输出发到 issue 里。
 - **没有用量**：用量默认关闭，先在 设置 → 授权 → 用量 → *连接* 打开。还显示未登录的话，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。
 </details>
 

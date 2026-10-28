@@ -28,7 +28,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
     func show() {
         window?.orderOut(nil)
         build()
-        NSApp.activate(ignoringOtherApps: true)
+        Front.activate()
         window?.makeKeyAndOrderFront(nil)
     }
 

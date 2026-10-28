@@ -35,7 +35,7 @@ struct Routine {
 /// Plan usage (current 5-hour session, this week) and scheduled tasks.
 ///
 /// No second login: it reuses the sign-in Claude Code already keeps on this Mac
-/// (Keychain item "Claude Code-credentials"). macOS asks you once before the app may read it.
+/// (Keychain item "Claude Code-credentials"), read the way Claude Code reads it, so macOS normally doesn't ask.
 /// The app only reads that sign-in — it never refreshes or changes it; Claude Code keeps it fresh.
 /// Off until you turn it on: the Keychain is never touched before you've said yes.
 @MainActor
@@ -179,8 +179,19 @@ final class UsageMonitor: NSObject {
             kSecAttrService as String: "Claude Code-credentials",
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecReturnData as String: true,
-        ].merging(interactive ? [:] : [kSecUseAuthenticationContext as String: UsageMonitor.quietContext()]) { a, _ in a }
-        // a background read must never put up the Keychain dialog: it fails quietly instead
+        ]
+        // first quietly: this never puts up the Keychain dialog, it fails instead
+        let quiet = keychain(q.merging([kSecUseAuthenticationContext as String: UsageMonitor.quietContext()]) { _, b in b }, interactive: false)
+        if case .token = quiet { return quiet }
+        if case .missing = quiet { return quiet }
+        // then the way Claude Code itself reads it, through Apple's `security` tool, which the item trusts.
+        // An "Always Allow" given to Kikumap doesn't last: Claude Code rewrites the item whenever it renews its
+        // sign-in (a few times a day), and macOS would ask again each time.
+        if let d = viaSecurityTool(), let t = parseCredentials(d) { return .token(t) }
+        return interactive ? keychain(q, interactive: true) : quiet
+    }
+
+    nonisolated private static func keychain(_ q: [String: Any], interactive: Bool) -> Read {
         if !interactive { SecKeychainSetUserInteractionAllowed(false) }
         defer { if !interactive { SecKeychainSetUserInteractionAllowed(true) } }
         var out: CFTypeRef?
@@ -193,6 +204,31 @@ final class UsageMonitor: NSObject {
         case errSecUserCanceled, errSecAuthFailed, errSecInteractionNotAllowed: return .denied
         default: return .failed(s)
         }
+    }
+
+    /// `security find-generic-password -w`, as Claude Code runs it (given up on after 10 seconds).
+    nonisolated private static func viaSecurityTool() -> Data? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        p.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return nil }
+        let stop = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 10, execute: stop)
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        stop.cancel()
+        guard p.terminationStatus == 0 else { return nil }
+        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("{") { return Data(s.utf8) }
+        // not plain text: the tool prints it as hex
+        var bytes = [UInt8](), i = s.startIndex
+        while i < s.endIndex, let j = s.index(i, offsetBy: 2, limitedBy: s.endIndex), let b = UInt8(s[i..<j], radix: 16) {
+            bytes.append(b); i = j
+        }
+        return bytes.isEmpty ? nil : Data(bytes)
     }
 
     nonisolated private static func parseCredentials(_ d: Data) -> Token? {
