@@ -117,7 +117,15 @@
 
   /* Tour video */
   .tour { padding-top: 48px; }
-  .player { max-width: 860px; margin: 36px auto 0; aspect-ratio: 16 / 9; }
+  .player { max-width: 860px; margin: 36px auto 0; aspect-ratio: 16 / 9; position: relative; }
+  .sound {
+    position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border: 0; border-radius: 999px; cursor: pointer;
+    background: rgba(20, 19, 18, .78); color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1;
+  }
+  .sound:hover { background: rgba(20, 19, 18, .9); }
+  .sound svg { width: 18px; height: 18px; }
+  .sound[hidden] { display: none; }
   .player video { display: block; width: 100%; height: 100%; object-fit: cover; }
 
   /* Features */
@@ -133,10 +141,12 @@
   .files { list-style: none; margin-top: 14px; display: grid; gap: 6px; color: var(--ink2); font-size: 15.5px; }
 
   /* And also */
-  .also { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 40px; }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 20px; }
-  .tile > b { display: block; font-size: 16px; margin-bottom: 4px; }
-  .tile span { color: var(--ink2); font-size: 15px; line-height: 1.5; }
+  .also { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 40px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .tile img { width: 100%; aspect-ratio: 3 / 2; border-bottom: 1px solid var(--line); background: var(--bg2); }
+  .tile .t { padding: 16px 20px 20px; }
+  .tile .t > b { display: block; font-size: 17px; margin-bottom: 4px; }
+  .tile span { color: var(--ink2); font-size: 15.5px; line-height: 1.5; }
 
   /* Privacy */
   .privacy { background: var(--bg2); }
@@ -178,7 +188,6 @@
     .nav nav { display: none; }
     .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
     .feature.flip .text { order: 0; }
-    .also { grid-template-columns: repeat(2, 1fr); }
     .perms, .steps { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
@@ -241,9 +250,14 @@
 
   <section class="tour" id="tour">
     <div class="wrap">
-      <h2><span lang="en">The 40-second tour</span><span lang="zh">40 秒看懂</span></h2>
+      <h2><span lang="en">The 2-minute tour</span><span lang="zh">两分钟看懂</span></h2>
+      <p class="sub" lang="en">Narrated, with captions. It plays muted until you turn the sound on.</p>
+      <p class="sub" lang="zh">英文配音，带字幕。默认静音播放，点按钮打开声音。</p>
       <div class="player shot">
-        <video id="tour-video" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The 40-second tour of Kikumap"></video>
+        <video id="tour-video" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The 2-minute tour of Kikumap">
+          <track kind="captions" src="demo/kikumap-intro.vtt" srclang="en" label="English" default>
+        </video>
+        <button class="sound" id="sound" type="button"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 4V5L7 9H3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.8 5.8a9 9 0 0 1 0 12.4"/></svg><span lang="en">Play with sound</span><span lang="zh">打开声音播放</span></button>
       </div>
     </div>
   </section>
@@ -283,15 +297,49 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Style</span><span lang="zh">样式</span></p>
           <h3><span lang="en">Make it yours</span><span lang="zh">按你的习惯整理</span></h3>
-          <p lang="en">Right-click any topic for a branch colour, a shape (square, circle, triangle, diamond, cross, star) and tags like <i>In progress</i>, <i>Waiting on others</i> or <i>Slides</i>. Click a tag to highlight everything that has it.</p>
-          <p lang="zh">右键任意主题：换分支颜色，选图形（方块、圆圈、三角、菱形、交叉、星星），加标签。点一下标签，带这个标签的内容都会高亮。</p>
-          <p lang="en">Keyboard-first, like a real mind-map app: <kbd>⇥</kbd> new subtopic, <kbd>⏎</kbd> sibling, <kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> reorder, <kbd>⌘</kbd><kbd>Z</kbd> undo.</p>
-          <p lang="zh">键盘操作和专业导图软件一样：<kbd>⇥</kbd> 新建子主题，<kbd>⏎</kbd> 同级主题，<kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> 调整顺序，<kbd>⌘</kbd><kbd>Z</kbd> 撤销。</p>
+          <p lang="en">Right-click any topic for a branch colour and a shape: square, circle, triangle, diamond, cross or star. Colours flow down the branch, into the timeline and the menu.</p>
+          <p lang="zh">右键任意主题，换分支颜色、选图形：方块、圆圈、三角、菱形、交叉、星星。颜色会顺着分支往下，时间线和菜单里也跟着用。</p>
         </div>
         <figure class="shot"><img src="demo/shapes.gif" width="1440" height="840" loading="lazy" alt="Right-clicking the Thesis topic and stepping through shapes, then branch colours"></figure>
       </div>
 
       <div class="feature flip">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Tags</span><span lang="zh">标签</span></p>
+          <h3><span lang="en">Tag anything</span><span lang="zh">什么都能打标签</span></h3>
+          <p lang="en">Tags like <i>In progress</i>, <i>Waiting on others</i> or <i>Slides</i>. Pick them from the right-click menu, or drag one from the shelf straight onto a chat.</p>
+          <p lang="zh">比如「进行中」「等别人」「幻灯片」。右键菜单里勾选，或者从左下角的标签栏直接拖到对话上。</p>
+          <p lang="en">Click a tag to highlight everything that has it; the rest of the map fades back. Click again to clear.</p>
+          <p lang="zh">点一下标签，带这个标签的都会高亮，其他的淡下去。再点一下取消。</p>
+        </div>
+        <figure class="shot"><img src="demo/tags.gif" width="1650" height="900" loading="lazy" alt="Clicking the In progress tag highlights the chats that have it; then the tag is dragged onto the Q4 planning deck, and clicked again"></figure>
+      </div>
+
+      <div class="feature">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Keyboard</span><span lang="zh">键盘</span></p>
+          <h3><span lang="en">Keyboard-first</span><span lang="zh">键盘就能搞定</span></h3>
+          <p lang="en">Like a real mind-map app: <kbd>⇥</kbd> new subtopic, <kbd>⏎</kbd> sibling, <kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> reorder, <kbd>⌘</kbd><kbd>Z</kbd> undo.</p>
+          <p lang="zh">和专业导图软件一样：<kbd>⇥</kbd> 新建子主题，<kbd>⏎</kbd> 同级主题，<kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> 调整顺序，<kbd>⌘</kbd><kbd>Z</kbd> 撤销。</p>
+          <p lang="en">Also <kbd>⌫</kbd> delete, <kbd>⌥</kbd><kbd>.</kbd> fold, <kbd>⌘</kbd><kbd>F</kbd> search, and <kbd>space</kbd> to open a chat in Claude.</p>
+          <p lang="zh">还有 <kbd>⌫</kbd> 删除，<kbd>⌥</kbd><kbd>.</kbd> 折叠，<kbd>⌘</kbd><kbd>F</kbd> 搜索，<kbd>空格</kbd> 在 Claude 里打开对话。</p>
+        </div>
+        <figure class="shot"><img src="demo/keys.gif" width="1440" height="840" loading="lazy" alt="Pressing Tab adds a subtopic under Home and typing names it, Return adds a sibling, Command-Up moves it, Command-Z undoes"></figure>
+      </div>
+
+      <div class="feature flip">
+        <div class="text">
+          <p class="eyebrow"><span lang="en">Timeline</span><span lang="zh">时间线</span></p>
+          <h3><span lang="en">What ran, and what's next</span><span lang="zh">做过什么，接下来做什么</span></h3>
+          <p lang="en">The strip at the bottom shows when Claude worked on each chat, in your branch colours. Hover a run to see how long it took.</p>
+          <p lang="zh">底部的时间线显示 Claude 什么时候在做哪个对话，用你的分支颜色。鼠标停在上面能看到用了多久。</p>
+          <p lang="en">Drag ahead to see what's coming: your scheduled tasks, each with a live countdown. Click anything to open it.</p>
+          <p lang="zh">往后拖，就能看到接下来要发生的事：每个计划任务都带实时倒计时。点一下就能打开。</p>
+        </div>
+        <figure class="shot"><img src="demo/timeline.gif" width="1470" height="330" loading="lazy" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns; Now jumps back"></figure>
+      </div>
+
+      <div class="feature">
         <div class="text">
           <p class="eyebrow"><span lang="en">Export</span><span lang="zh">导出</span></p>
           <h3><span lang="en">Take everything with you</span><span lang="zh">全部带走</span></h3>
@@ -308,16 +356,16 @@
         <figure class="shot"><img src="demo/export.gif" width="1650" height="1050" loading="lazy" alt="The export window: ticking Thesis, Writing and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></figure>
       </div>
 
-      <h2 style="margin-top:56px"><span lang="en">And also</span><span lang="zh">还有这些</span></h2>
+      <h2 style="margin-top:56px"><span lang="en">And a lot more</span><span lang="zh">还有更多</span></h2>
       <div class="also">
-        <div class="tile"><b lang="en">Timeline</b><b lang="zh">时间线</b><span lang="en">When Claude worked on what, with scheduled tasks and countdowns.</span><span lang="zh">Claude 什么时候在做什么，计划任务带倒计时。</span></div>
-        <div class="tile"><b lang="en">Today</b><b lang="zh">今日回顾</b><span lang="en">Today's activity, right in the menu.</span><span lang="zh">在菜单里看今天做了什么。</span></div>
-        <div class="tile"><b lang="en">Usage</b><b lang="zh">用量</b><span lang="en">Your Claude usage at a glance.</span><span lang="zh">Claude 用量一眼看到。</span></div>
-        <div class="tile"><b lang="en">Search</b><b lang="zh">搜索</b><span lang="en"><kbd>⌘</kbd><kbd>F</kbd> to find anything on the map.</span><span lang="zh"><kbd>⌘</kbd><kbd>F</kbd> 搜索整张导图。</span></div>
-        <div class="tile"><b lang="en">PDF</b><b lang="zh">PDF</b><span lang="en">Export the whole map as a PDF.</span><span lang="zh">整张导图导出成 PDF。</span></div>
-        <div class="tile"><b lang="en">Daily backups</b><b lang="zh">每日备份</b><span lang="en">Your map is backed up every day.</span><span lang="zh">导图每天自动备份。</span></div>
-        <div class="tile"><b lang="en">Light and dark</b><b lang="zh">浅色和深色</b><span lang="en">Both themes, built in.</span><span lang="zh">两种主题都有。</span></div>
-        <div class="tile"><b>English · 中文</b><span lang="en">The whole app in either language.</span><span lang="zh">整个界面中英文都有。</span></div>
+        <div class="tile"><img src="demo/unread.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮</b><span lang="en">A chat that's done but unread turns solid on the map.</span><span lang="zh">做完还没看的对话，在导图上变成实心，一眼看到。</span></div></div>
+        <div class="tile"><img src="demo/search.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Find anything</b><b lang="zh">搜索</b><span lang="en"><kbd>⌘</kbd><kbd>F</kbd> searches topics, chats and tags; <kbd>⏎</kbd> jumps to the next match.</span><span lang="zh"><kbd>⌘</kbd><kbd>F</kbd> 搜主题、对话和标签，<kbd>⏎</kbd> 跳到下一个。</span></div></div>
+        <div class="tile"><img src="demo/today.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Your day at a glance</b><b lang="zh">今日回顾</b><span lang="en">Which chats Claude worked on today, and for how long, right in the menu.</span><span lang="zh">今天 Claude 做了哪些对话、各用了多久，菜单里就能看。</span></div></div>
+        <div class="tile"><img src="demo/usage.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Usage in the menu</b><b lang="zh">用量</b><span lang="en">This session and this week, like claude.ai, plus what's scheduled next.</span><span lang="zh">当前会话和本周用量，和 claude.ai 一样，还有接下来的计划任务。</span></div></div>
+        <div class="tile"><img src="demo/pdf.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">The map as a PDF</b><b lang="zh">导出 PDF</b><span lang="en">The whole map on one light page, ready to print or share.</span><span lang="zh">整张导图导出成一页浅色 PDF，打印、分享都行。</span></div></div>
+        <div class="tile"><img src="demo/backups.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Daily backups</b><b lang="zh">每日备份</b><span lang="en">A copy of your map every day, before your first change.</span><span lang="zh">每天第一次改动之前，自动存一份导图。</span></div></div>
+        <div class="tile"><img src="demo/theme.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Light or dark</b><b lang="zh">浅色和深色</b><span lang="en">Follows your Mac, or flip it with the moon.</span><span lang="zh">跟随系统，或者点月亮按钮切换。</span></div></div>
+        <div class="tile"><img src="demo/language.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b>English · 中文</b><span lang="en">Every label, menu and tag in either language.</span><span lang="zh">所有文字、菜单和标签，中英文都有。</span></div></div>
       </div>
     </div>
   </section>
@@ -450,17 +498,24 @@
     try { localStorage.setItem("lang", l); } catch (e) {}
   });
 
-  // The tour has no sound, so it plays muted like a GIF while it's on screen.
+  // The tour plays muted, with captions, while it's on screen; "Play with sound" starts it over with the voice.
   // Visitors who ask for reduced motion get the play button instead.
-  var tour = document.getElementById("tour-video");
+  var tour = document.getElementById("tour-video"), sound = document.getElementById("sound");
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
     new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
-        if (e.isIntersecting) tour.play().catch(function () {});
-        else tour.pause();
+        if (!e.isIntersecting) tour.pause();
+        else if (tour.muted) tour.play().catch(function () {});
       });
     }, { threshold: 0.4 }).observe(tour);
   }
+  sound.addEventListener("click", function () {
+    tour.muted = false;
+    tour.loop = false;
+    tour.currentTime = 0;
+    tour.play().catch(function () {});
+  });
+  tour.addEventListener("volumechange", function () { sound.hidden = !tour.muted; });
 
   var nav = document.getElementById("nav");
   addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });

@@ -31,7 +31,9 @@
 
 You pinned a dozen chats in Claude. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style.
 
-https://github.com/user-attachments/assets/3b1f6eea-4903-423b-8a90-609a24e03a06
+<p align="center">
+  <a href="https://tang1693.github.io/KIKU/#tour"><img src="docs/demo/intro-poster.jpg" width="560" alt="Watch the 2-minute narrated tour"></a>
+</p>
 
 > [!NOTE]
 > **Beta.** The Claude app has no public API, so Kikumap reads its window through macOS Accessibility. When Claude changes its interface, parts of Kikumap may stop working until it's updated. Kikumap is an independent project, not made by or affiliated with Anthropic.
@@ -69,13 +71,44 @@ Real conversations carry a small orange mark, so they stand apart from plain top
 
 ### Make it yours
 
-Right-click any topic: branch colour, shape (square, circle, triangle, diamond, cross, star), and tags like *In progress*, *Waiting on others* or *Slides*. Click a tag to highlight everything that has it.
-
-Keyboard-first like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌘↑↓ reorder, ⌘Z undo.
+Right-click any topic for a branch colour and a shape: square, circle, triangle, diamond, cross or star. Colours flow down the branch, into the timeline and the menu.
 
 </td>
 </tr>
 <tr>
+<td>
+
+### Tag anything
+
+Tags like *In progress*, *Waiting on others* or *Slides*. Pick them from the right-click menu, or drag one from the shelf straight onto a chat.
+
+Click a tag to highlight everything that has it; the rest of the map fades back.
+
+</td>
+<td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="Clicking the In progress tag highlights the chats that have it; the tag is then dragged onto the Q4 planning deck"></td>
+</tr>
+<tr>
+<td width="55%"><img src="docs/demo/keys.gif" width="100%" alt="Tab adds a subtopic under Home, Return adds a sibling, Command-Up moves it, Command-Z undoes"></td>
+<td>
+
+### Keyboard-first
+
+Like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌘↑↓ reorder, ⌘Z undo. Also ⌫ delete, ⌥. fold, ⌘F search, and space to open a chat in Claude.
+
+</td>
+</tr>
+<tr>
+<td>
+
+### What ran, and what's next
+
+The timeline shows when Claude worked on each chat, in your branch colours. Drag ahead to see your scheduled tasks, each with a live countdown. Click anything to open it.
+
+</td>
+<td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns"></td>
+</tr>
+<tr>
+<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window: ticking Thesis, Writing and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></td>
 <td>
 
 ### Take everything with you
@@ -89,11 +122,29 @@ Tick topics and export every chat under them, pinned or not, one folder per chat
 The export can keep itself up to date. **Import** starts a new pinned chat per folder (in a new Claude account, say), with the artifacts attached and the summary sent in, so you pick up where you left off.
 
 </td>
-<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window: ticking Thesis, Writing and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></td>
 </tr>
 </table>
 
-**And also:** a timeline of when Claude worked on what, with scheduled tasks and countdowns · today's activity in the menu · usage at a glance · ⌘F search · map export to PDF · daily map backups · light and dark · English and 中文.
+### And a lot more
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b><br>A chat that's done but unread turns solid on the map.</td>
+<td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="Find anything"><br><b>Find anything</b><br>⌘F searches topics, chats and tags; ⏎ jumps to the next match.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="Your day at a glance"><br><b>Your day at a glance</b><br>Which chats Claude worked on today, and for how long, in the menu.</td>
+<td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="Usage in the menu"><br><b>Usage in the menu</b><br>This session and this week, like claude.ai, plus what's scheduled next.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/demo/pdf.gif" width="100%" alt="The map as a PDF"><br><b>The map as a PDF</b><br>The whole map on one light page, ready to print or share.</td>
+<td width="50%" valign="top"><img src="docs/demo/backups.gif" width="100%" alt="Daily backups"><br><b>Daily backups</b><br>A copy of your map every day, before your first change.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="Light or dark"><br><b>Light or dark</b><br>Follows your Mac, or flip it with the moon.</td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English · 中文"><br><b>English · 中文</b><br>Every label, menu and tag in either language.</td>
+</tr>
+</table>
 
 ## Install
 
@@ -233,7 +284,10 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 - **置顶对话，顺序和 Claude 一样**：拖到自己的主题下，用法像 MindNode。拖动时节点带着实时连线跟着鼠标走，其他节点会让开，空出它要落下的位置；你不动，布局就不会自己变。真正的对话前面有橙色小标记。
 - **按自己的习惯整理**：右键主题可以改分支颜色、选图形（方块、圆圈、三角、菱形、交叉、星星）、加标签。
 - **全部带走**：勾选主题，下面的对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：`memory.md`（Claude 写的交接总结）、`prompts.md`、`conversation.md`、`artifacts/`、`attachments/`。可以设成自动更新。「导入」会为每个文件夹开一个新的置顶对话，附上 artifacts、发进总结，在新账号里也能接着做。
-- 另外：时间线（含计划任务倒计时）、今日回顾、用量、⌘F 搜索、导图导出 PDF、每天自动备份、浅色和深色、中文和英文。
+- **标签**：「进行中」「等别人」「幻灯片」……右键勾选，或者从标签栏拖到对话上；点一下标签，带这个标签的都会高亮。
+- **键盘就能搞定**：⇥ 子主题、⏎ 同级、⌘↑↓ 调顺序、⌘Z 撤销、⌘F 搜索、空格打开对话。
+- **时间线**：过去 Claude 在哪个对话上干了多久；往后拖能看到接下来的计划任务，每个都带倒计时。
+- 另外：做完没看的对话在导图上会亮起来、菜单里的今日回顾和用量、导图导出 PDF、每天自动备份、浅色和深色、中文和英文。
 
 **第一次打开**会被 macOS 拦住（没有付费的苹果开发者签名）：去「系统设置 → 隐私与安全性」，往下滑点「仍要打开」。也可以下载源码，双击 `Install.command` 自己编译安装，这样签名固定，重装不用重新授权。
 
