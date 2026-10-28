@@ -246,7 +246,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
                               tr("勾上 memory，或者先下载 Claude 的官方导出包。", "Tick memory, or download Claude's data export first."))
             return
         }
-        if withMemory, let ok = confirmMemory, !ok(items.filter { !$0.isCode }.count) { return }
+        if withMemory, let ok = confirmMemory, !ok(items.filter { !$0.outsideClaude }.count) { return }
         window?.close()
         try? FileManager.default.createDirectory(at: Archive.folder, withIntermediateDirectories: true)
         archive.export(items, memory: withMemory, zip: withFiles ? zip : nil, force: false, scheduled: false)

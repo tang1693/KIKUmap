@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var notifications = NotificationWatcher(store: store)
     lazy var sidebar = SidebarWatcher(store: store)
     lazy var code = CodeWatcher()
+    lazy var gpt = GPTWatcher()
     lazy var perms = Permissions(notifications: notifications, sidebar: sidebar, usage: usage)
     lazy var statusBar = StatusBar(store: store, usage: usage, sounds: sounds)
     lazy var main = MainWindow(store: store, usage: usage)
@@ -23,6 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var intro = Onboarding(perms: perms)
     lazy var archive = Archive(store: store)
     lazy var exportWin = ExportWindow(store: store, archive: archive)
+    lazy var stats = StatsWindow(store: store)
+    lazy var widget = WidgetFeed(store: store, usage: usage)
+    private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandlerInstalled = false
@@ -46,6 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.header.onSettings = { [weak self] in self?.settings.show() }
         main.header.onLights = { Prefs.toggleLights() }
         statusBar.openRoutines = { AppDelegate.openRoutines() }
+        perms.onGPT = { [weak self] on in
+            guard let self = self else { return }
+            GPTWatcher.enabled = on
+            if on { self.gpt.start() } else { self.gpt.stop(); self.store.clearGPT() }
+        }
 
         statusBar.openChat = { [weak self] id in self?.open(id) }
         statusBar.showMap = { [weak self] in self?.main.show() }
@@ -53,6 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.enableUsage = { [weak self] in self?.perms.connectUsage(); self?.refreshUI() }
         statusBar.openSettings = { [weak self] in self?.settings.show() }
         statusBar.openAbout = { [weak self] in self?.settings.show(tab: SettingsWindow.aboutTab) }
+        statusBar.openStats = { [weak self] in self?.stats.show() }
+        stats.onOpen = { [weak self] id in self?.open(id) }
         statusBar.permissionsNeeded = { [weak self] in
             guard let s = self else { return false }
             return s.notifications.status != .ok || s.sidebar.status == .noAccess
@@ -113,12 +124,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.sounds.play(sounds)
         }
+        gpt.onThreads = { [weak self] threads in
+            guard let self = self else { return }
+            let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == GPTWatcher.bundleID
+            let ev = self.store.apply(gpt: threads, front: front)
+            self.sounds.play(ev)
+        }
         sidebar.onStatus = { [weak self] in self?.refreshUI() }
         usage.onChange = { [weak self] in self?.refreshUI() }
         usage.log = { [weak self] t in self?.store.log(Clock.iso() + " " + t + "\n", file: "usage.log") }
 
         notifications.start()
         code.start()
+        gpt.start()
         // never pop system prompts on launch — the intro asks for each permission on its own page
         sidebar.start(prompt: false)
         registerHotKey()
@@ -128,6 +146,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
                                                           name: NSWorkspace.didWakeNotification, object: nil)
         refreshUI()
+        // the desktop widget's chart moves on while chats run
+        widgetTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.widget.update() }
+        }
         if !Prefs.onboarded {
             intro.show()
         } else {
@@ -136,6 +158,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !CommandLine.arguments.contains("--background") { main.show() }
         }
     }
+
+    func applicationWillTerminate(_ notification: Notification) { widget.closing() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         main.show()
@@ -183,6 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if sig != h.actions.map({ $0.0 }) { h.actions = actions }
         h.needsDisplay = true
         if main.window.isVisible { main.reload() }
+        stats.refresh()
+        widget.update()
     }
 
     /// How fresh the Claude-app data is — or exactly what's stopping it.
@@ -303,6 +329,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMainMenu()
         statusBar.relabel()
         main.relabel()
+        stats.relabel()
+        widget.update(force: true)
         if rebuildSettings { settings.rebuild() }
         refreshUI()
     }
@@ -312,6 +340,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func open(_ id: String) {
+        if let c = store.chat(id), c.isGPT {
+            store.markSeen([id])
+            GPTWatcher.open(String(id.dropFirst(4)))
+            return
+        }
         // a Claude Code session: bring up the app it runs in (VS Code opens its folder)
         if let c = store.chat(id), c.isCode {
             store.markSeen([id])
@@ -386,6 +419,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func exportPDF() { main.show(); main.map.exportPDF() }
     @objc private func showExport() { exportWin.show() }
     @objc private func showMap() { main.show() }
+    @objc private func showStats() { stats.show() }
+
+    /// kikumap://chat/<id>, kikumap://map, kikumap://stats (the desktop widget's links).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for u in urls where u.scheme == "kikumap" {
+            switch u.host {
+            case "chat": if let id = u.pathComponents.dropFirst().first { open(id) }
+            case "stats": stats.show()
+            default: main.show()
+            }
+        }
+    }
 
     private func buildMainMenu() {
         let main = NSMenu()
@@ -418,6 +463,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         side.keyEquivalentModifierMask = [.control, .command]
         let tl = view.addItem(withTitle: tr("显示 / 隐藏时间线", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
         tl.keyEquivalentModifierMask = [.control, .command]
+        view.addItem(withTitle: tr("统计…", "Statistics…"), action: #selector(showStats), keyEquivalent: "y")
         view.addItem(.separator())
         view.addItem(withTitle: tr("放大", "Bigger"), action: #selector(bigger), keyEquivalent: "+")
         view.addItem(withTitle: tr("缩小", "Smaller"), action: #selector(smaller), keyEquivalent: "-")

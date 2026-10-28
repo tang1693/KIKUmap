@@ -281,8 +281,8 @@
           <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
           <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。</p>
           <p lang="zh"><b>听声音就知道：</b>对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”），声音、语速、念的内容都能自己改，也可以换成自己的声音文件。</p>
-          <p lang="en">Works with the Claude desktop app and with Claude Code: Terminal, VS Code, and the app's Code mode.</p>
-          <p lang="zh">支持 Claude 桌面 App，也支持 Claude Code（终端、VS Code、App 的 Code 模式）。</p>
+          <p lang="en">Works with the Claude desktop app and with Claude Code: Terminal, VS Code, and the app's Code mode. <b>New in 0.9.5:</b> the ChatGPT desktop app too, with its threads marked <b>GPT</b>.</p>
+          <p lang="zh">支持 Claude 桌面 App，也支持 Claude Code（终端、VS Code、App 的 Code 模式）。<b>0.9.5 新增：</b>ChatGPT 桌面 App，它的对话前面标着 <b>GPT</b>。</p>
         </div>
         <figure class="shot"><img src="demo/menubar.gif" width="1440" height="495" loading="lazy" alt="The menu-bar icon spinning while Claude works, then showing a red unread badge, then an exclamation mark when a chat needs approval"></figure>
       </div>
@@ -366,6 +366,8 @@
 
       <h2 style="margin-top:56px"><span lang="en">And a lot more</span><span lang="zh">还有更多</span></h2>
       <div class="also">
+        <div class="tile"><img src="demo/stats.png" width="1764" height="1176" loading="lazy" alt=""><div class="t"><b lang="en">Statistics · new</b><b lang="zh">统计 · 新</b><span lang="en">How long Claude worked each day, one bar per day split by chat, over 7 to 90 days. <kbd>⌘</kbd><kbd>Y</kbd></span><span lang="zh">每天 Claude 干了多久，一天一根柱，按对话分段，可看 7 到 90 天。<kbd>⌘</kbd><kbd>Y</kbd></span></div></div>
+        <div class="tile"><img src="demo/widget.png" width="1632" height="1088" loading="lazy" alt=""><div class="t"><b lang="en">Desktop widget · new</b><b lang="zh">桌面小组件 · 新</b><span lang="en">Running, unread and usage on top; the last 24 hours as bars below. macOS 14 or later.</span><span lang="zh">上面是进行中、未读和用量，下面是最近 24 小时的柱状图。需要 macOS 14 或更新。</span></div></div>
         <div class="tile"><img src="demo/unread.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮</b><span lang="en">A chat that's done but unread turns solid on the map, with a red dot.</span><span lang="zh">做完还没看的对话，在导图上变成实心，还带一个红点。</span></div></div>
         <div class="tile"><img src="demo/search.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Find anything</b><b lang="zh">搜索</b><span lang="en"><kbd>⌘</kbd><kbd>F</kbd> searches topics, chats and tags; <kbd>⏎</kbd> jumps to the next match.</span><span lang="zh"><kbd>⌘</kbd><kbd>F</kbd> 搜主题、对话和标签，<kbd>⏎</kbd> 跳到下一个。</span></div></div>
         <div class="tile"><img src="demo/today.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Your day at a glance</b><b lang="zh">今日回顾</b><span lang="en">Which chats Claude worked on today, and for how long, right in the menu.</span><span lang="zh">今天 Claude 做了哪些对话、各用了多久，菜单里就能看。</span></div></div>
@@ -414,6 +416,12 @@
           <b lang="en">Claude Code sessions</b><b lang="zh">Claude Code 会话</b>
           <p lang="en">Claude Code hooks, added to <code>~/.claude/settings.json</code> when you click <i>Connect</i>. The old file is backed up.</p>
           <p lang="zh">点「连接」时写进 <code>~/.claude/settings.json</code> 的 hooks，原文件会先备份。</p>
+          <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
+        </div>
+        <div class="perm">
+          <b lang="en">ChatGPT threads</b><b lang="zh">ChatGPT 对话</b>
+          <p lang="en">The thread list the ChatGPT desktop app keeps in <code>~/.codex</code>, read-only. Nothing there is changed. Turn it off in Settings → Access.</p>
+          <p lang="zh">ChatGPT 桌面 App 存在 <code>~/.codex</code> 里的对话列表，只读，不改任何东西。可在 设置 → 授权 里关掉。</p>
           <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
         </div>
         <div class="perm">
@@ -467,6 +475,11 @@
           <summary><span lang="en">Why is it a beta?</span><span lang="zh">为什么是测试版？</span></summary>
           <p lang="en">The Claude app has no public API, so Kikumap reads its window through macOS Accessibility. When Claude changes its interface, parts of Kikumap may stop working until it's updated.</p>
           <p lang="zh">Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口。Claude 改界面后，部分功能可能要等 Kikumap 更新才能恢复。</p>
+        </details>
+        <details>
+          <summary><span lang="en">Does it work with ChatGPT?</span><span lang="zh">支持 ChatGPT 吗？</span></summary>
+          <p lang="en">Yes, from 0.9.5: the current ChatGPT desktop app (the one built on Codex). Its threads show as running and unread like Claude's, with ChatGPT's pins, and they count in the timeline, statistics and widget. Kikumap only reads the thread list in <code>~/.codex</code>; no permission is needed.</p>
+          <p lang="zh">支持，0.9.5 起：新版 ChatGPT 桌面 App（Codex 内核）。它的对话和 Claude 的一样显示进行中、未读，置顶跟 ChatGPT 一致，也算进时间线、统计和小组件。Kikumap 只读 <code>~/.codex</code> 里的对话列表，不需要任何权限。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>

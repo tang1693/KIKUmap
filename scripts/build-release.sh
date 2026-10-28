@@ -11,24 +11,41 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 for arch in arm64 x86_64; do
   echo "Building $arch…"
   xcrun swiftc -O -parse-as-library -module-cache-path "$OUT/.modules" -target "$arch-apple-macos13.0" -o "$OUT/bin-$arch" Sources/*.swift \
-    -framework Cocoa -framework Security -framework Carbon -lsqlite3
+    -framework Cocoa -framework Security -framework Carbon -framework WidgetKit -lsqlite3
 done
 lipo -create -output "$APP/Contents/MacOS/ClaudeConsole" "$OUT/bin-arm64" "$OUT/bin-x86_64"
-rm -rf "$OUT"/bin-* "$OUT/.modules"
+# the desktop widget (macOS 14+): an extension inside the app, sandboxed to reading one file
+WX="$APP/Contents/PlugIns/KikumapWidget.appex"
+mkdir -p "$WX/Contents/MacOS"
+for arch in arm64 x86_64; do
+  echo "Building the widget, $arch…"
+  xcrun swiftc -O -parse-as-library -application-extension -module-cache-path "$OUT/.modules" -target "$arch-apple-macos14.0" \
+    -module-name KikumapWidget -o "$OUT/wx-$arch" Widget/*.swift -framework SwiftUI -framework WidgetKit
+done
+lipo -create -output "$WX/Contents/MacOS/KikumapWidget" "$OUT/wx-arm64" "$OUT/wx-x86_64"
+rm -rf "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Widget/Info.plist "$WX/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $VER" \
+  -c "Set CFBundleVersion $(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Resources/Info.plist)" "$WX/Contents/Info.plist"
 "$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns"
 # Signed with the same certificate every release, so macOS keeps people's permissions across updates
 # (it recognises an app by its signature). The certificate is the self-signed one Install.command makes
 # once; without it, an ad-hoc signature, and permissions reset with every update.
+# The widget first, with its sandbox entitlements, then the app around it (not --deep: that would
+# sign the widget again without them).
+sign() {
+  codesign --force -s "$1" --entitlements Widget/Widget.entitlements "$WX" && codesign --force -s "$1" "$APP"
+}
 IDENT=""
 for c in "Claude Console Local Signing" "Kikumap Local Signing"; do            # the order Install.command uses
   if security find-identity -p codesigning | grep -q "\"$c\""; then IDENT="$c"; break; fi
 done
 if [ -n "$IDENT" ]; then
-  codesign --force --deep -s "$IDENT" "$APP" || { echo "Signing with \"$IDENT\" failed (keychain access denied?)"; exit 1; }
+  sign "$IDENT" || { echo "Signing with \"$IDENT\" failed (keychain access denied?)"; exit 1; }
   echo "Signed with \"$IDENT\" (permissions survive updates)"
 elif [ "${ALLOW_ADHOC:-0}" = 1 ]; then
-  codesign --force --deep -s - "$APP"
+  sign -
   echo "Signed ad hoc: everyone will have to grant permissions again after this update"
 else
   echo "No local signing certificate: run Install.command once to make one (or ALLOW_ADHOC=1 to sign ad hoc)"; exit 1

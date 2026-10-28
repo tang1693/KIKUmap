@@ -29,6 +29,7 @@ final class VNode {
     var offset = CGVector.zero
     var shift = CGVector.zero
     var isCode = false
+    var isGPT = false
     var dir: CGFloat = 1
     var sh: CGFloat = 0
     var labelW: CGFloat = 0
@@ -314,6 +315,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                 k.time = store.timeLabel(c)
                 k.done = c.title.contains("🟢")
                 k.isCode = c.isCode
+                k.isGPT = c.isGPT
                 k.parent = v
                 register(k)
                 v.kids.append(k)
@@ -732,9 +734,12 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     /// Marks a real conversation, so it reads apart from a plain topic: the little Claude burst, or a
-    /// terminal for a Claude Code session.
+    /// terminal for a Claude Code session, a "GPT" tag for a ChatGPT thread.
     private func drawChatMark(_ v: VNode, _ r: NSRect, on solid: Bool) {
-        if v.isCode {
+        if v.isGPT {
+            let img = GPTWatcher.mark(solid ? Theme.bg : Theme.muted, height: 11)
+            img.draw(in: NSRect(x: r.midX - img.size.width / 2, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
+        } else if v.isCode {
             let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
             guard let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return }
             let c = solid ? Theme.bg : Theme.muted
@@ -845,6 +850,13 @@ final class MapView: NSView, NSTextFieldDelegate {
         drag == nil && band == nil && editing?.key != v.key && (hoverChat == v.key || (sel == v.key && group.isEmpty))
     }
 
+    /// "Open in Claude" — or in ChatGPT, or where a Claude Code session runs.
+    private func openLabel(_ id: String) -> String {
+        guard let c = store.chat(id) else { return tr("打开", "Open") }
+        if c.isGPT { return tr("在 ChatGPT 里打开", "Open in ChatGPT") }
+        return c.isCode ? tr("打开", "Open") : tr("在 Claude 里打开", "Open in Claude")
+    }
+
     /// Open in Claude, and unread / read (not while it's running), just outside the chat's outer edge.
     private func chatButtons(_ v: VNode) -> [(NSRect, ChatAction)] {
         guard let id = v.chatId else { return [] }
@@ -888,7 +900,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         tipStrings = []
         if let k = k, let v = byKey[k], let id = v.chatId {
             for (r, a) in chatButtons(v) {
-                let tip = (a == .open ? tr("在 Claude 里打开", "Open in Claude")
+                let tip = (a == .open ? openLabel(id)
                     : (store.isUnread(id: id) ? tr("标为已读  ⇧⌘U", "Mark as read  ⇧⌘U") : tr("标为未读  ⇧⌘U", "Mark as unread  ⇧⌘U"))) as NSString
                 tipStrings.append(tip)
                 addToolTip(r, owner: tip, userData: nil)
@@ -1354,14 +1366,14 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         m.addItem(.separator())
         if let id = v.chatId {
-            add(tr("在 Claude 里打开", "Open in Claude")) { [weak self] in self?.onOpen?(id) }
+            add(openLabel(id)) { [weak self] in self?.onOpen?(id) }
             if !store.isRunning(id) {
                 let unread = store.isUnread(id: id)
                 add(unread ? tr("标为已读", "Mark as read") : tr("标为未读", "Mark as unread"), "u", [.shift, .command]) { [weak self] in
                     self?.store.setUnread([id], !unread)
                 }
             }
-            if store.chat(id)?.isCode == false {
+            if store.chat(id)?.outsideClaude == false {
                 add(tr("让 Claude 写总结存档…", "Archive a summary…")) { [weak self] in self?.onArchive?(id) }
             }
         }
@@ -1553,6 +1565,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                         v.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
                         v.time = store.timeLabel(c)
                         v.isCode = c.isCode
+                        v.isGPT = c.isGPT
                     }
                     register(v)
                     moving.append(v)

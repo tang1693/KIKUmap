@@ -15,7 +15,7 @@ final class Archive {
         var zipDone: String?                          // the export zip already read ("path|modified")
     }
     /// One chat to export and the folder it goes in.
-    struct Item { let id: String; let title: String; let dir: URL; let isCode: Bool }
+    struct Item { let id: String; let title: String; let dir: URL; let outsideClaude: Bool }
 
     let store: Store
     var pid: () -> pid_t = { 0 }
@@ -97,7 +97,7 @@ final class Archive {
                 .appendingPathComponent(ClaudeExport.safeName(store.name(id)))
             if usedDirs.contains(dir.path) { dir = dir.deletingLastPathComponent().appendingPathComponent(dir.lastPathComponent + " " + String(id.suffix(6))) }
             usedDirs.insert(dir.path)
-            out.append(Item(id: id, title: c.title, dir: dir, isCode: c.isCode))
+            out.append(Item(id: id, title: c.title, dir: dir, outsideClaude: c.outsideClaude))
         }
         func walk(_ n: MapNode, _ path: [String], _ on: Bool) {
             for ch in n.children {
@@ -127,7 +127,7 @@ final class Archive {
     /// Right-click → archive one chat: just its summary, always.
     func runOne(_ id: String) {
         guard let it = items(topics: nil, unplaced: true).first(where: { $0.id == id }) ?? store.chat(id).map({
-            Item(id: id, title: $0.title, dir: Archive.folder.appendingPathComponent(tr("未归类", "Unfiled")).appendingPathComponent(ClaudeExport.safeName(store.name(id))), isCode: $0.isCode)
+            Item(id: id, title: $0.title, dir: Archive.folder.appendingPathComponent(tr("未归类", "Unfiled")).appendingPathComponent(ClaudeExport.safeName(store.name(id))), outsideClaude: $0.outsideClaude)
         }) else { return }
         export([it], memory: true, zip: nil, force: true, scheduled: false)
     }
@@ -184,7 +184,7 @@ final class Archive {
                 say(tr("读取 Claude 导出包…", "Reading the Claude export…"))
                 if let all = ClaudeExport.load(z) {
                     let byName = Dictionary(all.values.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
-                    for it in list where !it.isCode {
+                    for it in list where !it.outsideClaude {
                         guard let c = all[it.id.lowercased()] ?? byName[it.title] else { r.notInZip += 1; continue }
                         do { try ClaudeExport.write(c, title: it.title, to: it.dir); r.files += 1; r.artifacts += c.artifacts.count }
                         catch { log("  \(it.title): \(error.localizedDescription)") }
@@ -200,7 +200,7 @@ final class Archive {
                 let d = ClaudeDriver(pid: p, stop: stop, log: log)
                 let clip = d.saveClipboard()
                 let back = d.pageTitle()
-                let todo = list.filter { !$0.isCode }
+                let todo = list.filter { !$0.outsideClaude }
                 for (n, it) in todo.enumerated() {
                     if stop.isSet || (scheduled && Archive.idleSeconds() < 3 && n > 0) { break }
                     if skip.contains(it.id) { r.skipped += 1; continue }

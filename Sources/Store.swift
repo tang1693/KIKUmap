@@ -18,6 +18,10 @@ struct Chat: Codable, Equatable {
     var linked: Bool?
 
     var isCode: Bool { source == "code" }
+    /// A thread in the ChatGPT app.
+    var isGPT: Bool { source == "gpt" }
+    /// Not a chat in the Claude app (its pins, sidebar and archive don't apply).
+    var outsideClaude: Bool { isCode || isGPT }
 }
 
 /// A stretch of time when Claude was working on a chat.
@@ -30,6 +34,12 @@ struct Interval: Codable {
 private struct ActivityFile: Codable {
     var intervals: [Interval]
     var open: [String: String]
+}
+
+/// Days too old for the timeline, kept as totals for the statistics.
+private struct HistoryFile: Codable {
+    var days: [String: [String: Double]]       // "2026-10-28" → chat → seconds
+    var titles: [String: String]
 }
 
 private struct ChatsFile: Codable {
@@ -50,11 +60,14 @@ final class Store {
     private var observers: [() -> Void] = []
     private(set) var intervals: [Interval] = []
     private(set) var runStart: [String: String] = [:]
+    private var history: [String: [String: Double]] = [:]
+    private var historyTitles: [String: String] = [:]
 
     var chatsURL: URL { dir.appendingPathComponent("data/chats.json") }
     var seenURL: URL { dir.appendingPathComponent("data/seen.json") }
     var rulesURL: URL { dir.appendingPathComponent("data/rules.json") }
     var activityURL: URL { dir.appendingPathComponent("data/activity.json") }
+    var historyURL: URL { dir.appendingPathComponent("data/history.json") }
     var logsDir: URL { dir.appendingPathComponent("logs") }
 
     init() {
@@ -77,6 +90,10 @@ final class Store {
         if let d = try? Data(contentsOf: activityURL), let a = try? JSONDecoder().decode(ActivityFile.self, from: d) {
             intervals = a.intervals
             runStart = a.open
+        }
+        if let d = try? Data(contentsOf: historyURL), let h = try? JSONDecoder().decode(HistoryFile.self, from: d) {
+            history = h.days
+            historyTitles = h.titles
         }
         reindex()
         let before = map.root.children.count
@@ -115,9 +132,9 @@ final class Store {
     /// Only pinned chats are shown. Until the Claude sidebar has been read, nothing is (the sidebar
     /// says why) — never every chat. Claude Code sessions show while they run or wait for you, for 12 hours after, or for good once
     /// you pin them here or file them on the map.
-    var pinsKnown: Bool { chats.contains { !$0.isCode && $0.pinned != nil } }
+    var pinsKnown: Bool { chats.contains { !$0.outsideClaude && $0.pinned != nil } }
     func isShown(_ c: Chat) -> Bool {
-        if c.isCode {
+        if c.outsideClaude {
             // linked to the Claude app (Remote Control): shown through Claude's chat — only if that one is pinned
             if c.linked == true && chats.contains(where: { !$0.isCode && $0.pinned == true && $0.title == c.title }) { return false }
             if c.pinned == true || running.contains(c.id) || isUnread(c) || map.placedChats().contains(c.id) { return true }
@@ -129,17 +146,42 @@ final class Store {
 
     /// Today so far: how long Claude worked on each chat you can see (running ones up to now), longest first.
     func today() -> [(id: String, secs: Double)] {
-        let start = Calendar.current.startOfDay(for: Date()), now = Date()
-        var t: [String: Double] = [:]
-        func add(_ id: String, _ a: Date?, _ b: Date?) {
-            guard let a = a, let b = b else { return }
-            let s = max(a, start), e = min(b, now)
-            if e > s { t[id, default: 0] += e.timeIntervalSince(s) }
-        }
-        for iv in intervals { add(iv.id, Clock.parse(iv.start), Clock.parse(iv.end)) }
-        for (id, s) in runStart { add(id, Clock.parse(s), now) }
+        let t = worked([Calendar.current.startOfDay(for: Date()), Date()])[0]
         return t.filter { isShown(id: $0.key) }.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
     }
+
+    /// How long Claude worked on each chat in each slot bounds[i] ..< bounds[i + 1], running chats up to
+    /// now. Chats running side by side each count in full. Days older than the timeline's week come
+    /// from the daily totals, whole, in the slot their day starts in.
+    func worked(_ bounds: [Date]) -> [[String: Double]] {
+        var out = [[String: Double]](repeating: [:], count: max(bounds.count - 1, 0))
+        guard let first = bounds.first, let last = bounds.last, !out.isEmpty else { return out }
+        func slot(_ d: Date) -> Int? { d >= first && d < last ? bounds.lastIndex { $0 <= d } : nil }
+        func add(_ id: String, _ a: Date?, _ b: Date?) {
+            guard let a = a, let b = b, b > first, a < last else { return }
+            var i = slot(max(a, first)) ?? 0
+            while i < out.count && bounds[i] < b {
+                let s = max(a, bounds[i]), e = min(b, bounds[i + 1])
+                if e > s { out[i][id, default: 0] += e.timeIntervalSince(s) }
+                i += 1
+            }
+        }
+        for iv in intervals { add(iv.id, Clock.parse(iv.start), Clock.parse(iv.end)) }
+        let now = Date()
+        for (id, s) in runStart { add(id, Clock.parse(s), now) }
+        for (day, t) in history {
+            guard let d = Store.dayFormatter.date(from: day), let i = slot(d) else { continue }
+            for (id, s) in t { out[i][id, default: 0] += s }
+        }
+        return out
+    }
+
+    static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 
     /// A chat the archive just started in the Claude app (pinned there too).
     func addImported(id: String, title: String) {
@@ -171,7 +213,7 @@ final class Store {
     var runningChats: [Chat] { chats.filter { running.contains($0.id) && isShown($0) } }
     var unreadChats: [Chat] { chats.filter { isUnread($0) && isShown($0) } }
 
-    func name(_ id: String) -> String { map.aliases[id] ?? chat(id)?.title ?? tr("(已删除的对话)", "(deleted chat)") }
+    func name(_ id: String) -> String { map.aliases[id] ?? chat(id)?.title ?? historyTitles[id] ?? tr("(已删除的对话)", "(deleted chat)") }
     func mapLabel(_ id: String) -> String { map.aliases[id] ?? (chat(id)?.title.strippedPrefix ?? tr("(已删除的对话)", "(deleted chat)")) }
 
     /// 0 plain, 1 waiting for you, 2 running.
@@ -193,9 +235,11 @@ final class Store {
     /// never reshuffled by activity.
     func pinnedList() -> [Chat] {
         chats.enumerated().filter { isShown($0.element) }.sorted {
-            ($0.element.isCode ? 1 : 0, $0.element.pinIndex ?? Int.max, $0.offset) < ($1.element.isCode ? 1 : 0, $1.element.pinIndex ?? Int.max, $1.offset)
+            (Store.group($0.element), $0.element.pinIndex ?? Int.max, $0.offset) < (Store.group($1.element), $1.element.pinIndex ?? Int.max, $1.offset)
         }.map { $0.element }
     }
+
+    private static func group(_ c: Chat) -> Int { c.isCode ? 1 : (c.isGPT ? 2 : 0) }
 
     /// Chats not yet placed on the map.
     func unplaced() -> [Chat] {
@@ -254,10 +298,33 @@ final class Store {
 
     private func saveActivity() {
         let cutoff = Clock.iso(Date().addingTimeInterval(-8 * 86400))
+        let old = intervals.filter { $0.end < cutoff }
+        if !old.isEmpty { fold(old) }
         intervals.removeAll { $0.end < cutoff }
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         if let d = try? e.encode(ActivityFile(intervals: intervals, open: runStart)) { try? d.write(to: activityURL, options: .atomic) }
+    }
+
+    /// Intervals leaving the timeline are added to the daily totals (kept for about a year).
+    private func fold(_ old: [Interval]) {
+        let cal = Calendar.current
+        for iv in old {
+            guard var a = Clock.parse(iv.start), let b = Clock.parse(iv.end) else { continue }
+            while a < b {
+                let e = min(b, cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: a))!)
+                history[Store.dayFormatter.string(from: a), default: [:]][iv.id, default: 0] += e.timeIntervalSince(a)
+                a = e
+            }
+            historyTitles[iv.id] = name(iv.id)
+        }
+        let keep = Store.dayFormatter.string(from: Date().addingTimeInterval(-400 * 86400))
+        history = history.filter { $0.key >= keep }
+        let ids = Set(history.values.flatMap { $0.keys })
+        historyTitles = historyTitles.filter { ids.contains($0.key) }
+        let e = JSONEncoder()
+        e.outputFormatting = [.sortedKeys]
+        if let d = try? e.encode(HistoryFile(days: history, titles: historyTitles)) { try? d.write(to: historyURL, options: .atomic) }
     }
 
     /// Records when chats start and stop running.
@@ -352,8 +419,8 @@ final class Store {
 
     /// The Claude app quit: nothing is running any more (not "finished" — no sound, no unread).
     func clearRunning() {
-        let code = Set(chats.filter { $0.isCode }.map { $0.id })
-        let keep = running.intersection(code)        // Claude Code sessions don't live in the Claude app
+        let code = Set(chats.filter { $0.outsideClaude }.map { $0.id })
+        let keep = running.intersection(code)        // Claude Code sessions and ChatGPT don't live in the Claude app
         guard running != keep || !axUnread.isEmpty else { return }
         track(keep, at: Clock.iso())
         running = keep
@@ -417,6 +484,64 @@ final class Store {
         return events.filter(shown)
     }
 
+    // MARK: ChatGPT
+
+    /// The ChatGPT app's threads, read from ~/.codex. Returns sounds to play. Pins follow ChatGPT's.
+    func apply(gpt threads: [GPTThread], front: Bool) -> [Event] {
+        var events: [Event] = []
+        var changed = false, seenChanged = false
+        let now = Clock.iso()
+        for t in threads {
+            let id = "gpt-" + t.id
+            guard let i = index[id] else {
+                // already there before Kikumap saw it: not unread
+                chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
+                                  last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd, app: GPTWatcher.bundleID))
+                seen[id] = Clock.iso(t.finished ?? t.updated)
+                if t.running { running.insert(id) }
+                reindex()
+                changed = true; seenChanged = true
+                continue
+            }
+            if chats[i].title != t.title { chats[i].title = t.title; changed = true }
+            if (chats[i].pinned == true) != t.pinned { chats[i].pinned = t.pinned ? true : nil; changed = true }
+            if t.running && !running.contains(id) {
+                running.insert(id)
+                seen[id] = now; seenChanged = true                  // you just asked it something
+                changed = true
+            } else if !t.running && running.contains(id) {
+                running.remove(id)
+                let when = Clock.iso(t.finished ?? Date())
+                chats[i].updated_at = when
+                if t.finished != nil {
+                    events.append(.finished(id))
+                    if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT
+                }
+                changed = true
+            } else if !t.running, let f = t.finished.map(Clock.iso), f > chats[i].updated_at {
+                chats[i].updated_at = f                             // finished while Kikumap wasn't watching
+                changed = true
+            }
+        }
+        // archived or gone from the list: no longer running
+        let listed = Set(threads.map { "gpt-" + $0.id })
+        for id in running where id.hasPrefix("gpt-") && !listed.contains(id) { running.remove(id); changed = true }
+        if changed {
+            track(running, at: now)
+            saveChats()
+        }
+        if seenChanged { saveSeen() }
+        if changed || seenChanged { notify() }
+        return events.filter(shown)
+    }
+
+    /// ChatGPT was turned off: forget its threads' running state.
+    func clearGPT() {
+        let before = running
+        running = running.filter { !$0.hasPrefix("gpt-") }
+        if running != before { track(running, at: Clock.iso()); notify() }
+    }
+
     /// The name Claude Code gave the session (or yours, if you renamed it there).
     func setCodeInfo(_ id: String, title: String?, linked: Bool) {
         guard let i = index[id] else { return }
@@ -475,7 +600,7 @@ final class Store {
             if let i = index[l.id] {
                 if (chats[i].path ?? "").isEmpty && !l.path.isEmpty { chats[i].path = l.path; changed = true }
                 if let p = l.pinned, chats[i].pinned != p { chats[i].pinned = p; changed = true }
-                if !l.title.isEmpty && chats[i].title != l.title && !l.id.hasPrefix("n-") && !chats[i].isCode {
+                if !l.title.isEmpty && chats[i].title != l.title && !l.id.hasPrefix("n-") && !chats[i].outsideClaude {
                     retitle(i, l.title); changed = true
                 }
             } else if adopt(l) {
@@ -493,7 +618,7 @@ final class Store {
             for (n, id) in pinnedIDs.enumerated() { if let i = index[id], chats[i].pinIndex != n { chats[i].pinIndex = n; changed = true } }
             // the Pinned section was read whole: anything else is no longer pinned (unpinned or deleted in Claude)
             let pinnedSet = Set(pinnedIDs)
-            for i in chats.indices where !chats[i].isCode && chats[i].pinned == true && !pinnedSet.contains(chats[i].id) {
+            for i in chats.indices where !chats[i].outsideClaude && chats[i].pinned == true && !pinnedSet.contains(chats[i].id) {
                 chats[i].pinned = false; changed = true
             }
         }

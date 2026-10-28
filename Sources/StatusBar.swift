@@ -103,6 +103,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openRoutines: (() -> Void)?
     var openSettings: (() -> Void)?
     var openAbout: (() -> Void)?
+    var openStats: (() -> Void)?
     var syncNote: (() -> String?)?
     /// What the sync note means and what to do (shown on hover).
     var syncHelp: (() -> String?)?
@@ -275,6 +276,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
         } else {
             todayItem.isEnabled = false
         }
+        let statsItem = menu.addItem(withTitle: tr("统计…", "Statistics…"), action: #selector(stats), keyEquivalent: "")
+        statsItem.target = self
         menu.addItem(.separator())
 
         let next = TimelineView.upcoming(usage.routines)
@@ -334,6 +337,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     @objc private func settings() { openSettings?() }
     @objc private func about() { openAbout?() }
+    @objc private func stats() { openStats?() }
     @objc private func explainSync() {
         guard let n = syncNote?(), let help = syncHelp?() else { return }
         Permissions.alert(n, help)

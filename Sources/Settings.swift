@@ -86,6 +86,19 @@ final class Permissions {
         if let err = CodeHooks.uninstall() { Permissions.alert(tr("没能断开 Claude Code", "Couldn't disconnect Claude Code"), err) }
     }
 
+    /// ChatGPT threads (read-only, from ~/.codex): on / off.
+    var onGPT: ((Bool) -> Void)?
+    var gptOK: Bool { GPTWatcher.enabled && GPTWatcher.available }
+    func connectGPT() {
+        guard GPTWatcher.available else {
+            Permissions.alert(tr("没找到 ChatGPT 的数据", "ChatGPT's data wasn't found"),
+                              tr("装上新版 ChatGPT 桌面 App（Codex 内核）并用过一次，再来这里连接。", "Install the current ChatGPT desktop app (the one built on Codex), use it once, then connect here."))
+            return
+        }
+        onGPT?(true)
+    }
+    func disconnectGPT() { onGPT?(false) }
+
     static func alert(_ title: String, _ text: String) {
         let a = NSAlert()
         a.messageText = title
@@ -536,13 +549,18 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                 tr("在 ~/.claude/settings.json 里加几个 hook → 终端、VS Code 里的 Claude Code 会话也能显示「进行中 / 未读」。原文件会备份。新开的会话才生效。",
                    "Adds a few hooks to ~/.claude/settings.json → Claude Code sessions in Terminal or VS Code show as running / unread too. The old file is backed up. Applies to sessions started afterwards."),
                 tr("连接", "Connect"), { p.codeHooks }, { p.connectCode() }),
+            row("ChatGPT",
+                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的对话列表（~/.codex，只读）→ ChatGPT 的对话也显示「进行中 / 未读」，置顶跟 ChatGPT 一致。不改任何东西，不上传。",
+                   "Reads the thread list the ChatGPT desktop app keeps on this Mac (~/.codex, read-only) → ChatGPT threads show as running / unread too, pinned as in ChatGPT. Changes nothing, uploads nothing."),
+                tr("连接", "Connect"), { p.gptOK }, { [weak self] in p.connectGPT(); self?.refreshPerms() }),
         ]
         let tip = label(tr("重装（重新编译）后，如果这里显示未开启、但系统设置里已经勾上：在系统设置里把 Kikumap 删掉（−）再重新加一次。",
                            "After reinstalling, if access shows as off but it's ticked in System Settings: remove Kikumap there (−) and add it again."), small: true)
         let diag = button(tr("写诊断日志", "Write diagnostic log")) { [weak self] in self?.onDiagnose?() }
         let unhook = button(tr("断开 Claude Code", "Disconnect Claude Code")) { p.disconnectCode() }
         let usageOff = button(tr("关闭用量", "Turn off usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
-        return vstack(rows + [tip, NSStackView(views: [diag, unhook, usageOff])], spacing: 18)
+        let gptOff = button(tr("断开 ChatGPT", "Disconnect ChatGPT")) { [weak self] in p.disconnectGPT(); self?.refreshPerms() }
+        return vstack(rows + [tip, NSStackView(views: [diag, unhook, usageOff, gptOff])], spacing: 18)
     }
 
     private func refreshPerms() {

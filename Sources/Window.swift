@@ -325,6 +325,10 @@ final class SidebarView: NSView, NSDraggingSource {
             if c.isCode, let img = SidebarView.terminal {
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: 14, height: 12))
                 nameX += 19
+            } else if c.isGPT {
+                let img = GPTWatcher.mark(Theme.muted, height: 12)
+                img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
+                nameX += img.size.width + 5
             }
             let time = store.timeLabel(c)
             let timeF = Theme.ui(11.5)
@@ -448,6 +452,10 @@ final class SidebarView: NSView, NSDraggingSource {
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let c = row(at: convert(event.locationInWindow, from: nil)) else { return nil }
         let m = NSMenu()
+        if c.isGPT {                                  // pinned or not is up to ChatGPT
+            m.addItem(MenuAction(title: tr("在 ChatGPT 里打开", "Open in ChatGPT")) { [weak self] in self?.onOpen?(c.id) })
+            return m
+        }
         guard c.isCode else {
             m.addItem(MenuAction(title: tr("打开", "Open")) { [weak self] in self?.onOpen?(c.id) })
             m.addItem(MenuAction(title: tr("让 Claude 写总结存档…", "Archive a summary…")) { [weak self] in self?.onArchive?(c.id) })

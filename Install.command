@@ -20,8 +20,16 @@ OLD2="$HOME/Applications/Kiku.app"
 TMP="$(mktemp -d)"
 echo "Building…"
 if ! xcrun swiftc -O -parse-as-library -o "$TMP/ClaudeConsole" Sources/*.swift \
-     -framework Cocoa -framework Security -framework Carbon -lsqlite3; then
+     -framework Cocoa -framework Security -framework Carbon -framework WidgetKit -lsqlite3; then
   echo "STATUS=BUILD_FAILED"; exit 1
+fi
+# the desktop widget needs macOS 14; without it everything else still works
+WIDGET=0
+if xcrun swiftc -O -parse-as-library -application-extension -target "$(uname -m)-apple-macos14.0" -module-name KikumapWidget \
+     -o "$TMP/KikumapWidget" Widget/*.swift -framework SwiftUI -framework WidgetKit 2>/dev/null; then
+  WIDGET=1
+else
+  echo "(desktop widget skipped: it needs macOS 14 or later)"
 fi
 
 pkill -x ClaudeConsole 2>/dev/null
@@ -30,6 +38,14 @@ mkdir -p "$HOME/Applications"
 rm -rf "$APP" "$OLD" "$OLD2"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 mv "$TMP/ClaudeConsole" "$APP/Contents/MacOS/ClaudeConsole"
+WX="$APP/Contents/PlugIns/KikumapWidget.appex"
+if [ "$WIDGET" = 1 ]; then
+  mkdir -p "$WX/Contents/MacOS"
+  mv "$TMP/KikumapWidget" "$WX/Contents/MacOS/KikumapWidget"
+  cp Widget/Info.plist "$WX/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)" \
+    -c "Set CFBundleVersion $(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Resources/Info.plist)" "$WX/Contents/Info.plist"
+fi
 rm -rf "$TMP"
 [ -d "/Applications/Kikumap.app" ] && echo "Note: there's also a Kikumap in /Applications (from the disk image). Delete one of them, so only one runs."
 cp Resources/Info.plist "$APP/Contents/Info.plist"
@@ -64,11 +80,17 @@ fi
 if [ "${FIRST_CERT:-0}" = 1 ]; then
   echo "macOS may now ask whether codesign may use that certificate: choose Always Allow."
 fi
-if codesign --force --deep -s "$IDENT" "$APP" 2>/dev/null; then
+# the widget first, with its sandbox entitlements, then the app around it (not --deep: that would
+# sign the widget again without them)
+sign() {
+  if [ -d "$WX" ]; then codesign --force -s "$1" --entitlements Widget/Widget.entitlements "$WX" || return 1; fi
+  codesign --force -s "$1" "$APP"
+}
+if sign "$IDENT" 2>/dev/null; then
   echo "Signed with the local certificate (permissions survive reinstalls)."
   SIGNED=stable
 else
-  codesign --force --deep -s - "$APP" || echo "(signing skipped)"
+  sign - || echo "(signing skipped)"
   SIGNED=adhoc
 fi
 
