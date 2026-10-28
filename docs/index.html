@@ -118,8 +118,7 @@
   /* Tour video */
   .tour { padding-top: 48px; }
   .player { max-width: 860px; margin: 36px auto 0; aspect-ratio: 16 / 9; }
-  .player a, .player video { display: block; width: 100%; height: 100%; }
-  .player img, .player video { width: 100%; height: 100%; object-fit: cover; }
+  .player video { display: block; width: 100%; height: 100%; object-fit: cover; }
 
   /* Features */
   .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: center; padding: 56px 0; }
@@ -240,11 +239,11 @@
     </div>
   </section>
 
-  <section class="tour">
+  <section class="tour" id="tour">
     <div class="wrap">
       <h2><span lang="en">The 40-second tour</span><span lang="zh">40 秒看懂</span></h2>
       <div class="player shot">
-        <a id="tour" href="demo/kikumap-intro.mp4"><img src="demo/intro-poster.jpg" width="1280" height="720" alt="Play the 40-second tour of Kikumap"></a>
+        <video id="tour-video" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The 40-second tour of Kikumap"></video>
       </div>
     </div>
   </section>
@@ -451,18 +450,17 @@
     try { localStorage.setItem("lang", l); } catch (e) {}
   });
 
-  // The tour plays in place; without JavaScript the link opens the video file.
-  var tour = document.getElementById("tour");
-  tour.addEventListener("click", function (e) {
-    e.preventDefault();
-    var v = document.createElement("video");
-    v.src = tour.getAttribute("href");
-    v.poster = "demo/intro-poster.jpg";
-    v.controls = true;
-    v.playsInline = true;
-    tour.replaceWith(v);
-    v.play().catch(function () {});
-  });
+  // The tour has no sound, so it plays muted like a GIF while it's on screen.
+  // Visitors who ask for reduced motion get the play button instead.
+  var tour = document.getElementById("tour-video");
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) tour.play().catch(function () {});
+        else tour.pause();
+      });
+    }, { threshold: 0.4 }).observe(tour);
+  }
 
   var nav = document.getElementById("nav");
   addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });

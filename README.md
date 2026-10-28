@@ -32,7 +32,7 @@
 You pinned a dozen chats in Claude. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style.
 
 <p align="center">
-  <a href="docs/demo/kikumap-intro.mp4"><img src="docs/demo/intro-poster.jpg" width="560" alt="Watch the 40-second tour"></a>
+  <a href="https://tang1693.github.io/KIKU/#tour"><img src="docs/demo/intro-poster.jpg" width="560" alt="Watch the 40-second tour"></a>
 </p>
 
 > [!NOTE]
