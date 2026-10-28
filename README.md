@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/Swift-no%20dependencies-F05138?logo=swift&logoColor=white" alt="Swift, no dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT license"></a>
   <a href="https://github.com/tang1693/kiku/stargazers"><img src="https://img.shields.io/github/stars/tang1693/kiku?style=flat&color=D97757" alt="GitHub stars"></a>
+  <a href="https://ko-fi.com/vegligi"><img src="https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 <h3 align="center"><a href="https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg">⬇︎ Download for macOS</a></h3>
@@ -270,6 +271,10 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
   <img src="https://api.star-history.com/svg?repos=tang1693/kiku&type=Date" width="600" alt="Star history">
 </a>
 
+## Support
+
+Kikumap is free. If it saves you time, you can [buy me a coffee on Ko-fi](https://ko-fi.com/vegligi). A star or a bug report helps just as much.
+
 ## License
 
 [MIT](LICENSE). Claude is a trademark of Anthropic; this project is independent and not endorsed by Anthropic.
@@ -301,4 +306,4 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
 **名字**：*Kiku*（菊）是日语里的菊花，就是菜单栏里那朵 Claude 干活时会转的橙色小菊花；Kikumap 就是从它长出来的导图。
 
-协议：[MIT](LICENSE)。觉得好用的话，点个 ⭐ 能让更多人看到。
+协议：[MIT](LICENSE)。觉得好用的话，点个 ⭐ 能让更多人看到；也可以在 [Ko-fi](https://ko-fi.com/vegligi) 请我喝杯咖啡。

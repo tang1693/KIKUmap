@@ -9,4 +9,5 @@
 /Resources/AppIcon.iconset/
 !/scripts/
 !/docs/
+!/.github/
 .DS_Store
