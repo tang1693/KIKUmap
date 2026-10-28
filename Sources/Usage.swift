@@ -1,5 +1,6 @@
 import Cocoa
 import Security
+import LocalAuthentication
 
 /// A Claude scheduled task (claude.ai → Code → Scheduled tasks).
 struct Routine {
@@ -115,16 +116,18 @@ final class UsageMonitor: NSObject {
         }
         busy = true
         lastRead = Date()
+        // only a click (after the explanation) may bring up macOS's Keychain dialog; on its own it reads quietly
         DispatchQueue.global(qos: .utility).async {
-            let r = UsageMonitor.readCredentials()
+            let r = UsageMonitor.readCredentials(interactive: userAction)
             DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated { self?.got(r) }
+                MainActor.assumeIsolated { self?.got(r, interactive: userAction) }
             }
         }
     }
 
     /// Turned off: forget the sign-in and everything read with it.
     func stop() {
+        busy = false
         timer?.invalidate()
         timer = nil
         token = nil
@@ -135,8 +138,9 @@ final class UsageMonitor: NSObject {
         set(.unknown)
     }
 
-    private func got(_ r: Read) {
+    private func got(_ r: Read, interactive: Bool) {
         busy = false
+        guard UsageMonitor.enabled else { return }          // turned off while macOS was asking
         switch r {
         case .token(let t):
             if t.isExpired { token = nil; set(.expired); return }
@@ -144,7 +148,10 @@ final class UsageMonitor: NSObject {
             token = t
             fetch(t)
         case .missing: set(.noLogin)
-        case .denied: set(.denied)
+        case .denied:
+            // "Deny" in macOS's dialog: off again, so nothing asks until you choose to turn it on
+            if interactive { UsageMonitor.enabled = false; stop() }
+            set(.denied)
         case .failed(let s): log?("keychain read failed: \(s)"); set(.error)
         }
     }
@@ -157,7 +164,14 @@ final class UsageMonitor: NSObject {
 
     // MARK: reading Claude Code's sign-in
 
-    nonisolated private static func readCredentials() -> Read {
+    /// A Keychain lookup that may not ask the user anything.
+    nonisolated private static func quietContext() -> LAContext {
+        let c = LAContext()
+        c.interactionNotAllowed = true
+        return c
+    }
+
+    nonisolated private static func readCredentials(interactive: Bool) -> Read {
         let file = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/.credentials.json")
         if let d = try? Data(contentsOf: file), let t = parseCredentials(d) { return .token(t) }
         let q: [String: Any] = [
@@ -165,7 +179,10 @@ final class UsageMonitor: NSObject {
             kSecAttrService as String: "Claude Code-credentials",
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecReturnData as String: true,
-        ]
+        ].merging(interactive ? [:] : [kSecUseAuthenticationContext as String: UsageMonitor.quietContext()]) { a, _ in a }
+        // a background read must never put up the Keychain dialog: it fails quietly instead
+        if !interactive { SecKeychainSetUserInteractionAllowed(false) }
+        defer { if !interactive { SecKeychainSetUserInteractionAllowed(true) } }
         var out: CFTypeRef?
         let s = SecItemCopyMatching(q as CFDictionary, &out)
         switch s {
@@ -206,6 +223,7 @@ final class UsageMonitor: NSObject {
         get("/api/oauth/usage", t, beta: "oauth-2025-04-20") { [weak self] code, obj in
             guard let self = self else { return }
             self.busy = false
+            guard UsageMonitor.enabled else { return }
             switch code {
             case 200 where self.parse(obj):
                 self.set(.ok)
@@ -232,7 +250,7 @@ final class UsageMonitor: NSObject {
         var extra = ["anthropic-version": "2023-06-01"]
         if let o = org { extra["x-organization-uuid"] = o }
         get("/v1/code/triggers?limit=100", t, beta: "ccr-triggers-2026-01-30,oauth-2025-04-20", extra: extra) { [weak self] code, obj in
-            guard let self = self else { return }
+            guard let self = self, UsageMonitor.enabled else { return }
             guard code == 200, let o = obj as? [String: Any], let list = o["data"] as? [[String: Any]] else {
                 let note = "scheduled tasks HTTP \(code)"
                 if note != self.routinesNote { self.routinesNote = note; self.log?(note) }

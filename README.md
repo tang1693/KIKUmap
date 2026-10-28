@@ -36,7 +36,7 @@
 
 You pinned a dozen chats in Claude. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style.
 
-**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A 2 MB download that waits for changes instead of polling, and stops drawing entirely when its window is hidden.
+**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A 2.5 MB download that waits for changes instead of polling, and stops drawing entirely when its window is hidden.
 
 https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
@@ -72,7 +72,7 @@ The left column mirrors the chats you pinned in Claude, **in Claude's order**, a
 Real conversations carry a small orange mark, so they stand apart from plain topics. Hover one for two buttons: open it in Claude, or mark it unread again (⇧⌘U) so it waits for you until you've opened it.
 
 </td>
-<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Shift-dragging a box selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
+<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Dragging a box on empty space selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
 </tr>
 <tr>
 <td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="Right-clicking the Thesis topic and stepping through shapes (square, circle, triangle, diamond, cross, star), then branch colours"></td>
@@ -91,7 +91,7 @@ Right-click any topic for a branch colour and a shape: square, circle, triangle,
 
 Tags like *In progress*, *Waiting on others* or *Slides*. Pick them from the right-click menu, or drag one from the shelf straight onto a chat.
 
-Click a tag to highlight everything that has it; the rest of the map fades back.
+Click a tag to highlight everything that has it; the rest of the map fades back. Click again to clear.
 
 </td>
 <td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="Clicking the In progress tag highlights the chats that have it; the tag is then dragged onto the Q4 planning deck"></td>
@@ -252,7 +252,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 - **Nothing shows as running:** open the Claude app's sidebar. Settings → Access → *Write diagnostic log*, then look at `logs/claude-sidebar.txt` in the data folder.
 - **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session.
-- **No usage:** in Terminal run `claude`, then `/login`, and pick your Claude account.
+- **No usage:** it's off until you turn it on: Settings → Access → Usage → *Connect*. If it still says signed out, run `claude` in Terminal, then `/login`, and pick your Claude account.
 </details>
 
 <details>
@@ -280,8 +280,6 @@ The code is plain Swift and AppKit, no Xcode project and no dependencies.
 | `Usage.swift` | usage and scheduled tasks |
 | `Settings.swift` / `Onboarding.swift` | settings, permissions, first-launch intro |
 | `Theme.swift` / `Logo.swift` | colours, language, the mark and app icon |
-
-If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
 <a href="https://star-history.com/#tang1693/KIKUmap&Date">
   <img src="https://api.star-history.com/svg?repos=tang1693/KIKUmap&type=Date" width="600" alt="Star history">

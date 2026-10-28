@@ -30,6 +30,8 @@ mkdir -p "$HOME/Applications"
 rm -rf "$APP" "$OLD" "$OLD2"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 mv "$TMP/ClaudeConsole" "$APP/Contents/MacOS/ClaudeConsole"
+rm -rf "$TMP"
+[ -d "/Applications/Kikumap.app" ] && echo "Note: there's also a Kikumap in /Applications (from the disk image). Delete one of them, so only one runs."
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # the icon is drawn in code (Sources/Logo.swift)
 "$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns" || echo "(icon skipped)"

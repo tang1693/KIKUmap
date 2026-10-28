@@ -48,7 +48,7 @@ final class Permissions {
 
                 • 只读取，不修改、不保存这份登录
                 • 只发给 api.anthropic.com，只用来查用量和计划任务
-                • 随时可以在 设置 → 权限 里关掉
+                • 随时可以在 设置 → 授权 里关掉
 
                 点「继续」后，macOS 会问一次是否允许 Kikumap 使用这个钥匙串项目。选「始终允许」，以后就不会再问。
                 """, """
@@ -401,8 +401,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         // a system sound, your own file, or none
         func soundPop(_ get: @escaping () -> String, _ set: @escaping (String) -> Void) -> NSPopUpButton {
             var keys: [String] = []
-            var p: NSPopUpButton!
+            weak var p: NSPopUpButton?          // weak: the pop-up holds this closure
             func fill() {
+                guard let p = p else { return }
                 let cur = get()
                 keys = Sounds.choices + (cur.hasPrefix("/") ? [cur] : []) + ["other", "off"]
                 p.removeAllItems()
@@ -413,7 +414,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                 })
                 p.selectItem(at: keys.firstIndex(of: cur) ?? 0)
             }
-            p = popup([], selected: 0) { i in
+            let pop = popup([], selected: 0) { i in
                 guard i < keys.count else { return }
                 if keys[i] == "other" {
                     if let path = Sounds.importFile() { set(path) }
@@ -423,8 +424,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                 }
                 Sounds.sound(get())?.play()
             }
+            p = pop
             fill()
-            return p
+            return pop
         }
         let done = soundPop({ Prefs.soundDone }) { Prefs.soundDone = $0 }
         let input = soundPop({ Prefs.soundInput }) { Prefs.soundInput = $0 }
@@ -607,7 +609,10 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         archiveFolderLabel = path
         let status = label("", small: true, width: 380)
         archiveStatus = status
-        let tip = label(tr("也可以右键单个对话 →「让 Claude 写总结存档…」，先试一个。", "Or right-click one chat → \"Archive a summary…\" to try one first."), small: true, width: 380)
+        let tip = label(tr("也可以右键单个对话 →「让 Claude 写总结存档…」，先试一个。", "Or right-click one chat → \"Archive a summary…\" to try one first.")
+                        + (ClaudeExport.canLookInDownloads ? "" : tr("\n第一次存到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许。",
+                                                                    "\nThe first time it saves into Documents, Desktop or Downloads, macOS asks once whether that's OK.")),
+                        small: true, width: 380)
         let g = grid([
             [label(tr("导出", "Export"), width: 140), actions],
             [label(tr("存在", "Folder"), width: 140), path],

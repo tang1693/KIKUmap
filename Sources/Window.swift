@@ -186,7 +186,14 @@ final class HeaderView: NSView {
             x += w + 6 + ls.width + 16
         }
         let small = Theme.ui(12)
-        if !meters.isEmpty {
+        let limit = (buttons.first?.frame.minX ?? (bounds.width - 90)) - 12
+        let meterW: CGFloat = {
+            let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .bold)
+            let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
+            let tw = meters.map { ((($0.1.map { "\(Int($0.rounded()))%" } ?? "–") + "  " + $0.2) as String).size(pf).width }.max() ?? 0
+            return lw + 8 + 90 + 8 + ceil(tw)
+        }()
+        if !meters.isEmpty && x + meterW <= limit {
             let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .medium)
             let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
             let barW: CGFloat = 90
@@ -213,7 +220,6 @@ final class HeaderView: NSView {
             }
             x += maxW + 22
         }
-        let limit = (buttons.first?.frame.minX ?? (bounds.width - 90)) - 12
         var liveRect: NSRect?
         for text in [usageHint, liveText] where !text.isEmpty {
             let s = text.size(small)
@@ -387,8 +393,13 @@ final class SidebarView: NSView, NSDraggingSource {
         let f = e.modifierFlags
         if f.contains(.command) {
             if picked.isEmpty, let s = sel { picked = [s] }
-            if picked.contains(c.id) { picked.remove(c.id) } else { picked.insert(c.id) }
-            sel = c.id
+            if picked.contains(c.id) {
+                picked.remove(c.id)
+                sel = picked.first
+            } else {
+                picked.insert(c.id)
+                sel = c.id
+            }
         } else if f.contains(.shift), let s = sel, let a = rows.firstIndex(where: { $0.id == s }),
                   let b = rows.firstIndex(where: { $0.id == c.id }) {
             picked = Set(rows[min(a, b)...max(a, b)].map(\.id))       // the first click stays the anchor
@@ -689,7 +700,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     }
 
     static func keysTitle() -> NSAttributedString {
-        NSAttributedString(string: "⌨︎ " + tr("全部快捷键", "All shortcuts"),
+        NSAttributedString(string: tr("全部快捷键", "All shortcuts"),
                            attributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.ink])
     }
 
@@ -729,6 +740,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         hint.stringValue = MainWindow.hintText()
         keysButton.attributedTitle = MainWindow.keysTitle()
         window.title = "Kikumap"
+        layoutPanes()                   // the button and the hint are sized to the new words
         header.relabel()
         reload()
     }
@@ -827,6 +839,10 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         hint.frame = NSRect(x: sideW + 16, y: tlH + 6, width: W - sideW - 32, height: 16)
         hint.autoresizingMask = [.width, .maxYMargin]
         keysButton.isBordered = false
+        keysButton.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
+        keysButton.imagePosition = .imageLeading
+        keysButton.contentTintColor = Theme.ink
         keysButton.attributedTitle = MainWindow.keysTitle()
         keysButton.target = self
         keysButton.action = #selector(showKeys(_:))
@@ -872,7 +888,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         sideScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: midH)
         let mapX = sideW == 0 ? 0 : sideW + 1
         mapScroll.frame = NSRect(x: mapX, y: tlH, width: W - mapX, height: midH)
-        let kw = ceil(keysButton.attributedTitle.size().width) + 8
+        let kw = ceil(keysButton.attributedTitle.size().width) + 26
         keysButton.frame = NSRect(x: W - 16 - kw, y: tlH + 4, width: kw, height: 20)
         hint.frame = NSRect(x: mapX + 16, y: tlH + 6, width: max(0, W - mapX - 32 - kw - 12), height: 16)
         sideEdge.frame = NSRect(x: max(0, sideW - 3), y: tlH, width: 6, height: midH)
@@ -886,7 +902,11 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         }
     }
 
-    func toggleSidebar() { Prefs.sideHidden.toggle(); layoutPanes() }
+    func toggleSidebar() {
+        Prefs.sideHidden.toggle()
+        layoutPanes()
+        if Prefs.sideHidden { window.makeFirstResponder(map) }
+    }
     func toggleTimeline() { Prefs.timelineHidden.toggle(); layoutPanes() }
 
     /// The tag shelf grows with its tags; the pinned list takes the rest of the column.

@@ -12,3 +12,4 @@
 !/docs/
 !/.github/
 .DS_Store
+.claude/

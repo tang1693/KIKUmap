@@ -45,8 +45,8 @@ func draw() {
     head.stroke()
 
     centred("First launch: System Settings → Privacy & Security → Open Anyway",
-            .systemFont(ofSize: 11.5), ink2, top: 318)
-    centred("第一次打开：系统设置 → 隐私与安全性 → 仍要打开", .systemFont(ofSize: 11.5), ink2, top: 338)
+            .systemFont(ofSize: 11.5), ink2, top: 290)
+    centred("第一次打开：系统设置 → 隐私与安全性 → 仍要打开", .systemFont(ofSize: 11.5), ink2, top: 309)
 }
 
 let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "background.tiff"

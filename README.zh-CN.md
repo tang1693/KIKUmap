@@ -16,6 +16,7 @@
   <img src="https://img.shields.io/badge/Swift-%E9%9B%B6%E4%BE%9D%E8%B5%96-F05138?logo=swift&logoColor=white" alt="Swift，零依赖">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT 协议"></a>
   <a href="https://github.com/tang1693/KIKUmap/stargazers"><img src="https://img.shields.io/github/stars/tang1693/KIKUmap?style=flat&color=D97757" alt="GitHub stars"></a>
+  <a href="https://ko-fi.com/vegligi"><img src="https://img.shields.io/badge/Ko--fi-%E8%AF%B7%E6%88%91%E5%96%9D%E5%92%96%E5%95%A1-FF5E5B?logo=kofi&logoColor=white" alt="在 Ko-fi 支持"></a>
 </p>
 
 <h3 align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg">⬇︎ 下载 macOS 版</a></h3>
@@ -35,7 +36,7 @@
 
 你在 Claude 里置顶了一堆对话：一个在写论文章节，一个在修测试，还有一个十分钟前就做完了你还没看。**Kikumap** 住在菜单栏里帮你盯着：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的思维导图，用法像 MindNode。
 
-**原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码。安装包 2 MB，靠系统通知等变化而不是不停轮询，窗口一隐藏就完全停止绘制。
+**原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码。安装包 2.5 MB，靠系统通知等变化而不是不停轮询，窗口一隐藏就完全停止绘制。
 
 https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
@@ -251,7 +252,7 @@ Claude App 没有“哪些对话在跑”的接口。Kikumap 通过「辅助功�
 - **没有任何对话显示“进行中”**：打开 Claude App 的侧边栏。设置 → 授权 → *写诊断日志*，然后看数据文件夹里的 `logs/claude-sidebar.txt`。
 - **系统设置里开了权限，这里却显示没开**：在系统设置的列表里把 Kikumap 删掉（−）再加回来。从 0.9.1 起，每个版本都用同一张证书签名，更新后权限会保留。
 - **Claude Code 会话没显示**：设置 → 授权 → Claude Code → *连接*，然后开一个新会话。
-- **没有用量**：在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。
+- **没有用量**：用量默认关闭，先在 设置 → 授权 → 用量 → *连接* 打开。还显示未登录的话，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。
 </details>
 
 <details>

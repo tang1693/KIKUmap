@@ -169,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if notifications.status == .noAccess || sidebar.status == .noAccess {
             actions.append((tr("开启权限", "Grant access"), true, { [weak self] in self?.settings.show(tab: 2) }))
         }
-        if usage.status == .denied || usage.status == .error {
+        if UsageMonitor.enabled && (usage.status == .denied || usage.status == .error) {
             actions.append((tr("重新读取用量", "Read usage again"), false, { [weak self] in self?.usage.reconnect() }))
         }
         if archive.busy {
@@ -231,7 +231,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         · Each chat gets one more exchange, which uses a little of your quota
         · The Claude window switches chats while this runs — leave it alone (you can stop from the top bar)
         · Chats that are running, unread or unchanged are skipped
-        """)
+        """) + (ClaudeExport.canLookInDownloads ? "" : tr("\n\n第一次存到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 Kikumap 存到这里。",
+                                                         "\n\nThe first time it saves into Documents, Desktop or Downloads, macOS asks once whether Kikumap may save there."))
         a.addButton(withTitle: tr("开始", "Start"))
         a.addButton(withTitle: tr("取消", "Cancel"))
         NSApp.activate(ignoringOtherApps: true)

@@ -146,11 +146,16 @@ final class MapView: NSView, NSTextFieldDelegate {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
         if let w = window {
             NotificationCenter.default.addObserver(self, selector: #selector(occlusionChanged), name: NSWindow.didChangeOcclusionStateNotification, object: w)
+            NotificationCenter.default.addObserver(self, selector: #selector(lostFocus), name: NSWindow.didResignKeyNotification, object: w)
         }
         occlusionChanged()
     }
+
+    /// Switching away while space is down: its key-up goes elsewhere, so let go here.
+    @objc private func lostFocus() { endSpace() }
 
     @objc private func occlusionChanged() {
         let onScreen = window?.isVisible == true && window?.occlusionState.contains(.visible) == true
@@ -189,6 +194,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         glide(from: prev)
         if let s = sel, byKey[s] == nil { sel = nil }
         group = group.filter { byKey[$0] != nil }
+        if sel == nil { sel = group.first }
         if group.count < 2 { group = [] }
         if let e = editing, let v = byKey[e.key] { e.field.frame = editRect(v) }
         if !searchQuery.isEmpty { updateMatches() }
@@ -473,10 +479,11 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let root = rootV else { return nil }
         if editing != nil { finishEdit() }
         let r = all.reduce(root.frame) { $0.union($1.frame) }.insetBy(dx: -40, dy: -40).intersection(bounds)
-        let keep = (sel, group)
+        let keep = (sel, group, hoverChat)
         sel = nil
         group = []
-        defer { (sel, group) = keep; needsDisplay = true }
+        hoverChat = nil
+        defer { (sel, group, hoverChat) = keep; needsDisplay = true }
         var d: Data?
         NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { d = dataWithPDF(inside: r) }
         return d
@@ -685,6 +692,12 @@ final class MapView: NSView, NSTextFieldDelegate {
             let tx = r.minX + pad + iconW + v.labelW + 8
             drawText(t, timeF, timeC, x: tx, midY: midY + 1)
             drawTags(v, x: tx + ceil((v.time + (v.state == 2 ? "···" : "")).size(timeF).width) + 6, midY: midY)
+            if v.state == 1 {
+                // unread: a red dot on the outer top corner, like the menu bar's badge
+                let c = NSPoint(x: v.dir < 0 ? r.minX + 3 : r.maxX - 3, y: r.minY + 2)
+                Theme.bg.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 6.5, y: c.y - 6.5, width: 13, height: 13)).fill()
+                NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 5, y: c.y - 5, width: 10, height: 10)).fill()
+            }
         }
         NSGraphicsContext.current?.restoreGraphicsState()
         // selection and drop outlines first, then badges and the fold handle on top of them
@@ -795,12 +808,12 @@ final class MapView: NSView, NSTextFieldDelegate {
             let b = NSRect(x: x, y: y, width: w, height: 22)
             Theme.bg.setFill(); NSBezierPath(roundedRect: b.insetBy(dx: -2, dy: -2), xRadius: 13, yRadius: 13).fill()
             let p = NSBezierPath(roundedRect: b.insetBy(dx: 0.75, dy: 0.75), xRadius: 10.5, yRadius: 10.5)
-            if state == 1 { Theme.ink.setFill(); p.fill() } else {
+            if state == 1 { NSColor.systemRed.setFill(); p.fill() } else {
                 Theme.paper.setFill(); p.fill(); Theme.ink.setStroke(); p.lineWidth = 1.5; p.stroke()
             }
             let ts = s.size(badgeF)
             (s as NSString).draw(at: NSPoint(x: b.midX - ts.width / 2, y: b.midY - ts.height / 2),
-                                 withAttributes: [.font: badgeF, .foregroundColor: state == 1 ? Theme.bg : Theme.ink])
+                                 withAttributes: [.font: badgeF, .foregroundColor: state == 1 ? NSColor.white : Theme.ink])
             x += w + 3
         }
     }
@@ -835,8 +848,12 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let id = v.chatId else { return [] }
         let acts: [ChatAction] = store.isRunning(id) ? [.open] : [.open, .unread]
         let w: CGFloat = 24, h: CGFloat = 20, gap: CGFloat = 4
-        let midY = v.state == 0 ? v.frame.minY + 3 + textH(chatF) / 2 : v.frame.midY
-        var x = v.dir > 0 ? v.frame.maxX + 8 : v.frame.minX - 8 - w
+        let midY = v.frame.midY
+        // a chat is wider as a pill (unread, running): measure that, so the buttons don't move when it changes
+        let tw = ceil((v.time + "···").size(timeF).width)
+        let pill = 10 + (v.colored ? 8 : 0) + iconW + min(maxLabel, ceil(v.title.size(pillF).width)) + 8 + tw + 10 + tagW(v)
+        let width = max(v.size.width, pill)
+        var x = v.dir > 0 ? v.frame.minX + width + 8 : v.frame.maxX - width - 8 - w
         return acts.map { a in
             defer { x += v.dir > 0 ? w + gap : -(w + gap) }
             return (NSRect(x: x, y: midY - h / 2, width: w, height: h), a)
@@ -854,7 +871,10 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let id = byKey[key]?.chatId else { return }
         switch a {
         case .open: onOpen?(id)
-        case .unread: store.setUnread([id], !store.isUnread(id: id))
+        case .unread:
+            store.setUnread([id], !store.isUnread(id: id))
+            let k = hoverChat
+            setHover(nil); setHover(k)          // the tool tip says the opposite now
         }
     }
 
@@ -1073,6 +1093,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseExited(with e: NSEvent) { setHover(nil) }
+    override func mouseEntered(with e: NSEvent) { spaceHeld?.last = e.locationInWindow }
 
     override func mouseMoved(with e: NSEvent) {
         guard var h = spaceHeld else {
@@ -1104,7 +1125,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             return true
         case ("a", _): selectAll(nil); return true
         case ("u", _) where f.contains(.shift):
-            let ids = selection.compactMap { byKey[$0]?.chatId }
+            let ids = selection.compactMap { byKey[$0]?.chatId }.filter { !store.isRunning($0) }
             if !ids.isEmpty { store.setUnread(ids, !ids.allSatisfy { store.isUnread(id: $0) }) }
             return true
         case ("=", _), ("+", _): zoom(1.15); return true
@@ -1220,8 +1241,9 @@ final class MapView: NSView, NSTextFieldDelegate {
         if editing != nil { finishEdit() }
         window?.makeFirstResponder(self)
         narrowOnUp = nil
+        if spaceHeld != nil || e.modifierFlags.contains(.option) { startPan(e); return }
         let adding = !e.modifierFlags.intersection([.shift, .command]).isEmpty
-        if !adding, let (k, a) = chatButtonHit(p) { run(a, on: k); return }
+        if !adding, let (k, a) = chatButtonHit(p) { if e.clickCount == 1 { run(a, on: k) }; return }
         if !adding, let v = foldHit(p) { store.map.toggleFold(v.key); changed(select: v.key); return }
         if let v = hit(p) {
             if adding {
@@ -1252,7 +1274,6 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     private func startPan(_ e: NSEvent) {
-        if spaceHeld == nil { select(nil) }
         spaceHeld?.moved = true
         pan = (e.locationInWindow, visibleRect.origin)
         NSCursor.closedHand.push()
@@ -1260,7 +1281,12 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func otherMouseDown(with e: NSEvent) { startPan(e) }
     override func otherMouseDragged(with e: NSEvent) { mouseDragged(with: e) }
-    override func otherMouseUp(with e: NSEvent) { mouseUp(with: e) }
+    override func otherMouseUp(with e: NSEvent) {
+        guard pan != nil else { return }
+        NSCursor.pop()
+        pan = nil
+        spaceHeld?.last = e.locationInWindow
+    }
 
     /// Edit → Select All (⌘A).
     override func selectAll(_ sender: Any?) {
@@ -1290,6 +1316,7 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func mouseUp(with e: NSEvent) {
         if pan != nil { NSCursor.pop() }
+        spaceHeld?.last = e.locationInWindow
         if band != nil { band = nil; needsDisplay = true }
         if let k = narrowOnUp { select(k) }
         narrowOnUp = nil
@@ -1475,6 +1502,8 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// its children; beside an item → its sibling, in the order `p` is at. `hint`: the side of the centre.
     private func dropAt(_ p: NSPoint, _ base: [String: Spot], side hint: CGFloat? = nil) -> DropAt? {
         guard let rootKey = rootV?.key, let rs = base[rootKey] else { return nil }
+        // with a side given, only that side counts (and the centre), so the drop can't flip across it
+        let base = hint.map { h in base.filter { $0.value.kind == .root || $0.value.dir == h } } ?? base
         if let on = base.first(where: { ($0.value.kind == .main || $0.value.kind == .sub) && $0.value.frame.insetBy(dx: 2, dy: 0).contains(p) }) {
             let f = (p.y - on.value.frame.minY) / max(1, on.value.frame.height)
             if f > 0.22 && f < 0.78 { return DropAt(parent: on.key, before: nil, side: on.value.dir) }

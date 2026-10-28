@@ -21,14 +21,17 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # (it recognises an app by its signature). The certificate is the self-signed one Install.command makes
 # once; without it, an ad-hoc signature, and permissions reset with every update.
 IDENT=""
-for c in "Kikumap Local Signing" "Claude Console Local Signing"; do
-  if security find-certificate -c "$c" >/dev/null 2>&1; then IDENT="$c"; break; fi
+for c in "Claude Console Local Signing" "Kikumap Local Signing"; do            # the order Install.command uses
+  if security find-identity -p codesigning | grep -q "\"$c\""; then IDENT="$c"; break; fi
 done
-if [ -n "$IDENT" ] && codesign --force --deep -s "$IDENT" "$APP" 2>/dev/null; then
+if [ -n "$IDENT" ]; then
+  codesign --force --deep -s "$IDENT" "$APP" || { echo "Signing with \"$IDENT\" failed (keychain access denied?)"; exit 1; }
   echo "Signed with \"$IDENT\" (permissions survive updates)"
-else
+elif [ "${ALLOW_ADHOC:-0}" = 1 ]; then
   codesign --force --deep -s - "$APP"
-  echo "Signed ad hoc: no local signing certificate (run Install.command once to make one)"
+  echo "Signed ad hoc: everyone will have to grant permissions again after this update"
+else
+  echo "No local signing certificate: run Install.command once to make one (or ALLOW_ADHOC=1 to sign ad hoc)"; exit 1
 fi
 
 # The disk image: Kikumap and an Applications shortcut side by side over a background picture with an

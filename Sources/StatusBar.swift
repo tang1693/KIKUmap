@@ -50,7 +50,7 @@ final class Sounds {
         u.rate = Prefs.speakRate
         u.preUtteranceDelay = delay
         u.voice = Prefs.speakVoice.flatMap { AVSpeechSynthesisVoice(identifier: $0) }
-            ?? AVSpeechSynthesisVoice(language: text.range(of: "\\p{Han}", options: .regularExpression) != nil || !Prefs.english ? "zh-CN" : "en-US")
+            ?? AVSpeechSynthesisVoice(language: text.range(of: "\\p{Han}", options: .regularExpression) != nil ? "zh-CN" : "en-US")
         voice.speak(u)
     }
 
@@ -235,8 +235,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
             if list.count > 15 { header(tr("　还有 \(list.count - 15) 个…", "　\(list.count - 15) more…")) }
         }
         if let n = syncNote?() {
-            header("⚠︎ " + n)
-            menu.items.last?.toolTip = syncHelp?()
+            // clickable, so the explanation is a click away (tool tips don't show on disabled items)
+            let w = menu.addItem(withTitle: "⚠︎ " + n, action: #selector(explainSync), keyEquivalent: "")
+            w.target = self
+            w.toolTip = syncHelp?()
             menu.addItem(.separator())
         }
         let run = store.runningChats, unread = store.unreadChats
@@ -332,6 +334,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     @objc private func settings() { openSettings?() }
     @objc private func about() { openAbout?() }
+    @objc private func explainSync() {
+        guard let n = syncNote?(), let help = syncHelp?() else { return }
+        Permissions.alert(n, help)
+    }
 
     @objc private func openItem(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }

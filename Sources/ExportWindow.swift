@@ -192,7 +192,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         stack.spacing = 10
         stack.setCustomSpacing(16, after: stack.arrangedSubviews[2])
         stack.setCustomSpacing(16, after: stack.arrangedSubviews[8])
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews[12])
+        stack.setCustomSpacing(20, after: stack.arrangedSubviews[13])
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
