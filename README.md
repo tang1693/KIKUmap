@@ -9,18 +9,18 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tang1693/kiku/releases/latest"><img src="https://img.shields.io/github/v/release/tang1693/kiku?include_prereleases&label=download&color=D97757" alt="Latest release"></a>
+  <a href="https://github.com/tang1693/KIKUmap/releases/latest"><img src="https://img.shields.io/github/v/release/tang1693/KIKUmap?include_prereleases&label=download&color=D97757" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-1f1e1d?logo=apple&logoColor=white" alt="macOS 13 or later">
   <img src="https://img.shields.io/badge/Swift-no%20dependencies-F05138?logo=swift&logoColor=white" alt="Swift, no dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT license"></a>
-  <a href="https://github.com/tang1693/kiku/stargazers"><img src="https://img.shields.io/github/stars/tang1693/kiku?style=flat&color=D97757" alt="GitHub stars"></a>
+  <a href="https://github.com/tang1693/KIKUmap/stargazers"><img src="https://img.shields.io/github/stars/tang1693/KIKUmap?style=flat&color=D97757" alt="GitHub stars"></a>
   <a href="https://ko-fi.com/vegligi"><img src="https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
-<h3 align="center"><a href="https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg">⬇︎ Download for macOS</a></h3>
+<h3 align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg">⬇︎ Download for macOS</a></h3>
 
 <p align="center">
-  <a href="https://tang1693.github.io/KIKU/">Website</a> ·
+  <a href="https://tang1693.github.io/KIKUmap/">Website</a> ·
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -151,7 +151,7 @@ The export can keep itself up to date. **Import** starts a new pinned chat per f
 
 ## Install
 
-**[Download Kikumap.dmg](https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg)** (Apple silicon and Intel, macOS 13 or later), open it and drag **Kikumap** to **Applications**.
+**[Download Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)** (Apple silicon and Intel, macOS 13 or later), open it and drag **Kikumap** to **Applications**.
 
 The first time you open it, macOS says it can't check the app, because it isn't signed with a paid Apple Developer ID:
 
@@ -167,7 +167,7 @@ In the Claude app, turn on **Response completions** (Settings → Notifications)
 Needs the Xcode Command Line Tools (macOS offers to install them).
 
 ```bash
-git clone https://github.com/tang1693/kiku.git
+git clone https://github.com/tang1693/KIKUmap.git
 cd kiku
 open Install.command        # or double-click it in Finder
 ```
@@ -247,7 +247,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 
 ## Contributing
 
-Issues and pull requests are welcome, especially when a Claude update breaks something: [open an issue](https://github.com/tang1693/kiku/issues) with what you see.
+Issues and pull requests are welcome, especially when a Claude update breaks something: [open an issue](https://github.com/tang1693/KIKUmap/issues) with what you see.
 
 The code is plain Swift and AppKit, no Xcode project and no dependencies.
 
@@ -267,8 +267,8 @@ The code is plain Swift and AppKit, no Xcode project and no dependencies.
 
 If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
-<a href="https://star-history.com/#tang1693/kiku&Date">
-  <img src="https://api.star-history.com/svg?repos=tang1693/kiku&type=Date" width="600" alt="Star history">
+<a href="https://star-history.com/#tang1693/KIKUmap&Date">
+  <img src="https://api.star-history.com/svg?repos=tang1693/KIKUmap&type=Date" width="600" alt="Star history">
 </a>
 
 ## Support
@@ -285,7 +285,7 @@ Kikumap is free. If it saves you time, you can [buy me a coffee on Ko-fi](https:
 
 **Kikumap · Claude 对话导图。** 一个原生、轻量的 macOS 菜单栏小工具（纯 Swift + AppKit，没有 Electron，安装包 2 MB，没有任何第三方依赖），给同时开着很多 Claude 对话的人用：一眼看到哪个还在跑、哪个做完了还没看、哪个在等你批准，再把置顶对话整理成一张导图。
 
-**[⬇︎ 下载 Kikumap.dmg](https://github.com/tang1693/kiku/releases/latest/download/Kikumap.dmg)**，打开后把 Kikumap 拖进「应用程序」。
+**[⬇︎ 下载 Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)**，打开后把 Kikumap 拖进「应用程序」。
 
 > **测试版。** Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口。Claude 改界面后，部分功能可能要等更新才能恢复。本项目由个人独立开发，与 Anthropic 无关。
 
