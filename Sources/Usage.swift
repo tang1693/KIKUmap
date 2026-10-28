@@ -36,6 +36,7 @@ struct Routine {
 /// No second login: it reuses the sign-in Claude Code already keeps on this Mac
 /// (Keychain item "Claude Code-credentials"). macOS asks you once before the app may read it.
 /// The app only reads that sign-in — it never refreshes or changes it; Claude Code keeps it fresh.
+/// Off until you turn it on: the Keychain is never touched before you've said yes.
 @MainActor
 final class UsageMonitor: NSObject {
     enum Status { case unknown, ok, noLogin, denied, expired, noScope, error }
@@ -78,8 +79,14 @@ final class UsageMonitor: NSObject {
         }
     }
 
+    /// You said yes to reading Claude Code's sign-in (Settings → Access, or the intro).
+    static var enabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "UsageOn") }
+        set { UserDefaults.standard.set(newValue, forKey: "UsageOn") }
+    }
+
     func start() {
-        guard timer == nil else { return }
+        guard UsageMonitor.enabled, timer == nil else { return }
         refresh()
         timer = Timer.scheduledTimer(timeInterval: 300, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
     }
@@ -99,7 +106,7 @@ final class UsageMonitor: NSObject {
     }
 
     func refresh(userAction: Bool = false) {
-        guard !busy else { return }
+        guard UsageMonitor.enabled, !busy else { return }
         if let t = token, !t.isExpired { fetch(t); return }
         // Don't keep asking after "Deny"; re-read an expired sign-in at most every 15 minutes.
         if !userAction {
@@ -114,6 +121,18 @@ final class UsageMonitor: NSObject {
                 MainActor.assumeIsolated { self?.got(r) }
             }
         }
+    }
+
+    /// Turned off: forget the sign-in and everything read with it.
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        token = nil
+        session = nil
+        weekly = nil
+        routines = []
+        updated = nil
+        set(.unknown)
     }
 
     private func got(_ r: Read) {

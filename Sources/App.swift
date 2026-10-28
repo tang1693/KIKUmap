@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.openChat = { [weak self] id in self?.open(id) }
         statusBar.showMap = { [weak self] in self?.main.show() }
         statusBar.diagnose = { [weak self] in self?.diagnose() }
+        statusBar.enableUsage = { [weak self] in self?.perms.connectUsage(); self?.refreshUI() }
         statusBar.openSettings = { [weak self] in self?.settings.show() }
         statusBar.permissionsNeeded = { [weak self] in
             guard let s = self else { return false }

@@ -176,14 +176,16 @@ open Install.command        # or double-click it in Finder
 
 ## Privacy
 
-Everything stays on your Mac, in `~/Library/Application Support/ClaudeConsole/`. The only network requests are usage checks to `api.anthropic.com`.
+Everything stays on your Mac, in `~/Library/Application Support/ClaudeConsole/`. The only network requests are usage checks to `api.anthropic.com`, and only if you turn usage on.
+
+No surprise prompts: every macOS permission dialog comes after Kikumap has told you what it's for and you've clicked to go ahead.
 
 | What it shows | Where it comes from | Permission |
 |---|---|---|
 | Finished / needs your input | The Claude app's notifications in Notification Center (read-only) | Full Disk Access |
 | Running, unread, pinned chats | The Claude app's sidebar, through Accessibility | Accessibility |
 | Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
-| Usage, scheduled tasks | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain | macOS asks once |
+| Usage, scheduled tasks (optional, off by default) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
 
 **Exporting:** summaries are written by Claude inside each chat, so each adds one exchange and the Claude window switches chats while it runs. Prompts, conversations and artifacts come from Claude's own data export (Claude → Settings → Privacy → Export data); leave the zip in Downloads and Kikumap finds it. Import works the Claude window the same way; images and other binary files can't be carried over.
 
@@ -295,7 +297,7 @@ If Kikumap saves you some tab-hunting, a ⭐ helps other people find it.
 
 **第一次打开**会被 macOS 拦住（没有付费的苹果开发者签名）：去「系统设置 → 隐私与安全性」，往下滑点「仍要打开」。也可以下载源码，双击 `Install.command` 自己编译安装，这样签名固定，重装不用重新授权。
 
-**隐私**：所有数据都在本机 `~/Library/Application Support/ClaudeConsole/`，唯一的网络请求是向 `api.anthropic.com` 查询用量。「完全磁盘访问」用来只读通知中心里 Claude 的通知；「辅助功能」用来读 Claude 侧边栏。
+**隐私**：所有数据都在本机 `~/Library/Application Support/ClaudeConsole/`。唯一的网络请求是向 `api.anthropic.com` 查询用量，而且只在你开启用量功能之后（默认关闭）。所有系统授权弹窗，都会先告诉你要做什么、你同意了才出现。「完全磁盘访问」用来只读通知中心里 Claude 的通知；「辅助功能」用来读 Claude 侧边栏。
 
 **名字**：*Kiku*（菊）是日语里的菊花，就是菜单栏里那朵 Claude 干活时会转的橙色小菊花；Kikumap 就是从它长出来的导图。
 

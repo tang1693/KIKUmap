@@ -191,11 +191,11 @@ final class Onboarding: NSObject, NSWindowDelegate {
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
         case .usage:
             permissionPage(step: 3, symbol: "gauge.with.dots.needle.50percent",
-                           title: tr("第 3 步：用量", "Step 3: Usage"),
-                           body: tr("借用 Claude Code 在这台 Mac 上已有的登录，读取用量和计划任务，不用再登录一次。\n点「连接」后 macOS 会问一次钥匙串，请选「始终允许」。没装 Claude Code 可以跳过。",
-                                    "Reuses Claude Code's existing sign-in on this Mac to read usage and scheduled tasks — no second login.\nAfter \"Connect\", macOS asks about the keychain once: choose \"Always Allow\". No Claude Code? Skip this."),
+                           title: tr("第 3 步：用量（可选）", "Step 3: Usage (optional)"),
+                           body: tr("想在菜单里看到套餐用量和计划任务，可以借用 Claude Code 存在钥匙串里的登录：只读取，不修改、不保存，只发给 api.anthropic.com。\n点「连接」后 macOS 会问一次钥匙串，请选「始终允许」。不需要就直接下一步，以后也能在设置里开。",
+                                    "To see your plan usage and scheduled tasks in the menu, Kikumap can borrow the sign-in Claude Code keeps in the Keychain: read-only, never saved, sent only to api.anthropic.com.\nAfter \"Connect\", macOS asks about the Keychain once: choose \"Always Allow\". Don't need it? Just go on; you can turn it on later in Settings."),
                            action: tr("连接", "Connect"),
-                           check: { [perms] in perms.usageOK }, run: { [perms] in perms.connectUsage() })
+                           check: { [perms] in perms.usageOK }, run: { [perms] in perms.connectUsage(explained: true) })
         case .code:
             permissionPage(step: 4, symbol: "terminal",
                            title: tr("第 4 步：Claude Code", "Step 4: Claude Code"),

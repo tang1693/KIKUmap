@@ -32,6 +32,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openChat: ((String) -> Void)?
     var showMap: (() -> Void)?
     var diagnose: (() -> Void)?
+    /// Usage is off until you say yes: this explains it and asks.
+    var enableUsage: (() -> Void)?
     var permissionsNeeded: (() -> Bool)?
     var openPermissions: (() -> Void)?
     var openRoutines: (() -> Void)?
@@ -219,7 +221,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
 
         header(tr("用量", "Usage"))
-        if usage.session != nil || usage.weekly != nil {
+        if !UsageMonitor.enabled {
+            let on = menu.addItem(withTitle: tr("显示用量和计划任务…", "Show usage and scheduled tasks…"), action: #selector(turnOnUsage), keyEquivalent: "")
+            on.target = self
+        } else if usage.session != nil || usage.weekly != nil {
             let v = UsageMenuView(rows: [(tr("当前会话", "Current session"), usage.session), (tr("本周", "This week"), usage.weekly)])
             let it = NSMenuItem()
             it.view = v
@@ -234,7 +239,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
             }
             let r = menu.addItem(withTitle: tr("重新读取用量", "Read usage again"), action: #selector(retryUsage), keyEquivalent: "")
             r.target = self
-        } else if usage.status == .unknown {
+        } else if usage.status == .unknown && UsageMonitor.enabled {
             header(tr("　读取中…", "　Reading…"))
         }
         menu.addItem(.separator())
@@ -277,6 +282,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     }
     @objc private func markAll() { store.markAllSeen() }
     @objc private func retryUsage() { usage.reconnect() }
+    @objc private func turnOnUsage() { enableUsage?() }
     @objc private func perms() { openPermissions?() }
     @objc private func diag() { diagnose?() }
     func relabel() { update() }

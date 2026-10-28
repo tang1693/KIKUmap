@@ -13,8 +13,18 @@ struct ExportedChat {
 }
 
 enum ClaudeExport {
-    /// The newest zip in ~/Downloads that holds a conversations.json.
+    /// Looking through ~/Downloads makes macOS ask about that folder unless Kikumap has Full Disk Access,
+    /// so without it nothing is looked for by itself: you pick the zip, and the open panel needs no prompt.
+    static var canLookInDownloads: Bool {
+        let tcc = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/com.apple.TCC/TCC.db")
+        guard let h = FileHandle(forReadingAtPath: tcc.path) else { return false }
+        try? h.close()
+        return true
+    }
+
+    /// The newest zip in ~/Downloads that holds a conversations.json (nil without Full Disk Access).
     static func newestZip() -> URL? {
+        guard canLookInDownloads else { return nil }
         let dl = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         let files = (try? FileManager.default.contentsOfDirectory(at: dl, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
         let zips = files.filter { $0.pathExtension.lowercased() == "zip" }

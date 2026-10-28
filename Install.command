@@ -39,7 +39,8 @@ IDENT="Kikumap Local Signing"
 # made under the app's earlier name: keep using it, so permissions carry over
 security find-certificate -c "Claude Console Local Signing" >/dev/null 2>&1 && IDENT="Claude Console Local Signing"
 if ! security find-certificate -c "$IDENT" >/dev/null 2>&1; then
-  echo "Creating a local signing certificate (once)…"
+  echo "Creating a local signing certificate in your login keychain (once), so macOS keeps"
+  echo "Kikumap's permissions when you rebuild. It only signs Kikumap, on this Mac."
   C="$(mktemp -d)"
   cat > "$C/cfg" <<CFG
 [req]
@@ -57,6 +58,9 @@ CFG
   /usr/bin/openssl pkcs12 -export -inkey "$C/key.pem" -in "$C/cert.pem" -out "$C/id.p12" -passout pass:cc -name "$IDENT" >/dev/null 2>&1 &&
   security import "$C/id.p12" -P cc -T /usr/bin/codesign >/dev/null 2>&1 && FIRST_CERT=1
   rm -rf "$C"
+fi
+if [ "${FIRST_CERT:-0}" = 1 ]; then
+  echo "macOS may now ask whether codesign may use that certificate: choose Always Allow."
 fi
 if codesign --force --deep -s "$IDENT" "$APP" 2>/dev/null; then
   echo "Signed with the local certificate (permissions survive reinstalls)."

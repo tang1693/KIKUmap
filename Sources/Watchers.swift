@@ -700,7 +700,6 @@ final class SidebarWatcher: NSObject {
     /// Writes the next scan to logs/claude-sidebar.txt.
     func diagnose() {
         dumpNext = true
-        if !AXIsProcessTrusted() { _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) }
         attach()
         schedule(0)
     }

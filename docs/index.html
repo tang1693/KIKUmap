@@ -392,8 +392,8 @@
   <section class="privacy" id="privacy">
     <div class="wrap">
       <h2><span lang="en">Stays on your Mac</span><span lang="zh">数据留在你的 Mac 上</span></h2>
-      <p class="sub" lang="en">Everything lives in <code>~/Library/Application Support/ClaudeConsole/</code>. The only network requests are usage checks to <code>api.anthropic.com</code>. No sign-up, no tracking.</p>
-      <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量。不用注册，没有统计追踪。</p>
+      <p class="sub" lang="en">Everything lives in <code>~/Library/Application Support/ClaudeConsole/</code>. The only network requests are usage checks to <code>api.anthropic.com</code>, and only if you turn usage on. No sign-up, no tracking. And no surprise prompts: every macOS permission dialog comes after Kikumap has told you what it's for and you've clicked to go ahead.</p>
+      <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量，而且只在你开启用量功能之后。不用注册，没有统计追踪。也不会突然弹窗：每个系统授权弹窗，都会先告诉你要做什么，你点了同意才出现。</p>
       <div class="perms">
         <div class="perm">
           <b lang="en">Finished, or needs your input</b><b lang="zh">做完了、等你回复</b>
@@ -414,10 +414,10 @@
           <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
         </div>
         <div class="perm">
-          <b lang="en">Usage and scheduled tasks</b><b lang="zh">用量和计划任务</b>
-          <p lang="en">Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain.</p>
-          <p lang="zh">Anthropic 的用量接口，用的是 Claude Code 已经存在钥匙串里的登录。</p>
-          <span class="tag"><span lang="en">macOS asks once</span><span lang="zh">macOS 会问一次</span></span>
+          <b lang="en">Usage and scheduled tasks (optional)</b><b lang="zh">用量和计划任务（可选）</b>
+          <p lang="en">Off by default. Turn it on and Kikumap reads the sign-in Claude Code keeps in your Keychain: read-only, never saved, sent only to Anthropic's usage API.</p>
+          <p lang="zh">默认关闭。开启后读取 Claude Code 存在钥匙串里的登录：只读、不保存，只发给 Anthropic 的用量接口。</p>
+          <span class="tag"><span lang="en">Keychain, only after you say yes</span><span lang="zh">钥匙串，你同意后才问</span></span>
         </div>
       </div>
     </div>

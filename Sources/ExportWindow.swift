@@ -131,8 +131,8 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         pick.controlSize = .small
         let how = ClosureButton(title: tr("怎么拿到？", "How do I get it?")) {
             Permissions.alert(tr("Claude 官方导出包", "Claude's data export"),
-                              tr("在 Claude 里：设置 → 隐私 → 导出数据。几分钟后邮件里有下载链接，下载的 zip 放在「下载」文件夹就行，这里会自动找到。\n\n提示词、完整对话和 artifact 的内容只有这个导出包里是全的；开了自动更新的话，以后每次下载新的导出包，文件会自己更新。",
-                                 "In Claude: Settings → Privacy → Export data. A few minutes later an email has the download link; leave the zip in Downloads and it's found automatically.\n\nOnly this export has the complete prompts, conversations and artifact contents; with automatic updates on, every new export you download updates the files by itself."))
+                              tr("在 Claude 里：设置 → 隐私 → 导出数据。几分钟后邮件里有下载链接。下载后点「选择 zip…」选它；开了完全磁盘访问的话，放在「下载」文件夹里就会自动找到。\n\n提示词、完整对话和 artifact 的内容只有这个导出包里是全的；开了完全磁盘访问和自动更新的话，以后每次下载新的导出包，文件会自己更新。",
+                                 "In Claude: Settings → Privacy → Export data. A few minutes later an email has the download link. Then click \"Choose zip…\" and pick it; with Full Disk Access, a zip left in Downloads is found by itself.\n\nOnly this export has the complete prompts, conversations and artifact contents; with Full Disk Access and automatic updates on, every new export you download updates the files by itself."))
         }
         how.controlSize = .small
 
@@ -150,13 +150,17 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             self?.folderLabel?.stringValue = u.path
         }
         change.controlSize = .small
+        // without Full Disk Access, macOS asks before an app may write into Documents, Desktop or Downloads
+        let folderNote = label(tr("第一次导出到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 Kikumap 存到这里。",
+                                  "The first export into Documents, Desktop or Downloads, macOS asks once whether Kikumap may save there."), small: true, width: 470)
+        folderNote.isHidden = ClaudeExport.canLookInDownloads
         let auto = ClosureCheck(title: tr("自动更新", "Keep it updated"), on: Archive.auto) { Archive.auto = $0 }
         let days = Archive.everyChoices
         let every = ClosurePopUp(items: [tr("每天", "daily"), tr("每周", "weekly"), tr("每月", "monthly")]) { Archive.everyDays = days[$0] }
         every.selectItem(at: days.firstIndex(of: Archive.everyDays) ?? 1)
         every.controlSize = .small
-        let autoNote = label(tr("下载文件夹里有新的导出包时，马上更新文件；总结按这个频率、在电脑闲置 10 分钟以上时更新。",
-                                "A new export zip in Downloads updates the files right away; summaries follow this schedule, while the Mac has been idle for 10 minutes."), small: true, width: 470)
+        let autoNote = label(tr("开了完全磁盘访问时，「下载」里有新的导出包就马上更新文件；总结按这个频率、在电脑闲置 10 分钟以上时更新。",
+                                "With Full Disk Access, a new export zip in Downloads updates the files right away; summaries follow this schedule, while the Mac has been idle for 10 minutes."), small: true, width: 470)
 
         let imp = ClosureButton(title: tr("导入到当前账号…", "Import into this account…")) { [weak self] in self?.window?.close(); self?.onImport?() }
         let cancel = ClosureButton(title: tr("取消", "Cancel")) { [weak self] in self?.window?.close() }
@@ -179,7 +183,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             mem, indent(memNote),
             fil, indent(zl), indent(row([pick, how])),
             label(tr("存到", "Save to"), bold: true),
-            row([fl, change]),
+            row([fl, change]), indent(folderNote),
             row([auto, every]), indent(autoNote),
             bottom,
         ])
@@ -188,7 +192,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         stack.spacing = 10
         stack.setCustomSpacing(16, after: stack.arrangedSubviews[2])
         stack.setCustomSpacing(16, after: stack.arrangedSubviews[8])
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews[11])
+        stack.setCustomSpacing(20, after: stack.arrangedSubviews[12])
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
@@ -215,8 +219,11 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         if let z = zip {
             zipLabel?.stringValue = tr("来自 Claude 官方导出包：", "From Claude's data export: ") + z.lastPathComponent + "（" + Clock.format(ClaudeExport.modified(z), "M/d HH:mm", "MMM d HH:mm") + "）"
         } else {
-            zipLabel?.stringValue = tr("来自 Claude 官方导出包 —「下载」里还没有。在 Claude 里：设置 → 隐私 → 导出数据。",
-                                       "From Claude's data export — none in Downloads yet. In Claude: Settings → Privacy → Export data.")
+            zipLabel?.stringValue = ClaudeExport.canLookInDownloads
+                ? tr("来自 Claude 官方导出包 —「下载」里还没有。在 Claude 里：设置 → 隐私 → 导出数据。",
+                     "From Claude's data export — none in Downloads yet. In Claude: Settings → Privacy → Export data.")
+                : tr("来自 Claude 官方导出包 — 点「选择 zip…」选它。（开了完全磁盘访问的话，会自己在「下载」里找。）",
+                     "From Claude's data export — click \"Choose zip…\" to pick it. (With Full Disk Access, it's found in Downloads by itself.)")
         }
     }
 

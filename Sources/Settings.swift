@@ -36,7 +36,43 @@ final class Permissions {
         sidebar.attach()
     }
 
-    func connectUsage() { usage.reconnect() }
+    /// Usage needs Claude Code's sign-in from the Keychain, so nothing is read until you agree here;
+    /// only then does macOS ask. `explained`: the page you clicked on already said all of this.
+    func connectUsage(explained: Bool = false) {
+        if !explained && !UsageMonitor.enabled {
+            let a = NSAlert()
+            a.messageText = tr("显示用量和计划任务？", "Show usage and scheduled tasks?")
+            a.informativeText = tr("""
+                Kikumap 可以借用 Claude Code 存在这台 Mac 钥匙串里的登录，查你的套餐用量和计划任务，不用再登录一次。
+
+                • 只读取，不修改、不保存这份登录
+                • 只发给 api.anthropic.com，只用来查用量和计划任务
+                • 随时可以在 设置 → 权限 里关掉
+
+                点「继续」后，macOS 会问一次是否允许 Kikumap 使用这个钥匙串项目。选「始终允许」，以后就不会再问。
+                """, """
+                Kikumap can look up your plan usage and scheduled tasks by borrowing the sign-in Claude Code already keeps in this Mac's Keychain — no second login.
+
+                • It only reads it: never changes or saves it
+                • It's only sent to api.anthropic.com, to look up usage and scheduled tasks
+                • You can turn it off any time in Settings → Access
+
+                After "Continue", macOS asks once whether Kikumap may use this Keychain item. Choose "Always Allow" and it won't ask again.
+                """)
+            a.addButton(withTitle: tr("继续", "Continue"))
+            a.addButton(withTitle: tr("先不用", "Not now"))
+            NSApp.activate(ignoringOtherApps: true)
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+        }
+        UsageMonitor.enabled = true
+        usage.reconnect()
+        usage.start()
+    }
+
+    func disconnectUsage() {
+        UsageMonitor.enabled = false
+        usage.stop()
+    }
 
     var codeHooks: Bool { CodeHooks.installed }
 
@@ -407,8 +443,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                    "Reads the Claude app's sidebar → knows which chats are still running and which you've read."),
                 tr("打开设置", "Open Settings"), { AXIsProcessTrusted() }, { p.openAccessibility() }),
             row(tr("用量", "Usage"),
-                tr("借用 Claude Code 在这台 Mac 上的登录读取 5 小时 / 每周用量和计划任务。macOS 会问一次，请选「始终允许」。",
-                   "Uses Claude Code's sign-in on this Mac to read 5-hour / weekly usage and scheduled tasks. macOS asks once — choose \"Always Allow\"."),
+                tr("可选，默认关闭。开启后借用 Claude Code 在钥匙串里的登录，读取 5 小时 / 每周用量和计划任务；只读，只发给 api.anthropic.com。",
+                   "Optional, off by default. When on, it borrows Claude Code's sign-in from the Keychain to read 5-hour / weekly usage and scheduled tasks — read-only, sent only to api.anthropic.com."),
                 tr("连接", "Connect"), { p.usageOK }, { p.connectUsage() }),
             row("Claude Code",
                 tr("在 ~/.claude/settings.json 里加几个 hook → 终端、VS Code 里的 Claude Code 会话也能显示「进行中 / 未读」。原文件会备份。新开的会话才生效。",
@@ -419,7 +455,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                            "After reinstalling, if access shows as off but it's ticked in System Settings: remove Kikumap there (−) and add it again."), small: true)
         let diag = button(tr("写诊断日志", "Write diagnostic log")) { [weak self] in self?.onDiagnose?() }
         let unhook = button(tr("断开 Claude Code", "Disconnect Claude Code")) { p.disconnectCode() }
-        return vstack(rows + [tip, NSStackView(views: [diag, unhook])], spacing: 18)
+        let usageOff = button(tr("关闭用量", "Turn off usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
+        return vstack(rows + [tip, NSStackView(views: [diag, unhook, usageOff])], spacing: 18)
     }
 
     private func refreshPerms() {
