@@ -67,7 +67,7 @@ Works with the Claude desktop app and with Claude Code (Terminal, VS Code, the a
 
 The left column mirrors the chats you pinned in Claude, **in Claude's order**, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics. While you drag, the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.
 
-**Several at once:** drag a box on empty space (or ⌘/⇧-click), or ⌘/⇧-click in the left column, then drag any one of them. They all come along, in order. Hold space and move the mouse, or swipe with two fingers, to move around the map. The left column and the timeline can be hidden (⌃⌘S, ⌃⌘T) or resized by dragging their edge.
+**Several at once:** drag a box on empty space (or ⌘/⇧-click), or ⌘/⇧-click in the left column, then drag any one of them. They all come along, in order. Hold space and move the mouse, or swipe with two fingers, to move around the map. The left column and the timeline can be hidden (⌃⌘S, ⌃⌘T) or resized by dragging their edge, and ⌘+ / ⌘- make everything in the window bigger or smaller.
 
 Real conversations carry a small orange mark, so they stand apart from plain topics. Hover one for two buttons: open it in Claude, or mark it unread again (⇧⌘U) so it waits for you until you've opened it.
 
@@ -111,7 +111,7 @@ Like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌘↑↓ reorder, ⌘Z
 
 ### What ran, and what's next
 
-The timeline shows when Claude worked on each chat, in your branch colours. Drag ahead to see your scheduled tasks, each with a live countdown. Click anything to open it.
+The timeline shows when Claude worked on each chat, in your branch colours; chats running at the same time get rows of their own. Drag ahead to see your scheduled tasks (with usage turned on), each with a live countdown. Click anything to open it.
 
 </td>
 <td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns"></td>
@@ -138,7 +138,7 @@ The export can keep itself up to date. **Import** starts a new pinned chat per f
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b><br>A chat that's done but unread turns solid on the map.</td>
+<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b><br>A chat that's done but unread turns solid on the map, with a red dot.</td>
 <td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="Find anything"><br><b>Find anything</b><br>⌘F searches topics, chats and tags; ⏎ jumps to the next match.</td>
 </tr>
 <tr>
@@ -215,7 +215,8 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ⌘E / ⇧⌘E | export the map as PDF / export chats |
 | hover a chat → ↗, tap space | open it in Claude |
 | ⇧⌘U, hover a chat → ✉ | mark a chat unread / read |
-| pinch, ⌘= ⌘- ⌘0 | zoom, fit |
+| ⌘+ / ⌘- | everything in the window bigger / smaller (80–160 %) |
+| pinch, ⌘0 | zoom the map, fit it to the window |
 | ⌃⌥C (changeable) | show / hide the map from anywhere |
 
 ## FAQ

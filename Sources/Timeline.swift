@@ -77,6 +77,8 @@ final class TimelineView: NSView {
     let usage: UsageMonitor
     var onOpenChat: ((String) -> Void)?
     var onOpenRoutines: (() -> Void)?
+    /// Scheduled tasks come with usage, which is off until you turn it on: the lane says so and offers it.
+    var onTurnOnUsage: (() -> Void)?
 
     private var start = Date().addingTimeInterval(-10 * 3600)
     private var spp: Double = 150            // seconds per point
@@ -280,6 +282,13 @@ final class TimelineView: NSView {
 
         // lane 1: scheduled tasks — past runs as blocks, future runs as markers with countdowns
         let y1 = laneY(1)
+        if !UsageMonitor.enabled && usage.routines.isEmpty {
+            let s = tr("开启「用量」后，这里会显示计划任务 · 点这里开启", "Scheduled tasks show here once usage is on · click to turn it on")
+            let f = Theme.ui(11, .medium)
+            let r = NSRect(x: labelW + 10, y: y1 + 5, width: s.size(f).width + 4, height: 16)
+            text(s, f, Theme.muted, at: NSPoint(x: r.minX, y: r.minY))
+            hits.append((r, "", { [weak self] in self?.onTurnOnUsage?() }))
+        }
         var lastLabelEnd: CGFloat = -1
         var marks: [(Date, String, Bool)] = []
         for r in usage.routines {

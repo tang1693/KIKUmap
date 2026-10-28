@@ -285,8 +285,8 @@ final class SidebarView: NSView, NSDraggingSource {
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
         let content = schedTop + (sched.isEmpty ? 0 : 30 + CGFloat(sched.count) * schedRowH) + 20
-        let h = max(content, enclosingScrollView?.contentSize.height ?? 0)
-        setFrameSize(NSSize(width: enclosingScrollView?.contentSize.width ?? 270, height: h))
+        let visible = enclosingScrollView?.contentView.bounds.size ?? NSSize(width: 270, height: 0)
+        setFrameSize(NSSize(width: visible.width, height: max(content, visible.height)))
         needsDisplay = true
     }
 
@@ -692,7 +692,8 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
             (tr("悬停对话 → ↗、轻按空格", "Hover a chat → ↗, tap space"), tr("在 Claude 里打开", "Open it in Claude")),
             (tr("⇧⌘U、悬停对话 → ✉", "⇧⌘U, hover a chat → ✉"), tr("标为未读 / 已读", "Mark unread / read")),
             ("⌃⌘S / ⌃⌘T", tr("显示或隐藏左栏 / 时间线", "Show or hide the left column / timeline")),
-            (tr("⌘= ⌘- ⌘0、双指捏合", "⌘= ⌘- ⌘0, pinch"), tr("缩放、适应窗口", "Zoom, fit")),
+            ("⌘+ / ⌘-", tr("整个窗口放大 / 缩小", "Everything in the window bigger / smaller")),
+            (tr("双指捏合、⌘0", "Pinch, ⌘0"), tr("缩放导图、适应窗口", "Zoom the map, fit it to the window")),
             ("⌘E / ⇧⌘E", tr("导出导图 PDF / 导出对话", "Export the map as PDF / export chats")),
         ]
         if Prefs.hotKeyEnabled { list.append((Prefs.hotKeyLabel(), tr("在任何地方呼出 / 收起导图", "Show / hide the map from anywhere"))) }
@@ -701,7 +702,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 
     static func keysTitle() -> NSAttributedString {
         NSAttributedString(string: tr("全部快捷键", "All shortcuts"),
-                           attributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.ink])
+                           attributes: [.font: Theme.ui(11 * Prefs.uiScale, .semibold), .foregroundColor: Theme.ink])
     }
 
     /// All the shortcuts, in a popover under the button.
@@ -786,6 +787,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         root.addSubview(tags)
         tags.onHighlight = { [weak self] id in self?.map.highlightTag = id }
         timeline.onHeightChange = { [weak self] in self?.layoutPanes() }
+        map.onScale = { [weak self] step in self?.scaleUI(by: step) }
 
         line.frame = NSRect(x: sideW, y: tlH, width: 1, height: H - headH - tlH)
         line.autoresizingMask = [.height]
@@ -878,20 +880,36 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     /// Where the panes go, from the window size and whether the left column and the timeline are shown.
     func layoutPanes() {
         guard let root = window.contentView else { return }
-        let W = root.bounds.width, H = root.bounds.height, headH = header.frame.height
+        let W = root.bounds.width, H = root.bounds.height, s = Prefs.uiScale
+        // the header, the timeline and the column draw at their usual size and are scaled by s
+        let headH = 56 * s
+        header.frame = NSRect(x: 0, y: H - headH, width: W, height: headH)
+        header.bounds = NSRect(x: 0, y: 0, width: W / s, height: 56)
+        header.needsLayout = true
         let sideW = Prefs.sideHidden ? 0 : Prefs.sideWidth
-        let tlH: CGFloat = Prefs.timelineHidden ? 0 : timeline.preferredHeight
+        let tlH: CGFloat = Prefs.timelineHidden ? 0 : timeline.preferredHeight * s
         timeline.frame = NSRect(x: 0, y: 0, width: W, height: tlH)
+        if tlH > 0 { timeline.bounds = NSRect(x: 0, y: 0, width: W / s, height: timeline.preferredHeight) }
         timeline.isHidden = tlH == 0
+        sideScroll.allowsMagnification = true
+        // pinned at s (min may never pass max, so the order depends on the direction)
+        if s > sideScroll.maxMagnification {
+            sideScroll.maxMagnification = s; sideScroll.minMagnification = s
+        } else {
+            sideScroll.minMagnification = s; sideScroll.maxMagnification = s
+        }
+        sideScroll.magnification = s
         let midH = H - headH - tlH
         [sideScroll, tags, line].forEach { $0.isHidden = sideW == 0 }
         line.frame = NSRect(x: sideW, y: tlH, width: 1, height: midH)
         sideScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: midH)
         let mapX = sideW == 0 ? 0 : sideW + 1
         mapScroll.frame = NSRect(x: mapX, y: tlH, width: W - mapX, height: midH)
-        let kw = ceil(keysButton.attributedTitle.size().width) + 26
-        keysButton.frame = NSRect(x: W - 16 - kw, y: tlH + 4, width: kw, height: 20)
-        hint.frame = NSRect(x: mapX + 16, y: tlH + 6, width: max(0, W - mapX - 32 - kw - 12), height: 16)
+        hint.font = Theme.ui(11 * s)
+        keysButton.attributedTitle = MainWindow.keysTitle()
+        let kw = ceil(keysButton.attributedTitle.size().width) + 26 * s
+        keysButton.frame = NSRect(x: W - 16 - kw, y: tlH + 4 * s, width: kw, height: 20 * s)
+        hint.frame = NSRect(x: mapX + 16, y: tlH + 6 * s, width: max(0, W - mapX - 32 - kw - 12), height: 16 * s)
         sideEdge.frame = NSRect(x: max(0, sideW - 3), y: tlH, width: 6, height: midH)
         timelineEdge.frame = NSRect(x: 0, y: max(0, tlH - 3), width: W, height: 6)
         window.invalidateCursorRects(for: sideEdge)
@@ -903,6 +921,18 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         }
     }
 
+    /// ⌘+ / ⌘- (+1 / -1, 0 back to normal): everything in the window, 80–160 %, the map along with it.
+    func scaleUI(by step: Int) {
+        let old = Prefs.uiScale
+        let new = step == 0 ? 1 : min(1.6, max(0.8, ((old * 10).rounded() + CGFloat(step)) / 10))
+        guard new != old else { return }
+        Prefs.uiScale = new
+        map.zoom(new / old)
+        layoutPanes()
+        sideScroll.contentView.scroll(to: .zero)        // the list starts at its top again
+        sideScroll.reflectScrolledClipView(sideScroll.contentView)
+    }
+
     func toggleSidebar() {
         Prefs.sideHidden.toggle()
         layoutPanes()
@@ -912,9 +942,10 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 
     /// The tag shelf grows with its tags; the pinned list takes the rest of the column.
     private func layoutLeft() {
-        let sideW = sideScroll.frame.width, bottom = timeline.frame.maxY
-        let h = min(tags.layout(width: sideW), 300)
+        let sideW = sideScroll.frame.width, bottom = timeline.frame.maxY, s = Prefs.uiScale
+        let h = min(tags.layout(width: sideW / s), 300) * s
         tags.frame = NSRect(x: 0, y: bottom, width: sideW, height: h)
+        tags.bounds = NSRect(x: 0, y: 0, width: sideW / s, height: h / s)
         let top = header.frame.minY
         sideScroll.frame = NSRect(x: 0, y: bottom + h, width: sideW, height: max(60, top - bottom - h))
     }

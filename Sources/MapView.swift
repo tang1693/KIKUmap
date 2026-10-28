@@ -57,6 +57,8 @@ final class MapView: NSView, NSTextFieldDelegate {
     var onArchive: ((String) -> Void)?
     var onHide: (() -> Void)?
     var onManageTags: (() -> Void)?
+    /// ⌘+ / ⌘- (+1 / -1): the window scales everything, the map with it.
+    var onScale: ((Int) -> Void)?
 
     private var rootV: VNode?
     private var all: [VNode] = []
@@ -1128,8 +1130,8 @@ final class MapView: NSView, NSTextFieldDelegate {
             let ids = selection.compactMap { byKey[$0]?.chatId }.filter { !store.isRunning($0) }
             if !ids.isEmpty { store.setUnread(ids, !ids.allSatisfy { store.isUnread(id: $0) }) }
             return true
-        case ("=", _), ("+", _): zoom(1.15); return true
-        case ("-", _): zoom(1 / 1.15); return true
+        case ("=", _), ("+", _): onScale?(1); return true          // the whole window, map included
+        case ("-", _): onScale?(-1); return true
         case ("0", _): fit(); return true
         case (_, 36), (_, 76): if let k = sel { startEdit(k) }; return true
         case (_, 126), (_, 125):
@@ -1139,7 +1141,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
     }
 
-    private func zoom(_ by: CGFloat) {
+    func zoom(_ by: CGFloat) {
         guard let sv = enclosingScrollView else { return }
         let c = NSPoint(x: visibleRect.midX, y: visibleRect.midY)
         sv.setMagnification(min(2, max(0.4, sv.magnification * by)), centeredAt: c)

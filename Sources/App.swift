@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.sidebar.onOpenRoutines = { AppDelegate.openRoutines() }
         main.timeline.onOpenChat = { [weak self] id in self?.open(id) }
         main.timeline.onOpenRoutines = { AppDelegate.openRoutines() }
+        main.timeline.onTurnOnUsage = { [weak self] in self?.perms.connectUsage(); self?.refreshUI() }
         main.header.onSettings = { [weak self] in self?.settings.show() }
         main.header.onLights = { Prefs.toggleLights() }
         statusBar.openRoutines = { AppDelegate.openRoutines() }
@@ -378,6 +379,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showAbout() { settings.show(tab: SettingsWindow.aboutTab) }
     @objc private func toggleSide() { main.toggleSidebar() }
     @objc private func toggleTimeline() { main.toggleTimeline() }
+    @objc private func bigger() { main.scaleUI(by: 1) }
+    @objc private func smaller() { main.scaleUI(by: -1) }
+    @objc private func defaultSize() { main.scaleUI(by: 0) }
     @objc private func findInMap() { main.showSearch() }
     @objc private func exportPDF() { main.show(); main.map.exportPDF() }
     @objc private func showExport() { exportWin.show() }
@@ -414,6 +418,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         side.keyEquivalentModifierMask = [.control, .command]
         let tl = view.addItem(withTitle: tr("显示 / 隐藏时间线", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
         tl.keyEquivalentModifierMask = [.control, .command]
+        view.addItem(.separator())
+        view.addItem(withTitle: tr("放大", "Bigger"), action: #selector(bigger), keyEquivalent: "+")
+        view.addItem(withTitle: tr("缩小", "Smaller"), action: #selector(smaller), keyEquivalent: "-")
+        view.addItem(withTitle: tr("默认大小", "Default Size"), action: #selector(defaultSize), keyEquivalent: "")
         viewItem.submenu = view
         NSApp.mainMenu = main
     }

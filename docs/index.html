@@ -293,8 +293,8 @@
           <h3><span lang="en">Your chats, as a map</span><span lang="zh">对话变成一张导图</span></h3>
           <p lang="en">The left column mirrors the chats you pinned in Claude, <b>in Claude's order</b>, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
           <p lang="zh">左栏是你在 Claude 里置顶的对话，<b>顺序和 Claude 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
-          <p lang="en"><b>Several at once:</b> drag a box on empty space (or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click), or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click in the left column, then drag any one of them. They all come along, in order. Hold <kbd>space</kbd> and move the mouse, or swipe with two fingers, to move around.</p>
-          <p lang="zh"><b>一次拖好几个：</b>在导图空白处拖出选框（或 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击），或在左栏 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住<kbd>空格</kbd>移动鼠标、或双指滑动，就能移动导图。</p>
+          <p lang="en"><b>Several at once:</b> drag a box on empty space (or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click), or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click in the left column, then drag any one of them. They all come along, in order. Hold <kbd>space</kbd> and move the mouse, or swipe with two fingers, to move around. Hide or resize the left column and the timeline (<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>, <kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>), and make everything bigger with <kbd>⌘</kbd><kbd>+</kbd>.</p>
+          <p lang="zh"><b>一次拖好几个：</b>在导图空白处拖出选框（或 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击），或在左栏 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住<kbd>空格</kbd>移动鼠标、或双指滑动，就能移动导图。左栏和时间线可以隐藏（<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>、<kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>）或拖边缘调宽，<kbd>⌘</kbd><kbd>+</kbd> 让整个窗口变大。</p>
           <p lang="en">Real conversations carry a small orange mark. Hover one for two buttons: open it in Claude, or mark it unread again (<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>) so it waits for you until you've opened it.</p>
           <p lang="zh">真正的对话前面有橙色小标记。鼠标停在上面会出现两个按钮：在 Claude 里打开，或者标回未读（<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>），在你真正打开之前一直提醒你。</p>
         </div>
@@ -339,10 +339,10 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Timeline</span><span lang="zh">时间线</span></p>
           <h3><span lang="en">What ran, and what's next</span><span lang="zh">做过什么，接下来做什么</span></h3>
-          <p lang="en">The strip at the bottom shows when Claude worked on each chat, in your branch colours. Hover a run to see how long it took.</p>
-          <p lang="zh">底部的时间线显示 Claude 什么时候在做哪个对话，用你的分支颜色。鼠标停在上面能看到用了多久。</p>
-          <p lang="en">Drag ahead to see what's coming: your scheduled tasks, each with a live countdown. Click anything to open it.</p>
-          <p lang="zh">往后拖，就能看到接下来要发生的事：每个计划任务都带实时倒计时。点一下就能打开。</p>
+          <p lang="en">The strip at the bottom shows when Claude worked on each chat, in your branch colours; chats running at the same time get rows of their own. Hover a run to see how long it took.</p>
+          <p lang="zh">底部的时间线显示 Claude 什么时候在做哪个对话，用你的分支颜色；同时在跑的对话各占一行。鼠标停在上面能看到用了多久。</p>
+          <p lang="en">Drag ahead to see what's coming: your scheduled tasks (with usage turned on), each with a live countdown. Click anything to open it.</p>
+          <p lang="zh">往后拖，就能看到接下来要发生的事：每个计划任务（需开启用量）都带实时倒计时。点一下就能打开。</p>
         </div>
         <figure class="shot"><img src="demo/timeline.gif" width="1470" height="330" loading="lazy" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns; Now jumps back"></figure>
       </div>
@@ -366,7 +366,7 @@
 
       <h2 style="margin-top:56px"><span lang="en">And a lot more</span><span lang="zh">还有更多</span></h2>
       <div class="also">
-        <div class="tile"><img src="demo/unread.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮</b><span lang="en">A chat that's done but unread turns solid on the map.</span><span lang="zh">做完还没看的对话，在导图上变成实心，一眼看到。</span></div></div>
+        <div class="tile"><img src="demo/unread.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮</b><span lang="en">A chat that's done but unread turns solid on the map, with a red dot.</span><span lang="zh">做完还没看的对话，在导图上变成实心，还带一个红点。</span></div></div>
         <div class="tile"><img src="demo/search.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Find anything</b><b lang="zh">搜索</b><span lang="en"><kbd>⌘</kbd><kbd>F</kbd> searches topics, chats and tags; <kbd>⏎</kbd> jumps to the next match.</span><span lang="zh"><kbd>⌘</kbd><kbd>F</kbd> 搜主题、对话和标签，<kbd>⏎</kbd> 跳到下一个。</span></div></div>
         <div class="tile"><img src="demo/today.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Your day at a glance</b><b lang="zh">今日回顾</b><span lang="en">Which chats Claude worked on today, and for how long, right in the menu.</span><span lang="zh">今天 Claude 做了哪些对话、各用了多久，菜单里就能看。</span></div></div>
         <div class="tile"><img src="demo/usage.gif" width="900" height="600" loading="lazy" alt=""><div class="t"><b lang="en">Usage in the menu</b><b lang="zh">用量</b><span lang="en">This session and this week, like claude.ai, plus what's scheduled next.</span><span lang="zh">当前会话和本周用量，和 claude.ai 一样，还有接下来的计划任务。</span></div></div>

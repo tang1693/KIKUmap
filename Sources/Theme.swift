@@ -72,6 +72,11 @@ enum Prefs {
         get { d.bool(forKey: "SideHidden") }
         set { d.set(newValue, forKey: "SideHidden") }
     }
+    /// ⌘+ / ⌘-: how big everything in the map window is drawn (1 = normal).
+    static var uiScale: CGFloat {
+        get { let v = d.double(forKey: "UIScale"); return v > 0 ? CGFloat(v) : 1 }
+        set { d.set(Double(newValue), forKey: "UIScale") }
+    }
     static var timelineHidden: Bool {
         get { d.bool(forKey: "TimelineHidden") }
         set { d.set(newValue, forKey: "TimelineHidden") }
