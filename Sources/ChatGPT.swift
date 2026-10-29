@@ -17,6 +17,8 @@ struct GPTThread {
     let running: Bool
     /// When its last task ended (nil while running or when unknown).
     let finished: Date?
+    /// Where it sits in ChatGPT's pinned section (nil when not pinned there).
+    var order: Int? = nil
 }
 
 /// ChatGPT's plan limits (a 5-hour and/or a weekly window), as its latest answer reported them.
@@ -44,6 +46,9 @@ final class GPTWatcher {
         return n.map { home.appendingPathComponent("state_\($0).sqlite") }
     }
     static var available: Bool { database != nil }
+
+    /// Who did the work, in the app's words: "Claude & ChatGPT" while ChatGPT is read, else "Claude".
+    static var who: String { enabled && available ? tr("Claude 和 ChatGPT", "Claude & ChatGPT") : "Claude" }
 
     /// On unless turned off in Settings → Access (it only reads files on this Mac, no prompts).
     static var enabled: Bool {
@@ -76,15 +81,24 @@ final class GPTWatcher {
         var chats: [GPTThread] = []
     }
 
-    /// What's pinned in ChatGPT's sidebar: threads one by one, and projects (folders) with the threads in them.
+    /// What's pinned in ChatGPT's sidebar, in its order: threads one by one, then projects (folders) with the
+    /// threads in them.
     struct Pins {
-        /// Pinned, or filed in a pinned project.
-        var threads: Set<String> = []
-        /// A pinned project's folders: a thread working in one is in it, unless filed elsewhere or moved out.
-        var roots: Set<String> = []
-        var elsewhere: Set<String> = []
-        func contains(_ id: String, cwd: String) -> Bool {
-            threads.contains(id) || (roots.contains(cwd) && !elsewhere.contains(id))
+        struct Project { var threads: Set<String> = []; var roots: Set<String> = [] }
+        var direct: [String] = []
+        var projects: [Project] = []
+        /// Threads filed in some project or moved out of one: a project's folder doesn't pull these in.
+        var filed: Set<String> = []
+        /// A thread filed in a pinned project, or working in its folder unless filed elsewhere.
+        var threads: Set<String> { Set(direct).union(projects.flatMap(\.threads)) }
+        var roots: Set<String> { Set(projects.flatMap(\.roots)) }
+        /// Pinned alone (its place in that list), or the 1-based number of its pinned project × 1000.
+        func rank(_ id: String, cwd: String) -> Int? {
+            if let i = direct.firstIndex(of: id) { return i }
+            for (k, p) in projects.enumerated() where p.threads.contains(id) || (p.roots.contains(cwd) && !filed.contains(id)) {
+                return 1000 * (k + 1)
+            }
+            return nil
         }
     }
 
@@ -143,13 +157,14 @@ final class GPTWatcher {
         sqlite3_busy_timeout(db, 500)
         let since = Int64((Date().timeIntervalSince1970 - 3 * 86400) * 1000)
         let ids = Array(pins.threads), roots = Array(pins.roots)
+        var recency: [String: Int64] = [:]
         func among(_ column: String, _ n: Int) -> String { n == 0 ? "" : " OR \(column) IN (" + Array(repeating: "?", count: n).joined(separator: ",") + ")" }
         let listed = among("id", ids.count) + among("cwd", roots.count)
         let full = """
-            SELECT id, rollout_path, updated_at_ms, COALESCE(NULLIF(name, ''), title), is_pinned, cwd FROM threads
+            SELECT id, rollout_path, updated_at_ms, COALESCE(NULLIF(name, ''), title), is_pinned, cwd, COALESCE(recency_at_ms, updated_at_ms) FROM threads
             WHERE archived = 0 AND COALESCE(thread_source, 'user') = 'user' AND (is_pinned = 1 OR updated_at_ms > ?\(listed))
             """
-        let basic = "SELECT id, rollout_path, updated_at * 1000, title, 0, cwd FROM threads WHERE archived = 0 AND (updated_at * 1000 > ?\(listed))"
+        let basic = "SELECT id, rollout_path, updated_at * 1000, title, 0, cwd, updated_at * 1000 FROM threads WHERE archived = 0 AND (updated_at * 1000 > ?\(listed))"
         var st: OpaquePointer?
         if sqlite3_prepare_v2(db, full, -1, &st, nil) != SQLITE_OK {
             sqlite3_finalize(st)
@@ -180,11 +195,16 @@ final class GPTWatcher {
             // started and still writing (a task that went quiet for 20 minutes has stopped)
             let running = c.started == true && now.timeIntervalSince(mtime ?? .distantPast) < 20 * 60
             let title = text(3).trimmingCharacters(in: .whitespacesAndNewlines)
-            let id = text(0), cwd = text(5)
-            out.append(GPTThread(id: id, title: title.isEmpty ? "ChatGPT" : title, pinned: sqlite3_column_int(st, 4) != 0 || pins.contains(id, cwd: cwd),
+            let id = text(0), cwd = text(5), rank = pins.rank(id, cwd: cwd)
+            recency[id] = sqlite3_column_int64(st, 6)
+            out.append(GPTThread(id: id, title: title.isEmpty ? "ChatGPT" : title, pinned: sqlite3_column_int(st, 4) != 0 || rank != nil,
                                  updated: Date(timeIntervalSince1970: Double(sqlite3_column_int64(st, 2)) / 1000),
-                                 cwd: cwd, running: running, finished: c.started == false ? c.at : nil))
+                                 cwd: cwd, running: running, finished: c.started == false ? c.at : nil, order: rank))
         }
+        // within a pinned project, the latest active first (as ChatGPT lists them)
+        let inProjects = out.indices.filter { (out[$0].order ?? 0) >= 1000 }
+            .sorted { (out[$0].order!, -(recency[out[$0].id] ?? 0)) < (out[$1].order!, -(recency[out[$1].id] ?? 0)) }
+        for (n, i) in inProjects.enumerated() { out[i].order = out[i].order! + n }
         var newest: [String] = []
         var q: OpaquePointer?
         if sqlite3_prepare_v2(db, "SELECT rollout_path FROM threads ORDER BY updated_at_ms DESC LIMIT 3", -1, &q, nil) == SQLITE_OK {
@@ -291,20 +311,23 @@ final class GPTWatcher {
     /// assigned to one, and threads working in its folders that weren't assigned elsewhere or moved out.
     nonisolated private static func pins(_ o: [String: Any]) -> Pins {
         var p = Pins()
-        p.threads = Set(o["pinned-thread-ids"] as? [String] ?? [])
-        let projects = Set(o["pinned-project-ids"] as? [String] ?? [])
+        p.direct = o["pinned-thread-ids"] as? [String] ?? []
+        let projects = o["pinned-project-ids"] as? [String] ?? []
         guard !projects.isEmpty else { return p }
-        var ids = projects                          // and the ids its newer project list gives them
+        // each project by its id, and by the id its newer project list gives it
+        var which: [String: Int] = [:]
+        for (k, id) in projects.enumerated() { which[id] = k }
         for case let byID as [String: Any] in (o["app-server-project-id-by-legacy-project-id-by-host"] as? [String: Any] ?? [:]).values {
-            for (old, new) in byID where projects.contains(old) { if let n = new as? String { ids.insert(n) } }
+            for (old, new) in byID { if let k = which[old], let n = new as? String { which[n] = k } }
         }
         let local = o["local-projects"] as? [String: Any] ?? [:]
-        for id in projects { p.roots.formUnion((local[id] as? [String: Any])?["rootPaths"] as? [String] ?? []) }
+        p.projects = projects.map { Pins.Project(roots: Set((local[$0] as? [String: Any])?["rootPaths"] as? [String] ?? [])) }
         let movedOut = Set(o["projectless-thread-ids"] as? [String] ?? [])
-        p.elsewhere = movedOut
+        p.filed = movedOut
         for (thread, a) in o["thread-project-assignments"] as? [String: Any] ?? [:] {
             guard let project = (a as? [String: Any])?["projectId"] as? String else { continue }
-            if !ids.contains(project) { p.elsewhere.insert(thread) } else if !movedOut.contains(thread) { p.threads.insert(thread) }
+            p.filed.insert(thread)
+            if let k = which[project], !movedOut.contains(thread) { p.projects[k].threads.insert(thread) }
         }
         return p
     }
@@ -316,13 +339,13 @@ final class GPTWatcher {
                 .max(by: { Int($0.dropFirst(prefix.count))! < Int($1.dropFirst(prefix.count))! }),
               let byAccount = atoms[key] as? [String: Any] else { return nil }
         var out: [GPTThread] = [], ids = Set<String>()
-        for case let account as [String: Any] in byAccount.values {
+        for case let account as [String: Any] in byAccount.sorted(by: { $0.key < $1.key }).map(\.value) {
             for case let pin as [String: Any] in account["pinnedConversations"] as? [Any] ?? [] {
                 guard let c = pin["conversation"] as? [String: Any], let id = c["id"] as? String, ids.insert(id).inserted else { continue }
                 let title = (c["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 let when = (c["updatedAt"] as? String ?? c["createdAt"] as? String).flatMap(date) ?? .distantPast
                 out.append(GPTThread(id: chat(id), title: title.isEmpty ? "ChatGPT" : title, pinned: true, updated: when,
-                                     cwd: "", running: false, finished: nil))
+                                     cwd: "", running: false, finished: nil, order: 1_000_000 + out.count))
             }
         }
         return out

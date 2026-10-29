@@ -149,8 +149,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         switch p {
         case .welcome:
             titleL.stringValue = "Kikumap"
-            bodyL.stringValue = tr("同时开着很多 Claude 对话？这个小工具住在菜单栏里，告诉你哪个还在跑、哪个做完了还没看（未读），还能把对话整理成一张导图。",
-                                   "Many Claude chats going at once? This little menu-bar app tells you which are still running and which finished and are still unread — and lets you sort them into a mind map.")
+            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？这个小工具住在菜单栏里，告诉你哪个还在跑、哪个做完了还没看（未读），还能把对话整理成一张导图。",
+                                   "Many Claude and ChatGPT chats going at once? This little menu-bar app tells you which are still running and which finished and are still unread — and lets you sort them into a mind map.")
             let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
             seg.selectedSegment = Prefs.english ? 1 : 0
             center(seg)
@@ -167,8 +167,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.painter = { r, t in Onboarding.paintMap(r, t) }
         case .timeline:
             titleL.stringValue = tr("时间线", "Timeline")
-            bodyL.stringValue = tr("导图下方是时间线：Claude 什么时候在忙哪个对话、计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。",
-                                   "Below the map: when Claude worked on which chat and when scheduled tasks run (with countdowns). Hover for names.")
+            bodyL.stringValue = tr("导图下方是时间线：Claude 和 ChatGPT 什么时候在忙哪个对话、计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。",
+                                   "Below the map: when Claude and ChatGPT worked on which chat and when scheduled tasks run (with countdowns). Hover for names.")
             art.painter = { r, t in Onboarding.paintTimeline(r, t) }
         case .colors:
             titleL.stringValue = tr("颜色只留给你", "Colour is yours")

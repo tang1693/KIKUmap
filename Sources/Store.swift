@@ -155,9 +155,10 @@ final class Store {
     }
 
     /// How long Claude worked on each chat in each slot bounds[i] ..< bounds[i + 1], running chats up to
-    /// now. Chats running side by side each count in full. Days older than the timeline's week come
-    /// from the daily totals, whole, in the slot their day starts in.
-    func worked(_ bounds: [Date]) -> [[String: Double]] {
+    /// now. Chats running side by side each count in full. Time older than the timeline's week comes from
+    /// the hourly totals, each hour whole in the slot it starts in; from before those, there are only daily
+    /// totals, left out when the slots are shorter than a day (`wholeDays` false: see `dailyOnlyUntil`).
+    func worked(_ bounds: [Date], wholeDays: Bool = true) -> [[String: Double]] {
         var out = [[String: Double]](repeating: [:], count: max(bounds.count - 1, 0))
         guard let first = bounds.first, let last = bounds.last, !out.isEmpty else { return out }
         func slot(_ d: Date) -> Int? { d >= first && d < last ? bounds.lastIndex { $0 <= d } : nil }
@@ -173,12 +174,27 @@ final class Store {
         for iv in intervals { add(iv.id, Clock.parse(iv.start), Clock.parse(iv.end)) }
         let now = Date()
         for (id, s) in runStart { add(id, Clock.parse(s), now) }
-        for (day, t) in history {
-            guard let d = Store.dayFormatter.date(from: day), let i = slot(d) else { continue }
+        for (key, t) in history {
+            let hourly = key.count > 10
+            guard hourly || wholeDays, let d = (hourly ? Store.hourFormatter : Store.dayFormatter).date(from: key),
+                  let i = slot(d) else { continue }
             for (id, s) in t { out[i][id, default: 0] += s }
         }
         return out
     }
+
+    /// Before this, only daily totals were kept (older versions folded old time by day; nil if none).
+    var dailyOnlyUntil: Date? {
+        history.keys.filter { $0.count == 10 }.max().flatMap { Store.dayFormatter.date(from: $0) }
+            .flatMap { Calendar.current.date(byAdding: .day, value: 1, to: $0) }
+    }
+
+    static let hourFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH"
+        return f
+    }()
 
     static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -312,14 +328,15 @@ final class Store {
         if let d = try? e.encode(ActivityFile(intervals: intervals, open: runStart)) { try? d.write(to: activityURL, options: .atomic) }
     }
 
-    /// Intervals leaving the timeline are added to the daily totals (kept for about a year).
+    /// Intervals leaving the timeline are added to the hourly totals (kept for about a year), so the
+    /// statistics can still show any hours of them.
     private func fold(_ old: [Interval]) {
         let cal = Calendar.current
         for iv in old {
             guard var a = Clock.parse(iv.start), let b = Clock.parse(iv.end) else { continue }
             while a < b {
-                let e = min(b, cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: a))!)
-                history[Store.dayFormatter.string(from: a), default: [:]][iv.id, default: 0] += e.timeIntervalSince(a)
+                let e = min(b, cal.dateInterval(of: .hour, for: a)?.end ?? b)
+                history[Store.hourFormatter.string(from: a), default: [:]][iv.id, default: 0] += e.timeIntervalSince(a)
                 a = e
             }
             historyTitles[iv.id] = name(iv.id)
@@ -503,6 +520,7 @@ final class Store {
                 // already there before Kikumap saw it: not unread (unless ChatGPT's own list says so)
                 chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
                                   last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd, app: GPTWatcher.bundleID))
+                chats[chats.count - 1].pinIndex = t.order
                 seen[id] = Clock.iso(t.finished ?? t.updated)
                 if t.running { running.insert(id) }
                 reindex()
@@ -511,6 +529,7 @@ final class Store {
             }
             if chats[i].title != t.title { chats[i].title = t.title; changed = true }
             if (chats[i].pinned == true) != t.pinned { chats[i].pinned = t.pinned ? true : nil; changed = true }
+            if chats[i].pinIndex != t.order { chats[i].pinIndex = t.order; changed = true }      // ChatGPT's order
             if t.running && !running.contains(id) {
                 running.insert(id)
                 seen[id] = now; seenChanged = true                  // you just asked it something

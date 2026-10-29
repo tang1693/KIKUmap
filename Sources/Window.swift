@@ -303,8 +303,8 @@ final class SidebarView: NSView, NSDraggingSource {
         let n = String(rows.count)
         (n as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 15), withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
         let gpt = GPTWatcher.enabled && GPTWatcher.available
-        (tr(gpt ? "Claude、ChatGPT 置顶 · 拖到右边归类" : "和 Claude 的置顶同步 · 拖到右边归类",
-            gpt ? "Pins from Claude & ChatGPT · drag to file" : "Synced with Claude's pins · drag to file") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+        (tr(gpt ? "Claude、ChatGPT 置顶 · 拖到画布上" : "和 Claude 的置顶同步 · 拖到画布上",
+            gpt ? "Pins from Claude & ChatGPT · drag to canvas" : "Synced with Claude's pins · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         if rows.isEmpty {
             let msg = emptyNote ?? (gpt ? tr("在 Claude 或 ChatGPT 里置顶对话，就会出现在这里", "Pin chats in Claude or ChatGPT and they show up here")
                                         : tr("在 Claude 里置顶对话，就会出现在这里", "Pin chats in Claude and they show up here"))

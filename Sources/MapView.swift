@@ -498,7 +498,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let w = window, let d = pdfData() else { return }
         let p = NSSavePanel()
         p.allowedContentTypes = [.pdf]
-        p.nameFieldStringValue = tr("Claude 导图 ", "Claude map ") + Clock.format(Date(), "yyyy-MM-dd", "yyyy-MM-dd") + ".pdf"
+        p.nameFieldStringValue = tr("Kikumap 导图 ", "Kikumap map ") + Clock.format(Date(), "yyyy-MM-dd", "yyyy-MM-dd") + ".pdf"
         p.beginSheetModal(for: w) { r in
             guard r == .OK, let url = p.url else { return }
             do { try d.write(to: url, options: .atomic); NSWorkspace.shared.activateFileViewerSelecting([url]) }

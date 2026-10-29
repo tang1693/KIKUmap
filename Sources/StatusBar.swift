@@ -260,7 +260,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         if !day.isEmpty {
             let sub = NSMenu()
             let done = day.filter { !store.isRunning($0.id) }.count
-            let h = sub.addItem(withTitle: tr("今天 Claude 干活 \(Clock.duration(total)) · 做完 \(done) 个", "Claude worked \(Clock.duration(total)) today · \(done) done"),
+            let h = sub.addItem(withTitle: tr("今天 \(GPTWatcher.who) 干活 \(Clock.duration(total)) · 做完 \(done) 个", "\(GPTWatcher.who) worked \(Clock.duration(total)) today · \(done) done"),
                                 action: nil, keyEquivalent: "")
             h.isEnabled = false
             sub.addItem(.separator())

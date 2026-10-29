@@ -494,7 +494,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let name = NSTextField(labelWithString: "Kikumap")
         name.font = .systemFont(ofSize: 22, weight: .bold)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
-        let head = vstack([name, label(tr("Claude 对话导图", "A mind map for your Claude chats") + " · " + tr("版本 ", "version ") + version, small: true, width: 360)], spacing: 4)
+        let head = vstack([name, label(tr("Claude 和 ChatGPT 对话导图", "A mind map for your Claude and ChatGPT chats") + " · " + tr("版本 ", "version ") + version, small: true, width: 360)], spacing: 4)
         let top = NSStackView(views: [icon, head])
         top.spacing = 16
         top.alignment = .centerY
