@@ -851,7 +851,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// "Open in Claude" — or in ChatGPT, or where a Claude Code session runs.
     private func openLabel(_ id: String) -> String {
         guard let c = store.chat(id) else { return tr("打开", "Open") }
-        if c.isGPT { return tr("在 ChatGPT 里打开", "Open in ChatGPT") }
+        if c.isGPT { return GPTWatcher.openLabel(c) }
         return c.isCode ? tr("打开", "Open") : tr("在 Claude 里打开", "Open in Claude")
     }
 

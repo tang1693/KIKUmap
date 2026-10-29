@@ -58,9 +58,15 @@ final class Store {
     private(set) var seen: [String: String] = [:]
     var running = Set<String>()
     var axUnread = Set<String>()
-    /// ChatGPT threads unread here, following the dot ChatGPT shows (`gptListed` is its own list as last read).
-    var gptUnread = Set<String>()
+    /// When each chat last finished (a notification or the sidebar), for reads that began before that.
+    private var finishedAt: [String: Date] = [:]
+    /// ChatGPT's own unread dots, as last read (nil: it doesn't say). Unread for its app threads follows them; what
+    /// you do here (read, unread again) is kept in `seen`, so it lasts across restarts.
     private var gptListed: Set<String>?
+    /// Threads whose task went quiet before it finished: when the finish comes, it's announced.
+    private var gptQuiet = Set<String>()
+    /// ChatGPT is read (Settings → Access); when it's off its threads aren't shown.
+    nonisolated static var gptOn: Bool { UserDefaults.standard.object(forKey: "ChatGPTOn") as? Bool ?? true }
     let map: MapModel
     private var observers: [() -> Void] = []
     private(set) var intervals: [Interval] = []
@@ -130,8 +136,12 @@ final class Store {
 
     func isUnread(_ c: Chat) -> Bool {
         if running.contains(c.id) { return false }
-        if axUnread.contains(c.id) || gptUnread.contains(c.id) { return true }
-        if c.isGPT && gptListed != nil { return false }       // ChatGPT says which ones are unread
+        if axUnread.contains(c.id) { return true }
+        if c.isGPT {
+            if seen[c.id] == "" { return !c.updated_at.isEmpty }          // marked unread here
+            // an app thread: ChatGPT's dot, unless read here since its last change (a session: like Claude Code)
+            if !c.isCodexSession, let dots = gptListed { return dots.contains(c.id) && (seen[c.id] ?? "") <= c.updated_at }
+        }
         return !c.updated_at.isEmpty && c.updated_at > (seen[c.id] ?? "")
     }
 
@@ -145,6 +155,7 @@ final class Store {
     /// wait for you, for 12 hours after, or for good once you pin them here or file them on the map.
     var pinsKnown: Bool { chats.contains { !$0.outsideClaude && $0.pinned != nil } }
     func isShown(_ c: Chat) -> Bool {
+        if c.isGPT && !Store.gptOn { return false }
         if c.isCode || c.isCodexSession {
             // linked to the Claude app (Remote Control): shown through Claude's chat — only if that one is pinned
             if c.isCode && c.linked == true && chats.contains(where: { !$0.isCode && $0.pinned == true && $0.title == c.title }) { return false }
@@ -314,9 +325,10 @@ final class Store {
     func markSeen(_ ids: [String]) {
         for id in ids {
             let u = chat(id)?.updated_at ?? ""
-            seen[id] = u.isEmpty ? Clock.iso() : u
+            // a ChatGPT thread: read as of now, and in any case just after its last change ("+" sorts after it), since
+            // its dot in ChatGPT may stay until it's opened there
+            seen[id] = chat(id)?.isGPT == true ? max(Clock.iso(), u + "+") : (u.isEmpty ? Clock.iso() : u)
             axUnread.remove(id)
-            gptUnread.remove(id)
         }
         saveSeen()
         notify()
@@ -332,7 +344,6 @@ final class Store {
             guard let i = index[id], !running.contains(id) else { continue }
             if chats[i].updated_at.isEmpty { chats[i].updated_at = Clock.iso(); changed = true }
             seen[id] = ""
-            if chats[i].isGPT { gptUnread.insert(id) }
         }
         if changed { saveChats() }
         saveSeen()
@@ -429,7 +440,9 @@ final class Store {
     enum Event { case finished(String), needsInput(String) }
 
     /// Claude posted notifications ("done", "needs your input").
-    func apply(_ notes: [Notif]) -> [Event] {
+    /// `quietBefore`: notifications from before then (posted while Kikumap wasn't running) update the chats but
+    /// make no sound.
+    func apply(_ notes: [Notif], quietBefore: Date = .distantPast) -> [Event] {
         var events: [Event] = []
         for n in notes {
             let title = n.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -437,7 +450,7 @@ final class Store {
             if title.isEmpty || title.lowercased() == "claude" { continue }
             let when = Clock.iso(n.date)
             var i = n.chatId.flatMap { index[$0] }
-            if i == nil { i = chats.firstIndex { $0.title == title } }
+            if i == nil { i = chats.firstIndex { !$0.outsideClaude && $0.title == title } }
             let id: String
             if let i = i {
                 if chats[i].updated_at < when { chats[i].updated_at = when }
@@ -453,8 +466,9 @@ final class Store {
                 intervals.append(Interval(id: id, start: start, end: when))
                 saveActivity()
             }
+            finishedAt[id] = n.date
             let input = n.body.range(of: "input|permission|输入", options: [.regularExpression, .caseInsensitive]) != nil
-            events.append(input ? .needsInput(id) : .finished(id))
+            if n.date >= quietBefore { events.append(input ? .needsInput(id) : .finished(id)) }
             reindex()
         }
         if !notes.isEmpty { saveChats(); notify() }
@@ -469,11 +483,19 @@ final class Store {
     }
 
     func writeDefaultRules() {
-        if FileManager.default.fileExists(atPath: rulesURL.path) { return }
+        if FileManager.default.fileExists(atPath: rulesURL.path) {
+            // still the old default unread rule (simplified Chinese only): bring it up to date, keep everything else
+            if let d = try? Data(contentsOf: rulesURL), var r = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any],
+               r["unread"] as? String == "(?i)(unread|未读)" {
+                r["unread"] = "(?i)(unread|未读|未讀|未読)"
+                if let out = try? JSONSerialization.data(withJSONObject: r, options: [.prettyPrinted, .sortedKeys]) { try? out.write(to: rulesURL) }
+            }
+            return
+        }
         let r: [String: Any] = [
             "_about": "Regexes matched against the sidebar flags in logs/claude-sidebar.txt. Changes apply on the next scan.",
             "running": "(?i)(AXProgressIndicator|AXBusyIndicator|busy=1|spinner|animate-spin|generating|thinking|responding|running|in progress|正在)",
-            "unread": "(?i)(unread|未读)",
+            "unread": "(?i)(unread|未读|未讀|未読)",
             "current": "(?i)(sel=1|cur=page|cur=true|cur=1)",
             "markFinishedUnread": true,
         ]
@@ -596,22 +618,25 @@ final class Store {
             if chats[i].app != app { chats[i].app = app; changed = true }
             if t.running && !running.contains(id) {
                 running.insert(id)
+                gptQuiet.remove(id)
                 seen[id] = now; seenChanged = true                  // you just asked it something
-                gptUnread.remove(id)
                 changed = true
             } else if !t.running && running.contains(id) {
                 running.remove(id)
-                let when = Clock.iso(t.finished ?? Date())
-                chats[i].updated_at = when
-                if t.finished != nil {
-                    events.append(.finished(id))
-                    if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT (when its own list can't be read)
-                    // still unread in ChatGPT, and new again; a session in an editor, until you open it or ask again
-                    if gptListed?.contains(id) == true || chats[i].isCodexSession { gptUnread.insert(id) }
+                if t.quiet {
+                    gptQuiet.insert(id)                             // quiet, not finished: its finish is still to come
+                } else {
+                    let when = Clock.iso(t.finished ?? Date())
+                    chats[i].updated_at = when
+                    if t.finished != nil {
+                        events.append(.finished(id))
+                        if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT
+                    }
                 }
                 changed = true
             } else if !t.running, let f = t.finished.map(Clock.iso), f > chats[i].updated_at {
                 chats[i].updated_at = f                             // finished while Kikumap wasn't watching
+                if gptQuiet.remove(id) != nil { events.append(.finished(id)) }   // the quiet task did finish
                 changed = true
             }
         }
@@ -622,14 +647,15 @@ final class Store {
         for i in chats.indices where pinsRead && chats[i].isGPT && chats[i].pinned == true && !listed.contains(chats[i].id) {
             chats[i].pinned = nil; changed = true
         }
-        // ChatGPT's own unread dots: one that appears there is unread here too, one read there is read here
-        // (marking it read here holds until ChatGPT has something new)
-        if let list = unread.map({ Set($0.map { "gpt-" + $0 }) }), list != gptListed {
-            let before = gptListed ?? []
-            gptUnread.formUnion(list.subtracting(before))
-            gptUnread.subtract(before.subtracting(list))
-            gptListed = list
-            dotsChanged = true
+        // ChatGPT's own unread dots. One read there (no dot) is read here too, also in `seen`, so it stays read if
+        // ChatGPT ever stops saying.
+        if let list = unread.map({ Set($0.map { "gpt-" + $0 }) }) {
+            if list != gptListed { gptListed = list; dotsChanged = true }
+            // ChatGPT's read state takes over: a dot that comes back later is unread again
+            for c in chats where c.isGPT && !c.isCodexSession && !list.contains(c.id) && !running.contains(c.id)
+                && seen[c.id] != "" && seen[c.id] != c.updated_at && !c.updated_at.isEmpty {
+                seen[c.id] = c.updated_at; seenChanged = true
+            }
         }
         if changed {
             track(running, at: now)
@@ -644,9 +670,9 @@ final class Store {
     func clearGPT() {
         let before = running
         running = running.filter { !$0.hasPrefix("gpt-") }
-        let dots = !gptUnread.isEmpty || gptListed != nil
-        gptUnread = []
+        let dots = gptListed != nil
         gptListed = nil
+        gptQuiet = []
         if running != before { track(running, at: Clock.iso()) }
         if running != before || dots { notify() }
     }
@@ -670,8 +696,25 @@ final class Store {
         if let p = l.pinned { chats[i].pinned = p }
         if let s = seen.removeValue(forKey: old) { seen[l.id] = s; saveSeen() }
         map.renameChat(old, to: l.id)
+        moveState(old, to: l.id)
         reindex()
         return true
+    }
+
+    /// A chat's id changed (its address became known, or a copy under a new name was folded in): its running
+    /// state and its time go with it, instead of staying behind under the old id.
+    private func moveState(_ old: String, to new: String) {
+        guard old != new else { return }
+        if running.remove(old) != nil { running.insert(new) }
+        if axUnread.remove(old) != nil { axUnread.insert(new) }
+        if let f = finishedAt.removeValue(forKey: old) { finishedAt[new] = f }
+        var moved = false
+        if let start = runStart.removeValue(forKey: old) {
+            if runStart[new] == nil { runStart[new] = start }
+            moved = true
+        }
+        for k in intervals.indices where intervals[k].id == old { intervals[k].id = new; moved = true }
+        if moved { saveActivity() }
     }
 
     /// Renamed in Claude (seen while open, so its address is known). The copy picked up under the new
@@ -686,12 +729,16 @@ final class Store {
         if !map.placedChats().contains(dup) {
             chats.remove(at: j)
             seen.removeValue(forKey: dup)
+            moveState(dup, to: id)
             reindex()
         }
     }
 
     /// The Claude app's sidebar was read: which chats run, which are unread, which one is open.
-    func apply(scan links: [AXLink], claudeFront: Bool, noPins: Bool = false) -> [Event] {
+    /// `readKnown`: Claude's unread marks can be relied on, so a listed chat without one has been read in Claude.
+    /// `startedAt`: when this read of the sidebar began (a chat that finished after that isn't running again).
+    func apply(scan links: [AXLink], claudeFront: Bool, noPins: Bool = false, readKnown: Bool = false,
+               startedAt: Date = .distantFuture) -> [Event] {
         // An empty read means the sidebar is hidden or still loading, not that everything finished; unless the
         // list was read whole and is empty: every chat is gone, so nothing is pinned any more
         guard !links.isEmpty else {
@@ -704,7 +751,8 @@ final class Store {
         var nowRunning = Set<String>(), nowUnread = Set<String>()
         var current: String?
         for l in links {
-            if Store.matches(rules.running, l.flags) { nowRunning.insert(l.id) }
+            // a notification said it finished after this read began: the spinner it saw is old news
+            if Store.matches(rules.running, l.flags), !(finishedAt[l.id].map { $0 > startedAt } ?? false) { nowRunning.insert(l.id) }
             if Store.matches(rules.unread, l.flags) { nowUnread.insert(l.id) }
             if current == nil && Store.matches(rules.current, l.flags) { current = l.id }
         }
@@ -746,6 +794,7 @@ final class Store {
                 seen[id] = now; seenChanged = true
             } else if rules.markFinishedUnread {
                 chats[i].updated_at = now; changed = true
+                finishedAt[id] = Date()
                 events.append(.finished(id))
             }
         }
@@ -759,6 +808,16 @@ final class Store {
         if claudeFront, let c = current, let i = index[c] {
             let u = chats[i].updated_at
             if !u.isEmpty && u > (seen[c] ?? "") { seen[c] = u; seenChanged = true }
+        }
+        // Claude shows no unread mark on it, so it was read there (say while Kikumap wasn't running): read here too.
+        // Not one that finished in the last minute (Claude may not have marked it yet), nor one you marked unread.
+        if readKnown {
+            for l in links where !nowRunning.contains(l.id) && !nowUnread.contains(l.id) {
+                guard let i = index[l.id], !chats[i].outsideClaude, seen[l.id] != "" else { continue }
+                if let f = finishedAt[l.id], Date().timeIntervalSince(f) < 60 { continue }
+                let u = chats[i].updated_at
+                if !u.isEmpty && u > (seen[l.id] ?? "") { seen[l.id] = u; seenChanged = true }
+            }
         }
         nowRunning.formUnion(running.subtracting(listed))
         nowUnread.formUnion(axUnread.subtracting(listed))

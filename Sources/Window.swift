@@ -517,7 +517,7 @@ final class SidebarView: NSView, NSDraggingSource {
         guard let c = row(at: convert(event.locationInWindow, from: nil)) else { return nil }
         let m = NSMenu()
         if c.isGPT {                                  // pinned or not is up to ChatGPT
-            m.addItem(MenuAction(title: tr("在 ChatGPT 里打开", "Open in ChatGPT")) { [weak self] in self?.onOpen?(c.id) })
+            m.addItem(MenuAction(title: GPTWatcher.openLabel(c)) { [weak self] in self?.onOpen?(c.id) })
             return m
         }
         guard c.isCode else {

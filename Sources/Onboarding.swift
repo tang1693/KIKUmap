@@ -307,7 +307,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         }
         art.painter = { [weak self] r, t in
             let since = self?.grantedAt.map { CGFloat(Date().timeIntervalSince($0)) }
-            Onboarding.paintSymbol(r, t, symbol, granted: (self?.granted ?? false) ? (since ?? 10) : nil, step: step)
+            Onboarding.paintSymbol(r, t, symbol, granted: (self?.granted ?? false) ? (since ?? 10) : nil)
         }
     }
 

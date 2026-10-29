@@ -271,8 +271,8 @@ enum SyncIssue: Sendable {
             return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶对话同步、对话的进行中状态。\n不受影响：做完的提醒、Claude Code。\n怎么办：在 Claude 侧边栏顶部切回 Chat。",
                       "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins and the running status of chats.\nStill works: finished alerts, Claude Code.\nFix: switch Claude back to Chat at the top of its sidebar.")
         case .pinsCollapsed:
-            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，Kikumap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新）。\n不受影响：做完的提醒、进行中状态、Claude Code。\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。",
-                      "The Pinned section in Claude's sidebar is folded, so Kikumap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update).\nStill works: finished alerts, running status, Claude Code.\nFix: click \"Pinned\" in Claude's sidebar to unfold it.")
+            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，Kikumap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新），以及置顶对话的进行中和未读。\n不受影响：通知里的做完提醒、Claude Code、ChatGPT。\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。",
+                      "The Pinned section in Claude's sidebar is folded, so Kikumap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update), and running and unread for pinned chats.\nStill works: finished alerts from notifications, Claude Code, ChatGPT.\nFix: click \"Pinned\" in Claude's sidebar to unfold it.")
         case .sidebarHidden:
             return tr("Claude 的侧边栏收起来了，Kikumap 没有东西可读。\n暂停：进行中状态、置顶对话、侧边栏里的未读。\n不受影响：做完的提醒和提示音、Claude Code。\n怎么办：在 Claude 窗口左上角把侧边栏打开。",
                       "Claude's sidebar is hidden, so there's nothing for Kikumap to read.\nPaused: running status, pinned chats, unread from the sidebar.\nStill works: finished alerts and sounds, Claude Code.\nFix: show the sidebar in Claude's window (top left).")
@@ -387,7 +387,7 @@ enum AXScan {
             }
             if d < 10 { queue += children(el).map { ($0, d + 1) } }
         }
-        return others.first { !rows(in: $0).isEmpty } ?? others.first
+        return others.first { !rows(in: $0).isEmpty }
     }
 
     /// One chat row: its button, title and status flags (never the title text itself, so a chat
@@ -424,11 +424,12 @@ enum AXScan {
     /// words, still with the chat's title in them). Scheduled tasks have a second label ("Monthly",
     /// "One-time") and are left out.
     static func rows(in sidebar: AXUIElement) -> [Row] {
-        var headings: [String] = []
-        return rows(in: sidebar, headings: &headings)
+        var headings: [String] = [], sections: [Section] = []
+        return rows(in: sidebar, headings: &headings, sections: &sections)
     }
 
-    static func rows(in sidebar: AXUIElement, headings: inout [String]) -> [Row] {
+    /// `headings`: every heading's text; `sections`: every heading (also the ones with no chats under them).
+    static func rows(in sidebar: AXUIElement, headings: inout [String], sections: inout [Section]) -> [Row] {
         var out: [Row] = []
         var stack: [(AXUIElement, Int)] = [(sidebar, 0)]
         var n = 0
@@ -438,6 +439,7 @@ enum AXScan {
             if str(el, "AXRole") == "AXHeading" {
                 section = Section(title: str(el, "AXTitle"), level: str(el, "AXValue"), depth: d, order: headings.count)
                 headings.append(section.title)
+                sections.append(section)
                 continue
             }
             let kids = children(el)
@@ -495,41 +497,14 @@ enum AXScan {
         return false
     }
 
-    /// Chats whose title shows up as text — for when the sidebar has no /chat/ links (newer Claude apps).
-    static func byTitle(_ root: AXUIElement, known: [String: String], into out: inout [AXLink], seen: inout Set<String>) {
-        var stack: [(AXUIElement, Int)] = [(root, 0)]
-        var n = 0
-        while let (el, d) = stack.popLast(), n < 15000 {
-            n += 1
-            var text = str(el, "AXValue")
-            if text.isEmpty { text = str(el, "AXTitle") }
-            if text.isEmpty { text = str(el, "AXDescription") }
-            let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty, let id = known[key], !seen.contains(id) {
-                // climb to the row that holds the title (its flags carry spinners, selection…)
-                var item = el
-                for _ in 0..<4 {
-                    if itemRoles.contains(str(item, "AXRole")) { break }
-                    guard let up = element(attr(item, "AXParent")) else { break }
-                    item = up
-                }
-                seen.insert(id)
-                var flags = describe(item, limit: 40)
-                if let parent = element(attr(item, "AXParent")), children(parent).count <= 6 {
-                    flags += " || parent: " + describe(parent, limit: 50)
-                }
-                out.append(AXLink(id: id, path: "", title: key, flags: flags))
-                continue
-            }
-            if d < 60 { for c in children(el) { stack.append((c, d + 1)) } }
-        }
-    }
-
     /// Every link to a chat in the Claude app's windows.
     /// Every chat in the Claude app's sidebar. `note` says why syncing can't work right now (nil = fine).
     /// `noPins`: the chat list was read whole and has no Pinned section (the last pin was removed, or every chat
     /// deleted), so nothing is pinned any more.
-    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:]) -> (links: [AXLink], dump: String, issue: SyncIssue?, noPins: Bool) {
+    /// `emptyList`: a chat list was read and holds no chats at all. `readKnown`: Claude's own words were recognised
+    /// (English or Chinese), so its "Unread" marks can be relied on: a chat without one has been read.
+    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:])
+        -> (links: [AXLink], dump: String, issue: SyncIssue?, noPins: Bool, emptyList: Bool, readKnown: Bool) {
         var issue: SyncIssue?
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 3.0)
@@ -541,6 +516,7 @@ enum AXScan {
         // links to chats anywhere in the window: older Claude apps listed chats this way; now only a fallback
         var linkOut: [AXLink] = [], linkSeen = Set<String>()
         var noPins: Bool?
+        var emptyList = false, readKnown = false
         var titles = Set(known.keys)            // left out of the log
         // Electron builds its accessibility tree only after AXManualAccessibility is set — give it a moment
         var winErr = AXError.success
@@ -644,24 +620,45 @@ enum AXScan {
                 var openTitle = str(web, "AXTitle")
                 if openTitle.hasSuffix(" - Claude") { openTitle = String(openTitle.dropLast(9)) }
                 titles.insert(openTitle)
-                var headings: [String] = []
-                let rows = rows(in: sb, headings: &headings)
+                var headings: [String] = [], sections: [Section] = []
+                let rows = rows(in: sb, headings: &headings, sections: &sections)
                 if codeMode {
                     issue = .codeMode
                 } else if headings.contains(where: { pinnedHeadings.contains($0) }) && !rows.contains(where: { $0.pinned }) {
                     issue = .pinsCollapsed
                 }
-                // no "Pinned" heading, and the chats all under headings of one depth (the date groups): no pins
-                let none = !codeMode && !headings.contains(where: { pinnedHeadings.contains($0) }) && !rows.contains(where: { $0.pinned })
-                    && Set(rows.map(\.section.depth)).count <= 1
+                // Claude speaks English or Chinese here, so its "Unread" marks (or their absence) can be relied on
+                if headings.contains(where: { ["Pinned", "已置顶", "置顶"].contains($0) })
+                    || rows.contains(where: { $0.flags.range(of: "unread|未读|未讀", options: [.regularExpression, .caseInsensitive]) != nil }) {
+                    readKnown = true
+                }
+                // no pins: chats were read, none under a "Pinned" heading, all under headings of one depth (the date
+                // groups), and no other heading of their rank above them (in another language, a folded Pinned section)
+                let depth = rows.map(\.section.depth).max() ?? -1
+                let level = rows.first { $0.section.depth == depth }?.section.level ?? ""
+                let foldedAbove = sections.contains { $0.level == level && $0.depth >= 0 && $0.depth < depth }
+                let none = !codeMode && !rows.isEmpty && !headings.contains(where: { pinnedHeadings.contains($0) })
+                    && !rows.contains(where: { $0.pinned }) && Set(rows.map(\.section.depth)).count <= 1 && !foldedAbove
                 noPins = (noPins ?? true) && none
+                if !codeMode && rows.isEmpty { emptyList = true }
                 if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · open chat '\(short(openTitle, 60))' \(openID ?? "-")\n" }
-                for r in rows {
+                // the Code list holds sessions (their hooks report them), not chats: nothing to apply from it
+                if codeMode { continue }
+                // the open chat (only a /chat/ address): the row Claude marks as current, or else the first with its title
+                let openChat = url.contains("/chat/") ? openID : nil
+                let openRow = rows.firstIndex { $0.title == openTitle && ($0.flags.contains("sel=1") || $0.flags.contains("cur=")) }
+                    ?? rows.firstIndex { $0.title == openTitle }
+                var sameTitle: [String: Int] = [:]
+                for (k, r) in rows.enumerated() {
                     titles.insert(r.title)
                     var id = known[r.title] ?? "n-" + Store.fnv(r.title)
                     var path = ""
                     var flags = r.flags
-                    if let o = openID, r.title == openTitle { id = o; path = "/chat/" + o; flags += " ; cur=1" }
+                    // two chats with one title: the second has an id of its own
+                    let twin = sameTitle[r.title, default: 0]
+                    sameTitle[r.title] = twin + 1
+                    if twin > 0 { id = "n-" + Store.fnv(r.title) + "-\(twin + 1)" }
+                    if let o = openChat, k == openRow { id = o; path = "/chat/" + o; flags += " ; cur=1" }
                     if seen.contains(id) { continue }
                     seen.insert(id)
                     out.append(AXLink(id: id, path: path, title: r.title, flags: flags, pinned: r.pinned))
@@ -669,18 +666,12 @@ enum AXScan {
                 }
             }
         }
-        // no chat list to read: chat links (older Claude apps), then known titles
-        if out.isEmpty && !linkOut.isEmpty {
+        // no chat list at all (older Claude apps listed chats as links): those links. A list that's hidden,
+        // folded, loading or in Code mode gives nothing: what isn't seen isn't changed.
+        if sidebars.isEmpty && !linkOut.isEmpty {
             out = linkOut
             seen = linkSeen
             foundSidebar = true
-        }
-        if out.isEmpty && !known.isEmpty {
-            for web in allWebs { byTitle(web, known: known, into: &out, seen: &seen) }
-            if wantDump {
-                dump += "\nBY TITLE: \(out.count) chats found by their title\n"
-                for l in out { dump += "TITLE \(short(l.title, 80))\n  flags=\(l.flags)\n" }
-            }
         }
         if wantDump {
             // the chat list only: the rest of the window is the conversation itself (without a chat list,
@@ -693,7 +684,7 @@ enum AXScan {
         if issue == nil && !foundSidebar && !windows.isEmpty { issue = .sidebarHidden }
         if wantDump, let n = issue { dump = "# Sync problem: \(n.note)\n" + dump }
         if wantDump { dump = redact(dump, titles: titles) }
-        return (out, dump, issue, issue == nil && noPins == true)
+        return (out, dump, issue, issue == nil && noPins == true, issue == nil && emptyList && out.isEmpty, readKnown)
     }
 
     /// The log without chat titles (each becomes ‹title›), so it can be sent to someone.
@@ -724,10 +715,13 @@ private func axObserverCallback(_ observer: AXObserver, _ element: AXUIElement, 
 final class SidebarWatcher: NSObject {
     enum Status { case starting, ok, noAccess, noApp }
     private(set) var status = Status.starting
-    /// The chats read, and whether nothing is pinned any more (seen twice in a row, so a list still loading
-    /// doesn't count).
-    var onScan: (([AXLink], Bool) -> Void)?
+    /// The chats read; whether nothing is pinned any more (seen twice in a row, or an empty list for a minute, so a
+    /// list still loading doesn't count); whether Claude's unread marks can be relied on; when the read began.
+    var onScan: (([AXLink], Bool, Bool, Date) -> Void)?
     private var noPinsSeen = 0
+    private var emptySince: Date?
+    /// A read was asked for while one ran: it runs again when that one ends.
+    private var rescan = false
     var onQuit: (() -> Void)?
     var onStatus: (() -> Void)?
     private let store: Store
@@ -847,19 +841,24 @@ final class SidebarWatcher: NSObject {
 
     private func run() {
         scheduled = false
-        guard pid != 0, !scanning else { return }
+        guard pid != 0 else { return }
+        guard !scanning else { rescan = true; return }
         scanning = true
-        lastScan = Date()
+        let started = Date()
+        lastScan = started
         let p = pid, dump = dumpNext
         dumpNext = false
+        // Claude's own chats only: a ChatGPT thread or a Claude Code session with the same title isn't this chat
         var known: [String: String] = [:]
-        for c in store.chats where !c.title.isEmpty && (known[c.title] == nil || !c.id.hasPrefix("n-")) { known[c.title] = c.id }
+        for c in store.chats where !c.outsideClaude && !c.title.isEmpty && (known[c.title] == nil || !c.id.hasPrefix("n-")) { known[c.title] = c.id }
         DispatchQueue.global(qos: .utility).async {
             let r = AXScan.scan(pid: p, wantDump: dump, known: known)
             DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated {
                     guard let self = self else { return }
                     self.scanning = false
+                    defer { if self.rescan { self.rescan = false; self.schedule(0) } }
+                    guard self.pid == p else { return }               // Claude quit meanwhile: this read is stale
                     self.syncIssue = r.issue
                     if r.issue == nil { self.lastSync = Date() }
                     if dump {
@@ -873,7 +872,10 @@ final class SidebarWatcher: NSObject {
                         for f in waiting { f(head + r.dump) }
                     }
                     self.noPinsSeen = r.noPins ? self.noPinsSeen + 1 : 0
-                    self.onScan?(r.links, self.noPinsSeen >= 2)
+                    // every chat deleted: an empty list, read whole, for a minute (not one still loading)
+                    if r.emptyList { if self.emptySince == nil { self.emptySince = started } } else { self.emptySince = nil }
+                    let emptyAWhile = self.emptySince.map { started.timeIntervalSince($0) >= 60 } ?? false
+                    self.onScan?(r.links, self.noPinsSeen >= 2 || emptyAWhile, r.readKnown, started)
                 }
             }
         }

@@ -66,7 +66,7 @@ final class WidgetFeed {
         let gptOn = GPTWatcher.enabled && GPTWatcher.available
         if gptOn, let u = gpt.usage {
             for w in u.windows {
-                let label = w.minutes > 0 && w.minutes <= 1440 ? tr("会话", "Session") : tr("本周", "Week")
+                let label = GPTWatcher.windowLabel(w.minutes)
                 let over = w.resets.map { $0 < Date() } ?? false
                 meters.append(meter(label, over ? 0 : w.percent, over ? nil : w.resets, "gpt", minutes: w.minutes))
             }

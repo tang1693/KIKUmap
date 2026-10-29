@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shownGPTUsage: GPTUsage?
     /// A newer copy of Kikumap asked this one to quit.
     private var handingOver = false
+    private let launched = Date()
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
@@ -129,15 +130,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.observe { [weak self] in self?.refreshUI() }
         notifications.onNotes = { [weak self] notes in
             guard let self = self else { return }
-            let ev = self.store.apply(notes)
+            let ev = self.store.apply(notes, quietBefore: self.launched)
             if !self.archive.busy { self.sounds.play(ev) }
             self.sidebar.schedule(0.3)
         }
         notifications.onStatus = { [weak self] in self?.refreshUI() }
-        sidebar.onScan = { [weak self] links, noPins in
+        sidebar.onScan = { [weak self] links, noPins, readKnown, started in
             guard let self = self else { return }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == claudeBundleID
-            let ev = self.store.apply(scan: links, claudeFront: front, noPins: noPins)
+            let ev = self.store.apply(scan: links, claudeFront: front, noPins: noPins, readKnown: readKnown, startedAt: started)
             if !self.archive.busy { self.sounds.play(ev) }       // the archive's own replies stay quiet
             self.refreshUI()                 // the "synced · just now" line
         }
@@ -386,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard GPTWatcher.enabled && GPTWatcher.available, let u = gpt.usage else { return [] }
         return u.windows.map { w in
             let over = w.resets.map { $0 < Date() } ?? false
-            let label = w.minutes > 0 && w.minutes <= 1440 ? tr("会话", "Session") : tr("本周", "Week")
+            let label = GPTWatcher.windowLabel(w.minutes)
             return (label, UsageMonitor.Window(percent: over ? 0 : w.percent, resets: over ? nil : w.resets))
         }
     }
