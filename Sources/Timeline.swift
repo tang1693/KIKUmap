@@ -18,14 +18,16 @@ struct Cron {
             var out = Set<Int>()
             for item in s.split(separator: ",") {
                 let stepParts = item.split(separator: "/")
+                guard let first = stepParts.first else { return nil }       // "/" alone
                 let step = stepParts.count > 1 ? Int(stepParts[1]) ?? 1 : 1
                 var a = lo, b = hi
-                let base = String(stepParts[0])
+                let base = String(first)
                 if base != "*" {
                     let r = base.split(separator: "-").compactMap { Int($0) }
                     guard !r.isEmpty else { return nil }
                     a = r[0]; b = r.count > 1 ? r[1] : (stepParts.count > 1 ? hi : r[0])
                 }
+                a = max(a, lo); b = min(b, hi)                              // "0-99999" can't run on forever
                 guard a <= b else { return nil }
                 for v in stride(from: a, through: b, by: max(1, step)) { out.insert(v) }
             }

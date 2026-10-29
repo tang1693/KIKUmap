@@ -427,9 +427,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let u = URL(string: "https://claude.ai/code/routines") { NSWorkspace.shared.open(u) }
     }
 
+    /// Writes logs/kikumap-check.txt: what works and what doesn't, then how the Claude sidebar reads. It holds
+    /// no chat titles, messages or keys, so it can be sent to whoever helps.
     func diagnose() {
-        sidebar.diagnose()
-        NSWorkspace.shared.activateFileViewerSelecting([store.logsDir])
+        guard !checking else { return }
+        checking = true
+        let write: @MainActor (String?) -> Void = { [weak self] dump in
+            guard let self, self.checking else { return }
+            self.checking = false
+            let url = self.store.logsDir.appendingPathComponent("kikumap-check.txt")
+            let sidebarPart = dump ?? "# Claude isn't running, or didn't answer in time: no sidebar to read.\n"
+            try? (self.checkReport() + "\n--- Claude sidebar (chat titles shown as ‹title›) ---\n" + sidebarPart)
+                .data(using: .utf8)?.write(to: url)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+        sidebar.diagnose { write($0) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { MainActor.assumeIsolated { write(nil) } }
+    }
+    private var checking = false
+
+    /// What Kikumap can see on this Mac, without anything personal.
+    private func checkReport() -> String {
+        func version(_ id: String) -> String {
+            guard let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return "not installed" }
+            return "version " + (Bundle(url: u)?.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
+        }
+        func ago(_ d: Date?) -> String { d.map { "\(Int(-$0.timeIntervalSinceNow))s ago" } ?? "never" }
+        let home = NSHomeDirectory()
+        let info = Bundle.main.infoDictionary ?? [:]
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        #if arch(arm64)
+        let arch = "Apple silicon"
+        #else
+        let arch = "Intel"
+        #endif
+        let claude = store.chats.filter { !$0.outsideClaude }, codeChats = store.chats.filter(\.isCode), gptChats = store.chats.filter(\.isGPT)
+        let widget = Bundle.main.builtInPlugInsURL.map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("KikumapWidget.appex").path) } ?? false
+        return """
+            # Kikumap check \(Clock.iso())
+            # Send this file when something doesn't work. It has no chat titles, messages or keys.
+
+            Kikumap \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?")) · macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion) · \(arch) · languages \(Locale.preferredLanguages.prefix(3).joined(separator: ", "))
+            App at \(Bundle.main.bundlePath.replacingOccurrences(of: home, with: "~")) · data in \(store.dir.path.replacingOccurrences(of: home, with: "~"))
+
+            Claude app: \(version(claudeBundleID)) · \(sidebar.claudePID != 0 ? "running" : "not running")
+            Accessibility: \(AXIsProcessTrusted() ? "on" : "off")
+            Sidebar: \(sidebar.status) · last read \(ago(sidebar.lastSync)) · \(sidebar.syncNote ?? "no problem")
+            Chats: Claude \(claude.count) (pinned \(claude.filter { $0.pinned == true }.count)) · Claude Code \(codeChats.count) · ChatGPT \(gptChats.count) (pinned \(gptChats.filter { $0.pinned == true }.count)) · in the sidebar \(store.pinnedList().count)
+
+            Claude Code: ~/.claude \(FileManager.default.fileExists(atPath: home + "/.claude") ? "found" : "missing")
+            Usage: \(UsageMonitor.enabled ? "on" : "off") · \(usage.status) · updated \(ago(usage.updated))
+
+            ChatGPT app: \(version(GPTWatcher.bundleID)) · its data \(GPTWatcher.available ? "found" : "missing") · reading \(GPTWatcher.enabled ? "on" : "off") · usage \(gpt.usage == nil ? "none yet" : "found")
+
+            Widget: \(widget ? "in the app" : "missing") · \(os.majorVersion >= 14 ? "macOS supports it" : "needs macOS 14")
+
+            """
     }
 
     @objc private func showSettings() { settings.show() }

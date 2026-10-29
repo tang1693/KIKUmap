@@ -133,8 +133,12 @@ final class GPTWatcher {
     /// and the logs of the three last changed threads of any kind (for the plan limits). ChatGPT keeps
     /// its pins in the window state (`pins`); older versions kept them in the list.
     nonisolated private static func load(_ path: String, pins: Pins, _ cache: inout [String: (size: UInt64, started: Bool?, at: Date?)]) -> (threads: [GPTThread], newest: [String])? {
+        // With ChatGPT closed, its journal of recent writes is folded into the file and gone: read the file as it
+        // is, without the lock files SQLite would otherwise make in ChatGPT's folder (where it may not be allowed to)
+        let closed = !FileManager.default.fileExists(atPath: path + "-wal")
+        let uri = "file:" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path) + (closed ? "?immutable=1" : "?mode=ro")
         var db: OpaquePointer?
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { sqlite3_close(db); return nil }
+        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK else { sqlite3_close(db); return nil }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 500)
         let since = Int64((Date().timeIntervalSince1970 - 3 * 86400) * 1000)

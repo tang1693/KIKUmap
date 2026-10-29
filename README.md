@@ -257,11 +257,12 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 <summary><b>Something isn't showing</b></summary>
 
 - **Hover the status in the top bar**: it says what's holding things up (Claude's sidebar hidden, its Pinned section folded, Code mode, the window closed…), what still works, and what to do.
-- **Nothing shows as running:** open the Claude app's sidebar. Settings → Access → *Write diagnostic log*, then look at `logs/claude-sidebar.txt` in the data folder.
+- **Something doesn't work:** Settings → Access → *Diagnostic report* writes `kikumap-check.txt`: what Kikumap can see on this Mac and how it reads Claude's sidebar. It has no chat titles, messages or passwords, so you can attach it to an issue.
+- **Nothing shows as running:** open the Claude app's sidebar, then write the diagnostic report.
 - **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session.
 - **ChatGPT threads don't show:** Kikumap reads the current ChatGPT desktop app (the one built on Codex). Check Settings → Access → ChatGPT. Like Claude's chats, a thread shows once you pin it in ChatGPT.
-- **The widget isn't in the widget gallery:** it needs macOS 14 or later and Kikumap 0.9.5 (build 4) or later in Applications. Open Kikumap once, then right-click the desktop → *Edit Widgets* and search for Kikumap. Still missing? Run `pluginkit -m -v -i ninja.tang.claudeconsole.widget` in Terminal and open an issue with what it prints.
+- **The widget isn't in the widget gallery:** it needs macOS 14 or later and Kikumap 0.9.5 (build 6) or later in Applications. Open Kikumap once, then right-click the desktop → *Edit Widgets* and search for Kikumap. Still missing? Run `pluginkit -m -v -i ninja.tang.claudeconsole.widget` in Terminal and open an issue with what it prints.
 - **No usage:** it's off until you turn it on: Settings → Access → Usage → *Connect*. If it still says signed out, run `claude` in Terminal, then `/login`, and pick your Claude account.
 </details>
 

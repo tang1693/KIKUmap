@@ -556,7 +556,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         ]
         let tip = label(tr("重装（重新编译）后，如果这里显示未开启、但系统设置里已经勾上：在系统设置里把 Kikumap 删掉（−）再重新加一次。",
                            "After reinstalling, if access shows as off but it's ticked in System Settings: remove Kikumap there (−) and add it again."), small: true)
-        let diag = button(tr("写诊断日志", "Write diagnostic log")) { [weak self] in self?.onDiagnose?() }
+        let diag = button(tr("诊断报告", "Diagnostic report")) { [weak self] in self?.onDiagnose?() }
+        diag.toolTip = tr("写一份 kikumap-check.txt：哪些正常、哪些不行。不含对话标题、内容和密码，可以直接发给帮你看的人。",
+                          "Writes kikumap-check.txt: what works and what doesn't. No chat titles, messages or passwords, so you can send it to whoever helps.")
         let unhook = button(tr("断开 Claude Code", "Disconnect Claude Code")) { p.disconnectCode() }
         let usageOff = button(tr("关闭用量", "Turn off usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
         let gptOff = button(tr("断开 ChatGPT", "Disconnect ChatGPT")) { [weak self] in p.disconnectGPT(); self?.refreshPerms() }

@@ -372,27 +372,57 @@ enum AXScan {
 
     private static let itemRoles: Set<String> = ["AXLink", "AXButton", "AXRow", "AXCell", "AXMenuItem", "AXRadioButton"]
 
-    /// The Claude app's chat list (the "Sidebar" landmark), if it's open.
+    /// The Claude app's chat list (the "Sidebar" landmark), if it's open. In another language the landmark
+    /// has another name: then the first side landmark that holds chats, or the first one.
     static func sidebar(in web: AXUIElement) -> AXUIElement? {
         var queue: [(AXUIElement, Int)] = [(web, 0)]
         var n = 0
+        var others: [AXUIElement] = []
         while !queue.isEmpty, n < 400 {
             let (el, d) = queue.removeFirst()
             n += 1
-            if str(el, "AXSubrole") == "AXLandmarkComplementary" && str(el, "AXDescription") == "Sidebar" { return el }
+            if str(el, "AXSubrole") == "AXLandmarkComplementary" {
+                if str(el, "AXDescription") == "Sidebar" { return el }
+                others.append(el)
+            }
             if d < 10 { queue += children(el).map { ($0, d + 1) } }
         }
-        return nil
+        return others.first { !rows(in: $0).isEmpty } ?? others.first
     }
 
     /// One chat row: its button, title and status flags (never the title text itself, so a chat
-    /// called "thinking…" can't look busy).
-    struct Row { let button: AXUIElement; let title: String; let flags: String; let pinned: Bool }
+    /// called "thinking…" can't look busy), and the heading it's under.
+    struct Row { let button: AXUIElement; let title: String; let flags: String; var section = Section(); var pinned = false }
 
-    private static let pinnedHeadings: Set<String> = ["Pinned", "已置顶", "置顶", "固定"]
+    /// A heading in the sidebar: its text, its level and how deep it sits, and which one it is (in order).
+    struct Section: Equatable { var title = ""; var level = ""; var depth = -1; var order = -1 }
 
-    /// Rows are buttons whose row also holds a "More options for …" menu. Scheduled tasks have a
-    /// second label ("Monthly", "One-time") and are left out.
+    /// "Pinned" in the languages Claude speaks (where a word is missing, `markPinned` goes by the layout).
+    static let pinnedHeadings: Set<String> = ["Pinned", "已置顶", "置顶", "固定", "已固定", "ピン留め", "ピン留め済み", "고정됨",
+                                              "Épinglés", "Épinglées", "Angeheftet", "Fijados", "Fijadas", "Fissati", "Fissate",
+                                              "Fixados", "Fixadas", "Disematkan"]
+
+    /// Which rows are pinned: the ones under a "Pinned" heading. In a language without a word above, the
+    /// section above the date groups (Today, Yesterday…): those sit one level deeper in the sidebar, under
+    /// headings of the same rank. Without that layout, none (nothing is shown rather than the wrong chats).
+    static func markPinned(_ rows: [Row]) -> [Row] {
+        var out = rows
+        if rows.contains(where: { pinnedHeadings.contains($0.section.title) }) {
+            for i in out.indices { out[i].pinned = pinnedHeadings.contains(out[i].section.title) }
+            return out
+        }
+        guard let deepest = rows.map(\.section.depth).max(),
+              let dates = rows.first(where: { $0.section.depth == deepest })?.section else { return out }
+        for i in out.indices {
+            let s = out[i].section
+            out[i].pinned = s.depth >= 0 && s.depth < deepest && !s.level.isEmpty && s.level == dates.level && s.order < dates.order
+        }
+        return out
+    }
+
+    /// Rows are buttons whose row also holds a menu, "More options for …" (in another language other
+    /// words, still with the chat's title in them). Scheduled tasks have a second label ("Monthly",
+    /// "One-time") and are left out.
     static func rows(in sidebar: AXUIElement) -> [Row] {
         var headings: [String] = []
         return rows(in: sidebar, headings: &headings)
@@ -402,13 +432,18 @@ enum AXScan {
         var out: [Row] = []
         var stack: [(AXUIElement, Int)] = [(sidebar, 0)]
         var n = 0
-        var section = ""            // the last heading passed ("Pinned", "Today", "Oct 23", "Older"…)
+        var section = Section()     // the last heading passed ("Pinned", "Today", "Oct 23", "Older"…)
         while let (el, d) = stack.popLast(), n < 6000 {
             n += 1
-            if str(el, "AXRole") == "AXHeading" { section = str(el, "AXTitle"); headings.append(section); continue }
+            if str(el, "AXRole") == "AXHeading" {
+                section = Section(title: str(el, "AXTitle"), level: str(el, "AXValue"), depth: d, order: headings.count)
+                headings.append(section.title)
+                continue
+            }
             let kids = children(el)
+            let menus = kids.flatMap { children($0) }.filter { str($0, "AXRole") == "AXPopUpButton" }
             if let button = kids.first(where: { str($0, "AXRole") == "AXButton" }),
-               kids.contains(where: { k in children(k).contains { str($0, "AXDescription").hasPrefix("More options for") } }) {
+               let menu = menus.first(where: { str($0, "AXDescription").hasPrefix("More options for") }) ?? menus.first {
                 var texts: [String] = []
                 var flags: [String] = []
                 func scan(_ e: AXUIElement, _ depth: Int, inButton: Bool) {
@@ -426,15 +461,17 @@ enum AXScan {
                 for k in kids where !CFEqual(k, button) { scan(k, 1, inButton: false) }
                 if str(button, "AXSelected") == "1" || str(el, "AXSelected") == "1" { flags.append("sel=1") }
                 let cur = str(button, "AXARIACurrent"); if !cur.isEmpty && cur != "0" && cur != "false" { flags.append("cur=\(cur)") }
-                if texts.count == 1 {
-                    out.append(Row(button: button, title: texts[0].trimmingCharacters(in: .whitespacesAndNewlines),
-                                   flags: flags.joined(separator: " ; "), pinned: pinnedHeadings.contains(section)))
+                let title = texts.count == 1 ? texts[0].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+                let label = str(menu, "AXDescription"), english = label.hasPrefix("More options for")
+                if !title.isEmpty, english || (title.count >= 2 && label.count > title.count && label.contains(title)) {
+                    out.append(Row(button: button, title: title, flags: flags.joined(separator: " ; "), section: section))
+                    continue
                 }
-                continue
+                if english { continue }     // a row, but not a chat (a scheduled task)
             }
             if d < 40 { for c in kids.reversed() { stack.append((c, d + 1)) } }
         }
-        return out
+        return markPinned(out)
     }
 
     /// Clicks the chat's row in the Claude app (for chats whose address we don't know yet).
@@ -498,7 +535,8 @@ enum AXScan {
         var dump = ""
         var out: [AXLink] = []
         var seen = Set<String>()
-        var allWebs: [AXUIElement] = []
+        var allWebs: [AXUIElement] = [], sidebars: [AXUIElement] = []
+        var titles = Set(known.keys)            // left out of the log
         // Electron builds its accessibility tree only after AXManualAccessibility is set — give it a moment
         var winErr = AXError.success
         var windows: [AXUIElement] = []
@@ -518,6 +556,7 @@ enum AXScan {
             }
         }
         for w in windows {
+            titles.insert(str(w, "AXTitle"))
             if wantDump { dump += "WINDOW title='\(str(w, "AXTitle"))'\n" }
             var webs: [AXUIElement] = []
             var stack: [(AXUIElement, Int)] = [(w, 0)]
@@ -557,6 +596,7 @@ enum AXScan {
                     seen.insert(id)
                     let path = URL(string: url)?.path ?? ""
                     let title = linkText(l)
+                    titles.insert(title)
                     var flags = describe(l, limit: 40)
                     if let parent = element(attr(l, "AXParent")), children(parent).count <= 6 {
                         flags += " || parent: " + describe(parent, limit: 50)
@@ -577,18 +617,28 @@ enum AXScan {
             for web in allWebs {
                 guard let sb = sidebar(in: web) else { continue }
                 foundSidebar = true
-                // the Chat / Code switch at the top of the sidebar
-                var codeMode = false
+                sidebars.append(sb)
+                // the Chat / Code switch at the top of the sidebar (in another language: the switch of two, Code second)
+                var codeMode = false, named = false
+                var pair: [AXUIElement] = []
                 var q: [(AXUIElement, Int)] = [(sb, 0)]
                 while let (el, d) = q.popLast(), !codeMode {
-                    if str(el, "AXRole") == "AXRadioButton" && str(el, "AXDescription") == "Code" && str(el, "AXValue") == "1" { codeMode = true }
+                    let role = str(el, "AXRole"), desc = str(el, "AXDescription")
+                    if role == "AXRadioButton" && (desc == "Code" || desc == "Claude") { named = true }
+                    if role == "AXRadioButton" && desc == "Code" && str(el, "AXValue") == "1" { codeMode = true }
+                    if role == "AXRadioGroup" && pair.isEmpty {
+                        let radios = children(el).filter { str($0, "AXRole") == "AXRadioButton" }
+                        if radios.count == 2 { pair = radios }
+                    }
                     if d < 4 { q += children(el).map { ($0, d + 1) } }
                 }
+                if !named && pair.count == 2 && str(pair[1], "AXValue") == "1" { codeMode = true }
                 // the open chat: its address is in the page URL, its title in the page title
                 let url = str(web, "AXURL"), ns = url as NSString
                 let openID = uuidRx.firstMatch(in: url, range: NSRange(location: 0, length: ns.length)).map { ns.substring(with: $0.range).lowercased() }
                 var openTitle = str(web, "AXTitle")
                 if openTitle.hasSuffix(" - Claude") { openTitle = String(openTitle.dropLast(9)) }
+                titles.insert(openTitle)
                 var headings: [String] = []
                 let rows = rows(in: sb, headings: &headings)
                 if codeMode {
@@ -598,6 +648,7 @@ enum AXScan {
                 }
                 if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · open chat '\(short(openTitle, 60))' \(openID ?? "-")\n" }
                 for r in rows {
+                    titles.insert(r.title)
                     var id = known[r.title] ?? "n-" + Store.fnv(r.title)
                     var path = ""
                     var flags = r.flags
@@ -617,13 +668,33 @@ enum AXScan {
             }
         }
         if wantDump {
-            for (i, web) in allWebs.enumerated() {
-                dump += "\n== OUTLINE \(i) url='\(str(web, "AXURL"))'\n" + outline(web, limit: 700) + "\n"
+            // the chat list only: the rest of the window is the conversation itself (without a chat list,
+            // the window with its longer texts left out)
+            for (i, root) in (sidebars.isEmpty ? allWebs : sidebars).enumerated() {
+                let o = outline(root, limit: 700)
+                dump += "\n== OUTLINE \(i) \(sidebars.isEmpty ? "window" : "sidebar")\n" + (sidebars.isEmpty ? maskLong(o) : o) + "\n"
             }
         }
         if issue == nil && !foundSidebar && !windows.isEmpty { issue = .sidebarHidden }
         if wantDump, let n = issue { dump = "# Sync problem: \(n.note)\n" + dump }
+        if wantDump { dump = redact(dump, titles: titles) }
         return (out, dump, issue)
+    }
+
+    /// The log without chat titles (each becomes ‹title›), so it can be sent to someone.
+    static func redact(_ text: String, titles: Set<String>) -> String {
+        var t = text
+        for title in titles.sorted(by: { $0.count > $1.count }) {
+            let key = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12))
+            guard key.count >= 3 else { continue }
+            t = t.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: key) + "[^'\\n→]*", with: "‹title›", options: .regularExpression)
+        }
+        return t
+    }
+
+    /// Quoted texts longer than a label left out.
+    static func maskLong(_ text: String) -> String {
+        text.replacingOccurrences(of: "'[^'\\n]{25,}'", with: "'‹…›'", options: .regularExpression)
     }
 }
 
@@ -733,12 +804,15 @@ final class SidebarWatcher: NSObject {
         }
     }
 
-    /// Writes the next scan to logs/claude-sidebar.txt.
-    func diagnose() {
+    /// Writes the next scan to logs/claude-sidebar.txt and hands it to `done` (nil when Claude isn't running).
+    func diagnose(_ done: @escaping @MainActor (String?) -> Void) {
         dumpNext = true
         attach()
+        guard pid != 0 else { done(nil); return }
+        dumpDone.append(done)
         schedule(0)
     }
+    private var dumpDone: [@MainActor (String?) -> Void] = []
 
     func schedule(_ delay: Double) {
         if scheduled { return }
@@ -772,6 +846,9 @@ final class SidebarWatcher: NSObject {
                             head += "# No chats found. Open the Claude app's sidebar (the chat list) and write the log again.\n"
                         }
                         try? (head + r.dump).data(using: .utf8)?.write(to: self.store.logsDir.appendingPathComponent("claude-sidebar.txt"))
+                        let waiting = self.dumpDone
+                        self.dumpDone = []
+                        for f in waiting { f(head + r.dump) }
                     }
                     self.onScan?(r.links)
                 }

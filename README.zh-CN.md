@@ -257,11 +257,12 @@ Claude App 没有“哪些对话在跑”的接口。Kikumap 通过「辅助功�
 <summary><b>有东西没显示出来</b></summary>
 
 - **把鼠标停在顶栏的状态文字上**：会告诉你是什么挡住了同步（Claude 侧边栏收起、Pinned 区折叠、Code 模式、窗口关着……），哪些功能不受影响，以及该怎么做。
-- **没有任何对话显示“进行中”**：打开 Claude App 的侧边栏。设置 → 授权 → *写诊断日志*，然后看数据文件夹里的 `logs/claude-sidebar.txt`。
+- **有东西不正常**：设置 → 授权 → *诊断报告*，会生成 `kikumap-check.txt`：Kikumap 在这台 Mac 上能看到什么、怎么读 Claude 的侧边栏。里面没有对话标题、内容和密码，可以直接附到 issue 里。
+- **没有任何对话显示“进行中”**：打开 Claude App 的侧边栏，再生成诊断报告。
 - **系统设置里开了权限，这里却显示没开**：在系统设置的列表里把 Kikumap 删掉（−）再加回来。从 0.9.1 起，每个版本都用同一张证书签名，更新后权限会保留。
 - **Claude Code 会话没显示**：设置 → 授权 → Claude Code → *连接*，然后开一个新会话。
 - **ChatGPT 对话没显示**：Kikumap 读的是新版 ChatGPT 桌面 App（Codex 内核）。看一下 设置 → 授权 → ChatGPT。和 Claude 的对话一样，在 ChatGPT 里置顶后才会显示。
-- **小组件库里找不到 Kikumap**：需要 macOS 14 或更新，并且「应用程序」里是 Kikumap 0.9.5（build 4）或更新。先打开一次 Kikumap，再在桌面右键 → *编辑小组件*，搜 Kikumap。还是没有的话，在终端运行 `pluginkit -m -v -i ninja.tang.claudeconsole.widget`，把输出发到 issue 里。
+- **小组件库里找不到 Kikumap**：需要 macOS 14 或更新，并且「应用程序」里是 Kikumap 0.9.5（build 6）或更新。先打开一次 Kikumap，再在桌面右键 → *编辑小组件*，搜 Kikumap。还是没有的话，在终端运行 `pluginkit -m -v -i ninja.tang.claudeconsole.widget`，把输出发到 issue 里。
 - **没有用量**：用量默认关闭，先在 设置 → 授权 → 用量 → *连接* 打开。还显示未登录的话，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。
 </details>
 

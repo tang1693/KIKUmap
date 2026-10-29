@@ -495,8 +495,7 @@ final class ClaudeDriver: @unchecked Sendable {
         }
         guard type(text) else { log("  找不到输入框"); return nil }
         guard send() else { log("  发不出去"); return nil }
-        guard wait(30, { self.chatID() != nil }) else { log("  新对话没有地址"); return nil }
-        let id = chatID()!
+        guard wait(30, { self.chatID() != nil }), let id = chatID() else { log("  新对话没有地址"); return nil }
         guard waitReply(after: 0) else { log("  等回复超时（对话已建好：\(id)）"); return id }
         // Claude names the chat after the first reply
         _ = wait(20) { let t = self.pageTitle(); return !t.isEmpty && t != "Claude" && t != "New chat" }
