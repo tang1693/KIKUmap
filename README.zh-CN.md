@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 **听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
 
-支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。**0.9.5 新增：** ChatGPT 桌面 App。在 ChatGPT 里置顶的对话会和 Claude 的放在一起，前面标着 **GPT**，进行中、未读和 ChatGPT 里一致。
+支持 Claude 桌面 App 和 Claude Code（终端、VS Code、App 的 Code 模式）。**0.9.5 新增：** ChatGPT 桌面 App。在 ChatGPT 里置顶的对话（包括置顶项目里的）会和 Claude 的放在一起，前面标着 **GPT**，进行中、未读和 ChatGPT 里一致。ChatGPT 聊天那边置顶的对话也会显示，只是没有进行中 / 未读（ChatGPT 不把这些存在你的 Mac 上）。
 
 </td>
 </tr>
@@ -196,7 +196,7 @@ open Install.command        # 或者在 Finder 里双击它
 | 做完了 / 等你回复 | 通知中心里 Claude 的通知（只读） | 完全磁盘访问 |
 | 进行中、未读、置顶对话 | 通过「辅助功能」读 Claude 的侧边栏 | 辅助功能 |
 | Claude Code 会话 | 点「连接」时写进 `~/.claude/settings.json` 的 hooks（原文件会备份） | 不需要 |
-| ChatGPT 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
+| ChatGPT 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表和置顶、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
 | 桌面小组件 | Kikumap 专门写给它的一个文件（`widget.json`）；小组件在沙盒里，只能读这一个文件 | 不需要 |
 | 用量、计划任务（可选，默认关闭） | Anthropic 用量接口，用 Claude Code 已存在钥匙串里的登录：只读、不保存 | 钥匙串，你开启后才问 |
 

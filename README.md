@@ -56,7 +56,7 @@ One icon in the menu bar. The orange flower spins while a chat is running. A red
 
 **Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
-Works with the Claude desktop app and Claude Code (Terminal, VS Code, the app's Code mode). **New in 0.9.5:** the ChatGPT desktop app too. Threads you pin in ChatGPT show next to Claude's, marked **GPT**, with running and unread as ChatGPT shows them.
+Works with the Claude desktop app and Claude Code (Terminal, VS Code, the app's Code mode). **New in 0.9.5:** the ChatGPT desktop app too. Threads you pin in ChatGPT (or file in a pinned project) show next to Claude's, marked **GPT**, with running and unread as ChatGPT shows them. Chats pinned on ChatGPT's chat side show too, without running or unread (ChatGPT doesn't keep those on your Mac).
 
 </td>
 </tr>
@@ -196,7 +196,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | Finished / needs your input | The Claude app's notifications in Notification Center (read-only) | Full Disk Access |
 | Running, unread, pinned chats | The Claude app's sidebar, through Accessibility | Accessibility |
 | Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
-| ChatGPT threads | What the ChatGPT desktop app keeps in `~/.codex`: its thread list, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
+| ChatGPT threads | What the ChatGPT desktop app keeps in `~/.codex`: its thread list and pins, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
 | Desktop widget | One file Kikumap writes for it (`widget.json`); the widget is sandboxed and can read only that file | none |
 | Usage, scheduled tasks (optional, off by default) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
 

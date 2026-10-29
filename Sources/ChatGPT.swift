@@ -4,9 +4,11 @@ import SQLite3
 // The ChatGPT desktop app (built on Codex) keeps its threads on this Mac in ~/.codex: a SQLite list
 // (title, archived, last change), a log per thread whose last "task started / complete" line says
 // whether it's working and whose answers carry the plan limits, and the window state with its pins
-// and unread dots. Kikumap only reads them; nothing is changed or sent anywhere.
+// and unread dots. Pinned chats (ChatGPT's chat side, kept on chatgpt.com) come from the window
+// state too, with no status. Kikumap only reads them; nothing is changed or sent anywhere.
 
 struct GPTThread {
+    /// A chat's id starts with "chat-" (see `chat(_:)`).
     let id: String
     let title: String
     let pinned: Bool
@@ -64,7 +66,26 @@ final class GPTWatcher {
         var tails: [String: (size: UInt64, started: Bool?, at: Date?)] = [:]
         /// The newest logs' last limits line, by size.
         var limits: [String: (size: UInt64, usage: GPTUsage?)] = [:]
-        var state: (stamp: Date, unread: Set<String>?, pinned: Set<String>)?
+        var state: (stamp: Date, window: Window)?
+    }
+
+    /// What the window state says: unread dots (nil if they can't be read), pinned threads, pinned chats.
+    private struct Window {
+        var unread: Set<String>?
+        var pins = Pins()
+        var chats: [GPTThread] = []
+    }
+
+    /// What's pinned in ChatGPT's sidebar: threads one by one, and projects (folders) with the threads in them.
+    struct Pins {
+        /// Pinned, or filed in a pinned project.
+        var threads: Set<String> = []
+        /// A pinned project's folders: a thread working in one is in it, unless filed elsewhere or moved out.
+        var roots: Set<String> = []
+        var elsewhere: Set<String> = []
+        func contains(_ id: String, cwd: String) -> Bool {
+            threads.contains(id) || (roots.contains(cwd) && !elsewhere.contains(id))
+        }
     }
 
     func start() {
@@ -94,7 +115,7 @@ final class GPTWatcher {
         DispatchQueue.global(qos: .utility).async {
             var c = start
             let window = GPTWatcher.windowState(state, &c.state)
-            let found = GPTWatcher.load(db.path, pinned: window.pinned, &c.tails)
+            let found = GPTWatcher.load(db.path, pins: window.pins, &c.tails)
             let usage = GPTWatcher.limits(found?.newest ?? [], &c.limits)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -102,7 +123,7 @@ final class GPTWatcher {
                     guard self.watcher != nil else { return }          // turned off meanwhile
                     self.cache = c
                     if let u = usage { self.usage = u }
-                    if let t = found?.threads { self.onThreads?(t, window.unread) }
+                    if let t = found?.threads { self.onThreads?(t + window.chats, window.unread) }
                 }
             }
         }
@@ -110,15 +131,16 @@ final class GPTWatcher {
 
     /// Threads you started (not helpers), not archived, pinned or changed in the last three days;
     /// and the logs of the three last changed threads of any kind (for the plan limits). ChatGPT keeps
-    /// its pins in the window state (`pinned`); older versions kept them in the list.
-    nonisolated private static func load(_ path: String, pinned: Set<String>, _ cache: inout [String: (size: UInt64, started: Bool?, at: Date?)]) -> (threads: [GPTThread], newest: [String])? {
+    /// its pins in the window state (`pins`); older versions kept them in the list.
+    nonisolated private static func load(_ path: String, pins: Pins, _ cache: inout [String: (size: UInt64, started: Bool?, at: Date?)]) -> (threads: [GPTThread], newest: [String])? {
         var db: OpaquePointer?
         guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { sqlite3_close(db); return nil }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 500)
         let since = Int64((Date().timeIntervalSince1970 - 3 * 86400) * 1000)
-        let pins = Array(pinned)
-        let listed = pins.isEmpty ? "" : " OR id IN (" + pins.map { _ in "?" }.joined(separator: ",") + ")"
+        let ids = Array(pins.threads), roots = Array(pins.roots)
+        func among(_ column: String, _ n: Int) -> String { n == 0 ? "" : " OR \(column) IN (" + Array(repeating: "?", count: n).joined(separator: ",") + ")" }
+        let listed = among("id", ids.count) + among("cwd", roots.count)
         let full = """
             SELECT id, rollout_path, updated_at_ms, COALESCE(NULLIF(name, ''), title), is_pinned, cwd FROM threads
             WHERE archived = 0 AND COALESCE(thread_source, 'user') = 'user' AND (is_pinned = 1 OR updated_at_ms > ?\(listed))
@@ -133,7 +155,7 @@ final class GPTWatcher {
         defer { sqlite3_finalize(st) }
         sqlite3_bind_int64(st, 1, since)
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        for (i, id) in pins.enumerated() { sqlite3_bind_text(st, Int32(i + 2), id, -1, transient) }
+        for (i, v) in (ids + roots).enumerated() { sqlite3_bind_text(st, Int32(i + 2), v, -1, transient) }
         func text(_ i: Int32) -> String { sqlite3_column_text(st, i).map { String(cString: $0) } ?? "" }
         var out: [GPTThread] = []
         let now = Date()
@@ -154,10 +176,10 @@ final class GPTWatcher {
             // started and still writing (a task that went quiet for 20 minutes has stopped)
             let running = c.started == true && now.timeIntervalSince(mtime ?? .distantPast) < 20 * 60
             let title = text(3).trimmingCharacters(in: .whitespacesAndNewlines)
-            let id = text(0)
-            out.append(GPTThread(id: id, title: title.isEmpty ? "ChatGPT" : title, pinned: sqlite3_column_int(st, 4) != 0 || pinned.contains(id),
+            let id = text(0), cwd = text(5)
+            out.append(GPTThread(id: id, title: title.isEmpty ? "ChatGPT" : title, pinned: sqlite3_column_int(st, 4) != 0 || pins.contains(id, cwd: cwd),
                                  updated: Date(timeIntervalSince1970: Double(sqlite3_column_int64(st, 2)) / 1000),
-                                 cwd: text(5), running: running, finished: c.started == false ? c.at : nil))
+                                 cwd: cwd, running: running, finished: c.started == false ? c.at : nil))
         }
         var newest: [String] = []
         var q: OpaquePointer?
@@ -240,26 +262,77 @@ final class GPTWatcher {
         return windows.isEmpty ? nil : GPTUsage(windows: windows.sorted { $0.minutes < $1.minutes }, at: at)
     }
 
-    /// From the window state ChatGPT keeps in ~/.codex: the threads it shows a dot for (nil if that can't
-    /// be read) and the ones pinned in its sidebar (the last ones read, if it can't be read).
-    nonisolated private static func windowState(_ path: String, _ cache: inout (stamp: Date, unread: Set<String>?, pinned: Set<String>)?) -> (unread: Set<String>?, pinned: Set<String>) {
+    /// From the window state ChatGPT keeps in ~/.codex: the threads it shows a dot for, and what's pinned in
+    /// its sidebar (threads and chats; the last ones read, if it can't be read).
+    nonisolated private static func windowState(_ path: String, _ cache: inout (stamp: Date, window: Window)?) -> Window {
         guard let stamp = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date else {
-            return (nil, cache?.pinned ?? [])
+            return Window(unread: nil, pins: cache?.window.pins ?? Pins(), chats: cache?.window.chats ?? [])
         }
-        if let c = cache, c.stamp == stamp { return (c.unread, c.pinned) }
-        var unread: Set<String>?
-        var pinned = cache?.pinned ?? []
+        if let c = cache, c.stamp == stamp { return c.window }
+        var w = Window(unread: nil, pins: cache?.window.pins ?? Pins(), chats: cache?.window.chats ?? [])
         if let data = FileManager.default.contents(atPath: path),
            let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
             if let state = o["electron-thread-read-state-v1"] as? [String: Any],
                let byAccount = state["unreadByIdentity"] as? [String: [String: [String]]] {
-                unread = Set(byAccount.values.flatMap { $0.values.joined() })
+                w.unread = Set(byAccount.values.flatMap { $0.values.joined() })
             }
-            if let ids = o["pinned-thread-ids"] as? [String] { pinned = Set(ids) }
+            if o["pinned-thread-ids"] != nil || o["pinned-project-ids"] != nil { w.pins = pins(o) }
+            if let chats = pinnedChats(o["electron-persisted-atom-state"] as? [String: Any] ?? [:]) { w.chats = chats }
         }
-        cache = (stamp, unread, pinned)
-        return (unread, pinned)
+        cache = (stamp, w)
+        return w
     }
+
+    /// Threads pinned in ChatGPT's sidebar, and the projects pinned there with what's filed in them: threads
+    /// assigned to one, and threads working in its folders that weren't assigned elsewhere or moved out.
+    nonisolated private static func pins(_ o: [String: Any]) -> Pins {
+        var p = Pins()
+        p.threads = Set(o["pinned-thread-ids"] as? [String] ?? [])
+        let projects = Set(o["pinned-project-ids"] as? [String] ?? [])
+        guard !projects.isEmpty else { return p }
+        var ids = projects                          // and the ids its newer project list gives them
+        for case let byID as [String: Any] in (o["app-server-project-id-by-legacy-project-id-by-host"] as? [String: Any] ?? [:]).values {
+            for (old, new) in byID where projects.contains(old) { if let n = new as? String { ids.insert(n) } }
+        }
+        let local = o["local-projects"] as? [String: Any] ?? [:]
+        for id in projects { p.roots.formUnion((local[id] as? [String: Any])?["rootPaths"] as? [String] ?? []) }
+        let movedOut = Set(o["projectless-thread-ids"] as? [String] ?? [])
+        p.elsewhere = movedOut
+        for (thread, a) in o["thread-project-assignments"] as? [String: Any] ?? [:] {
+            guard let project = (a as? [String: Any])?["projectId"] as? String else { continue }
+            if !ids.contains(project) { p.elsewhere.insert(thread) } else if !movedOut.contains(thread) { p.threads.insert(thread) }
+        }
+        return p
+    }
+
+    /// The chats pinned in ChatGPT's sidebar, from its newest sidebar state ("chatgpt-sidebar-state-vN", by account).
+    nonisolated private static func pinnedChats(_ atoms: [String: Any]) -> [GPTThread]? {
+        let prefix = "chatgpt-sidebar-state-v"
+        guard let key = atoms.keys.filter({ $0.hasPrefix(prefix) && Int($0.dropFirst(prefix.count)) != nil })
+                .max(by: { Int($0.dropFirst(prefix.count))! < Int($1.dropFirst(prefix.count))! }),
+              let byAccount = atoms[key] as? [String: Any] else { return nil }
+        var out: [GPTThread] = [], ids = Set<String>()
+        for case let account as [String: Any] in byAccount.values {
+            for case let pin as [String: Any] in account["pinnedConversations"] as? [Any] ?? [] {
+                guard let c = pin["conversation"] as? [String: Any], let id = c["id"] as? String, ids.insert(id).inserted else { continue }
+                let title = (c["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let when = (c["updatedAt"] as? String ?? c["createdAt"] as? String).flatMap(date) ?? .distantPast
+                out.append(GPTThread(id: chat(id), title: title.isEmpty ? "ChatGPT" : title, pinned: true, updated: when,
+                                     cwd: "", running: false, finished: nil))
+            }
+        }
+        return out
+    }
+
+    /// A chat's id among the threads.
+    nonisolated static func chat(_ conversationID: String) -> String { "chat-" + conversationID }
+
+    /// An ISO date with or without fractions of a second (ChatGPT writes microseconds).
+    nonisolated private static func date(_ s: String) -> Date? {
+        isoFrac.date(from: s) ?? isoPlain.date(from: s.replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression))
+    }
+
+    nonisolated(unsafe) private static let isoPlain = ISO8601DateFormatter()
 
     nonisolated(unsafe) private static let isoFrac: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -267,9 +340,10 @@ final class GPTWatcher {
         return f
     }()
 
-    /// Opens the thread in the ChatGPT app.
+    /// Opens the thread or chat in the ChatGPT app (a chat in the browser if the app isn't there).
     static func open(_ threadID: String) {
-        guard let u = URL(string: "codex://threads/" + threadID) else { return }
+        let chatID = threadID.hasPrefix("chat-") ? String(threadID.dropFirst(5)) : nil
+        guard let u = URL(string: chatID.map { "https://chatgpt.com/c/" + $0 } ?? "codex://threads/" + threadID) else { return }
         if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             NSWorkspace.shared.open([u], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
         } else {

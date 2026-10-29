@@ -550,8 +550,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                    "Adds a few hooks to ~/.claude/settings.json → Claude Code sessions in Terminal or VS Code show as running / unread too. The old file is backed up. Applies to sessions started afterwards."),
                 tr("连接", "Connect"), { p.codeHooks }, { p.connectCode() }),
             row("ChatGPT",
-                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的对话列表、未读和用量（~/.codex，只读）→ 在 ChatGPT 里置顶的对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。不改任何东西，不上传。",
-                   "Reads the thread list, unread dots and usage the ChatGPT desktop app keeps on this Mac (~/.codex, read-only) → threads pinned in ChatGPT show as running / unread too, and the widget can show ChatGPT's usage. Changes nothing, uploads nothing."),
+                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的对话列表、置顶、未读和用量（~/.codex，只读）→ 在 ChatGPT 里置顶的对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。不改任何东西，不上传。",
+                   "Reads the thread list, pins, unread dots and usage the ChatGPT desktop app keeps on this Mac (~/.codex, read-only) → threads pinned in ChatGPT show as running / unread too, and the widget can show ChatGPT's usage. Changes nothing, uploads nothing."),
                 tr("连接", "Connect"), { p.gptOK }, { [weak self] in p.connectGPT(); self?.refreshPerms() }),
         ]
         let tip = label(tr("重装（重新编译）后，如果这里显示未开启、但系统设置里已经勾上：在系统设置里把 Kikumap 删掉（−）再重新加一次。",

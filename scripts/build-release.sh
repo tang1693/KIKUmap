@@ -17,10 +17,12 @@ lipo -create -output "$APP/Contents/MacOS/ClaudeConsole" "$OUT/bin-arm64" "$OUT/
 # the desktop widget (macOS 14+): an extension inside the app, sandboxed to reading one file
 WX="$APP/Contents/PlugIns/KikumapWidget.appex"
 mkdir -p "$WX/Contents/MacOS"
+# It starts in NSExtensionMain, as Xcode links extensions: started at its own main, it quits at once.
 for arch in arm64 x86_64; do
   echo "Building the widget, $arch…"
   xcrun swiftc -O -parse-as-library -application-extension -module-cache-path "$OUT/.modules" -target "$arch-apple-macos14.0" \
-    -module-name KikumapWidget -o "$OUT/wx-$arch" Widget/*.swift -framework SwiftUI -framework WidgetKit
+    -module-name KikumapWidget -o "$OUT/wx-$arch" Widget/*.swift -framework SwiftUI -framework WidgetKit -framework Foundation \
+    -Xlinker -e -Xlinker _NSExtensionMain
 done
 lipo -create -output "$WX/Contents/MacOS/KikumapWidget" "$OUT/wx-arm64" "$OUT/wx-x86_64"
 rm -rf "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules"

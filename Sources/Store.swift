@@ -533,6 +533,11 @@ final class Store {
         // archived or gone from the list: no longer running
         let listed = Set(threads.map { "gpt-" + $0.id })
         for id in running where id.hasPrefix("gpt-") && !listed.contains(id) { running.remove(id); changed = true }
+        // unpinned in ChatGPT and no longer listed (older, or archived): no longer pinned here either
+        // (only when its window state, where it keeps the pins, could be read)
+        for i in chats.indices where unread != nil && chats[i].isGPT && chats[i].pinned == true && !listed.contains(chats[i].id) {
+            chats[i].pinned = nil; changed = true
+        }
         // ChatGPT's own unread dots: one that appears there is unread here too, one read there is read here
         // (marking it read here holds until ChatGPT has something new)
         if let list = unread.map({ Set($0.map { "gpt-" + $0 }) }), list != gptListed {

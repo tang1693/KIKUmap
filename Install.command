@@ -23,10 +23,12 @@ if ! xcrun swiftc -O -parse-as-library -o "$TMP/ClaudeConsole" Sources/*.swift \
      -framework Cocoa -framework Security -framework Carbon -framework WidgetKit -lsqlite3; then
   echo "STATUS=BUILD_FAILED"; exit 1
 fi
-# the desktop widget needs macOS 14; without it everything else still works
+# the desktop widget needs macOS 14; without it everything else still works. It starts in
+# NSExtensionMain, as Xcode links extensions: started at its own main, it quits at once.
 WIDGET=0
 if xcrun swiftc -O -parse-as-library -application-extension -target "$(uname -m)-apple-macos14.0" -module-name KikumapWidget \
-     -o "$TMP/KikumapWidget" Widget/*.swift -framework SwiftUI -framework WidgetKit 2>/dev/null; then
+     -o "$TMP/KikumapWidget" Widget/*.swift -framework SwiftUI -framework WidgetKit -framework Foundation \
+     -Xlinker -e -Xlinker _NSExtensionMain 2>/dev/null; then
   WIDGET=1
 else
   echo "(desktop widget skipped: it needs macOS 14 or later)"
