@@ -34,6 +34,7 @@ final class WidgetFeed {
     private var lastKey = ""
     private var lastBody = Data()
     private var lastWrite = Date.distantPast
+    private var lastBeat = Date.distantPast
 
     init(store: Store, usage: UsageMonitor, gpt: GPTWatcher) {
         self.store = store
@@ -73,7 +74,10 @@ final class WidgetFeed {
         let key = [run.map(\.id).joined(separator: ","), unread.map(\.id).joined(separator: ","),
                    meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")" }.joined(separator: ","),
                    Prefs.english ? "en" : "zh", closed ? "closed" : ""].joined(separator: "|")
-        guard force || key != lastKey || Date().timeIntervalSince(lastWrite) >= 300 else { return }
+        // at least every five minutes the chart moves on, and every ten the file is written again even if
+        // nothing changed, so the widget always has a fresh "updated" to tell Kikumap is running
+        let heartbeat = Date().timeIntervalSince(lastBeat) >= 600
+        guard force || heartbeat || key != lastKey || Date().timeIntervalSince(lastWrite) >= 300 else { return }
 
         // the last 24 hours, by the hour; the five busiest chats get a colour each, the rest share one
         let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
@@ -98,12 +102,15 @@ final class WidgetFeed {
         guard let body = try? e.encode(state) else { return }
         lastKey = key
         lastWrite = Date()
-        if body == lastBody && !force { return }
+        let changed = body != lastBody
+        if !changed && !force && !heartbeat { return }
         lastBody = body
+        lastBeat = Date()
         state.updated = Clock.iso()
         guard let data = try? e.encode(state) else { return }
         try? FileManager.default.createDirectory(at: Self.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: Self.url, options: .atomic)
-        WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget")
+        // only a change asks for a redraw (macOS limits how often); a heartbeat is read at the next one
+        if changed || force { WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget") }
     }
 }

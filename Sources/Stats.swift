@@ -306,8 +306,8 @@ final class StatsView: NSView {
         }
         let per = hours == 24 ? tr("每天", "each day") : hours == 48 ? tr("每 2 天", "every 2 days")
             : hours == 1 ? tr("每小时", "each hour") : tr("每 \(hours) 小时", "every \(hours) hours")
-        var note = tr("\(per) \(GPTWatcher.who) 干活的时长，按对话分段；同时进行的对话各算各的。",
-                      "Hours \(GPTWatcher.who) worked \(per), split by chat. Chats running side by side each count.")
+        var note = tr("\(per) \(GPTWatcher.who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
+                      "Hours \(GPTWatcher.who) worked \(per), split by chat. Chats running side by side share the time.")
         if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] {
             let d = Clock.format(until, "M月d日", "MMM d")
             note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")

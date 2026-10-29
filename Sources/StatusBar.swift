@@ -59,7 +59,7 @@ final class Sounds {
         last = .distantPast
         preview(Prefs.soundDone)
         if Prefs.speak {
-            say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("实验计划", "Experiment plan")), after: Prefs.soundDone == "off" ? 0 : 0.7)
+            say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("定价方案", "Pricing plan")), after: Prefs.soundDone == "off" ? 0 : 0.7)
         }
     }
 

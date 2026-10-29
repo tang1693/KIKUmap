@@ -45,12 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var widget = WidgetFeed(store: store, usage: usage, gpt: gpt)
     private let todoList = TodoPopover()
     private var shownGPTUsage: GPTUsage?
+    /// A newer copy of Kikumap asked this one to quit.
+    private var handingOver = false
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandlerInstalled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        takeOver()
         NSApp.setActivationPolicy(.accessory)
         Prefs.applyAppearance()
         buildMainMenu()
@@ -175,10 +178,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
                                                           name: NSWorkspace.didWakeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
+                                                          name: NSWorkspace.willSleepNotification, object: nil)
         refreshUI()
-        // the desktop widget's chart moves on while chats run
+        widget.update(force: true)          // the widget may still say "not running" from the last quit
+        // the desktop widget's chart moves on while chats run; and a note of when Kikumap was last alive,
+        // so runs left open by a crash end there
         widgetTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.widget.update() }
+            MainActor.assumeIsolated {
+                UserDefaults.standard.set(Clock.iso(), forKey: "AliveAt")
+                self?.widget.update()
+            }
         }
         if !Prefs.onboarded {
             intro.show()
@@ -189,7 +199,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { widget.closing() }
+    func applicationWillTerminate(_ notification: Notification) {
+        store.closeRuns(at: Date())
+        // handing over to a newer copy: it fills the widget in; don't tell it Kikumap stopped
+        if !handingOver { widget.closing() }
+    }
+
+    /// One Kikumap at a time: a copy opened while another runs (an update, a second install) takes over, and
+    /// the older one quits quietly. It waits a moment for that, so the two never write the same files at once.
+    private func takeOver() {
+        let me = NSRunningApplication.current
+        let name = Notification.Name("ninja.tang.claudeconsole.takeover")
+        let pid = String(getpid())
+        DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: .main) { [weak self] n in
+            guard (n.object as? String) != pid else { return }
+            MainActor.assumeIsolated {
+                self?.handingOver = true
+                NSApp.terminate(nil)
+            }
+        }
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != me.processIdentifier }
+        guard !others.isEmpty else { return }
+        DistributedNotificationCenter.default().postNotificationName(name, object: pid, userInfo: nil, deliverImmediately: true)
+        let until = Date().addingTimeInterval(4)
+        while Date() < until && others.contains(where: { !$0.isTerminated }) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+    }
+
+    @objc private func willSleep() {
+        store.closeRuns(at: Date())
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         main.show()
@@ -197,9 +238,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func didWake() {
+        store.resumeRuns(at: Date())
         notifications.check()
         sidebar.schedule(1)
+        if GPTWatcher.enabled { gpt.read() }
         usage.refresh()
+        widget.update(force: true)
     }
 
     func refreshUI() {

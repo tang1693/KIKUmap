@@ -34,11 +34,11 @@
 
 <p align="center"><img src="docs/demo/drag.gif" width="100%" alt="把 Work 主题拖过导图：它带着实时连线跟着鼠标走，其他主题让开空出位置，松手后落进空位"></p>
 
-你在 Claude 和 ChatGPT 里置顶了一堆对话：一个在写论文章节，一个在修测试，还有一个十分钟前就做完了你还没看。**Kikumap** 住在菜单栏里帮你同时盯着两边：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的思维导图，用法像 MindNode。桌面小组件也能一眼看到这些，还有 Claude 和 ChatGPT 的用量。
+你在 Claude 和 ChatGPT 里置顶了一堆对话：一个在规划旅行，一个在修测试，还有一个十分钟前就做完了你还没看。**Kikumap** 住在菜单栏里帮你同时盯着两边：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的思维导图，用法像 MindNode。桌面小组件也能一眼看到这些，还有 Claude 和 ChatGPT 的用量。
 
 **原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码。安装包 2.5 MB，靠系统通知等变化而不是不停轮询，窗口一隐藏就完全停止绘制。
 
-https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
+<p align="center"><a href="https://tang1693.github.io/KIKUmap/#tour"><img src="docs/demo/intro-poster.jpg" width="100%" alt="观看两分钟介绍（英文配音，带字幕）"></a></p>
 
 > [!NOTE]
 > **测试版。** Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 Kikumap 更新才能恢复。本项目由个人独立开发，与 Anthropic、OpenAI 都无关。
@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 **!** 表示有对话在等你批准。
 
-**听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
+**听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“定价方案做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
 
 支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 **0.9.5 新增的** ChatGPT 桌面 App。你在 ChatGPT 里置顶的东西都会和 Claude 的对话放在一起，前面标着 **GPT**，顺序和 ChatGPT 一样：置顶的对话和置顶项目里的对话。进行中、未读跟 ChatGPT 自己的小圆点一致。VS Code 里的 Codex 会话和 Claude Code 会话一样显示：运行中、未读，以及做完后 12 小时内。不用任何设置：Kikumap 读 ChatGPT 存在你 Mac 上的内容。
 
@@ -75,7 +75,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 <td width="55%"><img src="docs/demo/group.gif" width="100%" alt="在空白处拖出选框选中 Home 下的两个对话，⌘ 点击再加一个，拖其中一个，三个一起移到 Side projects"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="右键 Thesis 主题，依次换成方块、圆圈、三角、菱形、交叉、星星，再换分支颜色"></td>
+<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="右键 Launch 主题，依次换成方块、圆圈、三角、菱形、交叉、星星，再换分支颜色"></td>
 <td>
 
 ### 按你的习惯整理
@@ -117,7 +117,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 <td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="鼠标停在时间线上过去的运行记录上显示时长；往后拖出现计划任务和倒计时"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="导出窗口：勾选 Thesis、Writing 和 Work，点导出，得到一个装着 Markdown 和 artifacts 的文件夹"></td>
+<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="导出窗口：勾选 Launch、Copy 和 Work，点导出，得到一个装着 Markdown 和 artifacts 的文件夹"></td>
 <td>
 
 ### 全部带走

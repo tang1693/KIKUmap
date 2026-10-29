@@ -34,11 +34,11 @@
 
 <p align="center"><img src="docs/demo/drag.gif" width="100%" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></p>
 
-You pinned a dozen chats in Claude and ChatGPT. One is drafting your thesis chapter, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track of both: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style. A desktop widget shows the same at a glance, with your Claude and ChatGPT usage.
+You pinned a dozen chats in Claude and ChatGPT. One is planning your trip, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track of both: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style. A desktop widget shows the same at a glance, with your Claude and ChatGPT usage.
 
 **Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A 2.5 MB download that waits for changes instead of polling, and stops drawing entirely when its window is hidden.
 
-https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
+<p align="center"><a href="https://tang1693.github.io/KIKUmap/#tour"><img src="docs/demo/intro-poster.jpg" width="100%" alt="Watch the 2-minute tour (narrated, with captions)"></a></p>
 
 > [!NOTE]
 > **Beta.** The Claude app has no public API, so Kikumap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of Kikumap may stop working until it's updated. Kikumap is an independent project, not made by or affiliated with Anthropic or OpenAI.
@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval.
 
-**Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.
+**Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
 Works with the Claude desktop app, Claude Code (Terminal, VS Code, the app's Code mode) and, **new in 0.9.5**, the ChatGPT desktop app. Everything you pin in ChatGPT shows next to Claude's chats, marked **GPT**, in ChatGPT's order: pinned threads and the threads in pinned projects. Running and unread follow ChatGPT's own dots. Codex sessions in VS Code show like Claude Code sessions: while they run, while unread, and for 12 hours after. Nothing to set up: Kikumap reads what ChatGPT keeps on your Mac.
 
@@ -75,7 +75,7 @@ Real conversations carry a small orange mark, so they stand apart from plain top
 <td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Dragging a box on empty space selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="Right-clicking the Thesis topic and stepping through shapes (square, circle, triangle, diamond, cross, star), then branch colours"></td>
+<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="Right-clicking the Launch topic and stepping through shapes (square, circle, triangle, diamond, cross, star), then branch colours"></td>
 <td>
 
 ### Make it yours
@@ -117,7 +117,7 @@ The timeline shows when Claude and ChatGPT worked on each chat, in your branch c
 <td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window: ticking Thesis, Writing and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></td>
+<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window: ticking Launch, Copy and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></td>
 <td>
 
 ### Take everything with you

@@ -81,7 +81,7 @@ enum Prefs {
         get { d.bool(forKey: "TimelineHidden") }
         set { d.set(newValue, forKey: "TimelineHidden") }
     }
-    /// After the sound, say which chat it was ("Experiment plan is done"). Off until you turn it on:
+    /// After the sound, say which chat it was ("Pricing plan is done"). Off until you turn it on:
     /// the names are spoken out loud.
     static var speak: Bool {
         get { d.bool(forKey: "Speak") }

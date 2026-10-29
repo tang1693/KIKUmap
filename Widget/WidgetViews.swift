@@ -45,22 +45,24 @@ struct WidgetState: Codable {
             [1800, 0, 0, 0, 1200, 0], [2700, 0, 0, 1200, 0, 600], [3000, 1500, 0, 0, 0, 0], [900, 2400, 0, 0, 1800, 0],
             [0, 3000, 1200, 0, 0, 300], [1200, 1800, 2400, 0, 0, 0], [2400, 0, 1500, 900, 0, 0], [1500, 600, 0, 0, 0, 0],
         ]
+        // chats running side by side share the time, so an hour never holds more than an hour
         let hours = shape.enumerated().map { i, p in
-            Hour(start: WidgetTime.iso(hour.addingTimeInterval(Double(i - 23) * 3600)), parts: p)
+            let sum = p.reduce(0, +), scale = sum > 3300 ? 3300 / sum : 1
+            return Hour(start: WidgetTime.iso(hour.addingTimeInterval(Double(i - 23) * 3600)), parts: p.map { ($0 * scale).rounded() })
         }
         return WidgetState(
             updated: WidgetTime.iso(now), english: english, closed: nil,
             running: [Item(id: "a", title: t("重构登录流程", "Refactor the login flow")),
                       Item(id: "b", title: t("周报数据整理", "Weekly report numbers"))],
             unread: [Item(id: "c", title: t("旅行行程规划", "Trip itinerary")),
-                     Item(id: "d", title: t("论文第三章润色", "Polish chapter 3")),
+                     Item(id: "d", title: t("上线检查清单", "Launch checklist")),
                      Item(id: "e", title: t("网站首页文案", "Homepage copy"))],
             runningCount: 2, unreadCount: 3,
             meters: [Meter(label: t("会话", "Session"), percent: 42, resets: WidgetTime.iso(now.addingTimeInterval(2 * 3600 + 600)), minutes: 300),
                      Meter(label: t("本周", "Week"), percent: 18, resets: WidgetTime.iso(now.addingTimeInterval(3 * 86400)), minutes: 7 * 1440)],
             usageOff: false, hours: hours,
             legend: [t("重构登录流程", "Refactor the login flow"), t("周报数据整理", "Weekly report numbers"),
-                     t("旅行行程规划", "Trip itinerary"), t("论文第三章润色", "Polish chapter 3"), t("网站首页文案", "Homepage copy")])
+                     t("旅行行程规划", "Trip itinerary"), t("上线检查清单", "Launch checklist"), t("网站首页文案", "Homepage copy")])
     }
 }
 
@@ -136,12 +138,14 @@ struct KikumapWidgetView: View {
     private var en: Bool { state?.english ?? !WidgetText.systemChinese }
     private func t(_ zh: String, _ e: String) -> String { en ? e : zh }
 
-    /// No word from Kikumap for a while: it isn't running (the file changes at least every hour while it is).
+    /// Kikumap said it quit, or there's been no word from it for longer than a timeline lasts (it rewrites the
+    /// file at least every ten minutes while it runs, but macOS may wait hours before asking for a new
+    /// timeline; until then the old one's entries go on, and they mustn't call a running Kikumap stopped).
     private var stale: Bool {
         guard let s = state else { return false }
         if s.closed == true { return true }
         guard let u = WidgetTime.parse(s.updated) else { return true }
-        return date.timeIntervalSince(u) > 75 * 60
+        return date.timeIntervalSince(u) > 7 * 3600
     }
 
     var body: some View {

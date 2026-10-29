@@ -94,7 +94,12 @@ final class Store {
         }
         if let d = try? Data(contentsOf: activityURL), let a = try? JSONDecoder().decode(ActivityFile.self, from: d) {
             intervals = a.intervals
-            runStart = a.open
+            // still open: Kikumap stopped without closing them (a crash, a forced quit). They end when it was last
+            // seen running, not now: the time it was away isn't work it saw.
+            let alive = UserDefaults.standard.string(forKey: "AliveAt").flatMap(Clock.parse)
+                ?? ((try? FileManager.default.attributesOfItem(atPath: activityURL.path))?[.modificationDate] as? Date) ?? Date()
+            let end = Clock.iso(min(alive, Date()))
+            for (id, start) in a.open { intervals.append(Interval(id: id, start: start, end: max(start, end))) }
         }
         if let d = try? Data(contentsOf: historyURL), let h = try? JSONDecoder().decode(HistoryFile.self, from: d) {
             history = h.days
@@ -157,32 +162,63 @@ final class Store {
     }
 
     /// How long Claude worked on each chat in each slot bounds[i] ..< bounds[i + 1], running chats up to
-    /// now. Chats running side by side each count in full. Time older than the timeline's week comes from
-    /// the hourly totals, each hour whole in the slot it starts in; from before those, there are only daily
-    /// totals, left out when the slots are shorter than a day (`wholeDays` false: see `dailyOnlyUntil`).
+    /// now. Chats running side by side share the time (two at once: half each), so a slot never holds more
+    /// than its own length and the chats add up to the time Claude was busy. Time older than the timeline's
+    /// week comes from the hourly totals, each hour whole in the slot it starts in; from before those there
+    /// are only daily totals, left out when the slots are shorter than a day (`wholeDays` false: see
+    /// `dailyOnlyUntil`).
     func worked(_ bounds: [Date], wholeDays: Bool = true) -> [[String: Double]] {
         var out = [[String: Double]](repeating: [:], count: max(bounds.count - 1, 0))
         guard let first = bounds.first, let last = bounds.last, !out.isEmpty else { return out }
         func slot(_ d: Date) -> Int? { d >= first && d < last ? bounds.lastIndex { $0 <= d } : nil }
-        func add(_ id: String, _ a: Date?, _ b: Date?) {
+        var runs: [(id: String, a: Date, b: Date)] = []
+        func run(_ id: String, _ a: Date?, _ b: Date?) {
             guard let a = a, let b = b, b > first, a < last else { return }
-            var i = slot(max(a, first)) ?? 0
+            runs.append((id, max(a, first), min(b, last)))
+        }
+        for iv in intervals { run(iv.id, Clock.parse(iv.start), Clock.parse(iv.end)) }
+        let now = Date()
+        for (id, s) in runStart { run(id, Clock.parse(s), now) }
+        Store.share(runs) { id, a, b, part in
+            var i = slot(a) ?? 0
             while i < out.count && bounds[i] < b {
                 let s = max(a, bounds[i]), e = min(b, bounds[i + 1])
-                if e > s { out[i][id, default: 0] += e.timeIntervalSince(s) }
+                if e > s { out[i][id, default: 0] += e.timeIntervalSince(s) * part }
                 i += 1
             }
         }
-        for iv in intervals { add(iv.id, Clock.parse(iv.start), Clock.parse(iv.end)) }
-        let now = Date()
-        for (id, s) in runStart { add(id, Clock.parse(s), now) }
         for (key, t) in history {
             let hourly = key.count > 10
             guard hourly || wholeDays, let d = (hourly ? Store.hourFormatter : Store.dayFormatter).date(from: key),
                   let i = slot(d) else { continue }
-            for (id, s) in t { out[i][id, default: 0] += s }
+            // folded before time was shared: an hour (a day) never holds more than itself
+            let total = t.values.reduce(0, +), most: Double = hourly ? 3600 : 86400
+            let scale = total > most ? most / total : 1
+            for (id, s) in t { out[i][id, default: 0] += s * scale }
         }
         return out
+    }
+
+    /// Runs that overlap share their time: while k chats run at once, each gets 1/k of it. `take` gets each
+    /// stretch of one chat's share: (chat, from, to, part).
+    static func share(_ runs: [(id: String, a: Date, b: Date)], _ take: (String, Date, Date, Double) -> Void) {
+        var edges: [(t: Date, id: String, open: Bool)] = []
+        for r in runs where r.b > r.a { edges.append((r.a, r.id, true)); edges.append((r.b, r.id, false)) }
+        edges.sort { $0.t != $1.t ? $0.t < $1.t : (!$0.open && $1.open) }     // at one instant, ends before starts
+        var active: [String: Int] = [:]        // a chat counts once, even if two of its runs overlap
+        var prev: Date?
+        for e in edges {
+            if let p = prev, e.t > p, !active.isEmpty {
+                let part = 1 / Double(active.count)
+                for id in active.keys { take(id, p, e.t, part) }
+            }
+            if e.open {
+                active[e.id, default: 0] += 1
+            } else if let n = active[e.id] {
+                if n <= 1 { active.removeValue(forKey: e.id) } else { active[e.id] = n - 1 }
+            }
+            prev = e.t
+        }
     }
 
     /// Before this, only daily totals were kept (older versions folded old time by day; nil if none).
@@ -334,15 +370,19 @@ final class Store {
     /// statistics can still show any hours of them.
     private func fold(_ old: [Interval]) {
         let cal = Calendar.current
-        for iv in old {
-            guard var a = Clock.parse(iv.start), let b = Clock.parse(iv.end) else { continue }
+        let runs = old.compactMap { iv -> (id: String, a: Date, b: Date)? in
+            guard let a = Clock.parse(iv.start), let b = Clock.parse(iv.end) else { return nil }
+            return (iv.id, a, b)
+        }
+        Store.share(runs) { id, from, b, part in
+            var a = from
             while a < b {
                 let e = min(b, cal.dateInterval(of: .hour, for: a)?.end ?? b)
-                history[Store.hourFormatter.string(from: a), default: [:]][iv.id, default: 0] += e.timeIntervalSince(a)
+                self.history[Store.hourFormatter.string(from: a), default: [:]][id, default: 0] += e.timeIntervalSince(a) * part
                 a = e
             }
-            historyTitles[iv.id] = name(iv.id)
         }
+        for iv in old { historyTitles[iv.id] = name(iv.id) }
         let keep = Store.dayFormatter.string(from: Date().addingTimeInterval(-400 * 86400))
         history = history.filter { $0.key >= keep }
         let ids = Set(history.values.flatMap { $0.keys })
@@ -350,6 +390,24 @@ final class Store {
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         if let d = try? e.encode(HistoryFile(days: history, titles: historyTitles)) { try? d.write(to: historyURL, options: .atomic) }
+    }
+
+    /// Kikumap is quitting, or the Mac going to sleep: running chats stop counting now (nothing can be seen
+    /// while it's away, and time it can't see isn't counted).
+    func closeRuns(at when: Date) {
+        guard !runStart.isEmpty else { return }
+        let end = Clock.iso(when)
+        for (id, start) in runStart { intervals.append(Interval(id: id, start: start, end: max(start, end))) }
+        runStart = [:]
+        saveActivity()
+    }
+
+    /// The Mac woke up: chats still running count again from now (the next read says whether they still are).
+    func resumeRuns(at when: Date) {
+        let now = Clock.iso(when)
+        var changed = false
+        for id in running where runStart[id] == nil { runStart[id] = now; changed = true }
+        if changed { saveActivity() }
     }
 
     /// Records when chats start and stop running.

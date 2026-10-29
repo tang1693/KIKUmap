@@ -1,70 +1,82 @@
 WEBVTT
 
 1
-00:00:00.560 --> 00:00:05.253
-Meet Kikumap: a mind map for your Claude chats, living in your Mac's menu bar.
+00:00:00.560 --> 00:00:06.469
+Meet Kikumap: a mind map for your Claude and ChatGPT chats, living in your Mac's menu bar.
 
 2
-00:00:06.320 --> 00:00:16.816
-One icon tells you what Claude is doing. The flower spins while a chat is running. A red badge counts the ones that finished, and an exclamation mark means Claude needs your approval.
+00:00:07.520 --> 00:00:17.781
+One icon tells you what's going on. The flower spins while a chat is running. A red badge counts the ones that finished, and an exclamation mark means a chat needs your approval.
 
 3
-00:00:17.880 --> 00:00:22.061
-When a chat finishes, it lights up on the map, so you always know where to look next.
+00:00:18.840 --> 00:00:28.077
+The chats you pin in Claude and in ChatGPT sit side by side, each in its own app's order. Claude Code and Codex sessions show up while they run.
 
 4
-00:00:24.000 --> 00:00:29.205
-Your pinned chats become a map. Drag them onto your own topics, and the map makes room as you go.
+00:00:29.120 --> 00:00:33.301
+When a chat finishes, it lights up on the map, so you always know where to look next.
 
 5
-00:00:30.280 --> 00:00:32.904
-Right-click any topic to give it a colour or a shape.
+00:00:35.240 --> 00:00:40.445
+Your pinned chats become a map. Drag them onto your own topics, and the map makes room as you go.
 
 6
-00:00:35.560 --> 00:00:43.176
-Tag your chats, like In progress, or Waiting on others. Click a tag to highlight everything that has it, or drag it straight onto a chat.
+00:00:41.520 --> 00:00:44.144
+Right-click any topic to give it a colour or a shape.
 
 7
-00:00:45.120 --> 00:00:52.075
-It's keyboard-first. Tab adds a subtopic, Return adds a sibling, Command arrow moves it, and Command Z undoes.
+00:00:46.800 --> 00:00:54.416
+Tag your chats, like In progress, or Waiting on others. Click a tag to highlight everything that has it, or drag it straight onto a chat.
 
 8
-00:00:53.120 --> 00:00:55.680
-Command F finds any topic, chat, or tag.
+00:00:56.360 --> 00:01:03.315
+It's keyboard-first. Tab adds a subtopic, Return adds a sibling, Command arrow moves it, and Command Z undoes.
 
 9
-00:00:57.600 --> 00:01:04.085
-The timeline shows when Claude worked on what, and what's coming up next: your scheduled tasks, with live countdowns.
+00:01:04.360 --> 00:01:06.920
+Command F finds any topic, chat, or tag.
 
 10
-00:01:06.040 --> 00:01:10.051
-The menu sums up your day: which chats Claude worked on, and for how long.
+00:01:08.840 --> 00:01:14.813
+The timeline shows what ran and when, and what's coming up next: your scheduled tasks, with live countdowns.
 
 11
-00:01:12.000 --> 00:01:15.328
-Your plan usage is right there too, for this session and this week.
+00:01:16.760 --> 00:01:24.845
+A desktop widget keeps it all in view: what's running, what's waiting, your Claude and ChatGPT usage, and the last twenty-four hours.
 
 12
-00:01:17.280 --> 00:01:26.432
-Export any topic: prompts, full conversations, artifacts, and a hand-off summary Claude writes. Import it into a new account, and pick up where you left off.
+00:01:25.920 --> 00:01:30.165
+Statistics show how much got done, by the day or by the hour, chat by chat.
 
 13
-00:01:27.480 --> 00:01:29.507
-Or save the whole map as a PDF.
+00:01:31.240 --> 00:01:34.653
+The menu sums up your day: which chats ran, and for how long.
 
 14
-00:01:31.440 --> 00:01:34.021
-Your map is backed up every day, automatically.
+00:01:36.600 --> 00:01:40.504
+Your plan usage is right there too, for Claude and for ChatGPT.
 
 15
-00:01:35.960 --> 00:01:37.027
-Light or dark,
+00:01:42.440 --> 00:01:51.592
+Export any topic: prompts, full conversations, artifacts, and a hand-off summary Claude writes. Import it into a new account, and pick up where you left off.
 
 16
-00:01:39.440 --> 00:01:40.891
-in English, or Chinese.
+00:01:52.640 --> 00:01:54.667
+Or save the whole map as a PDF.
 
 17
-00:01:43.160 --> 00:01:46.275
+00:01:56.600 --> 00:01:59.181
+Your map is backed up every day, automatically.
+
+18
+00:02:01.120 --> 00:02:02.187
+Light or dark,
+
+19
+00:02:04.600 --> 00:02:06.051
+in English, or Chinese.
+
+20
+00:02:08.320 --> 00:02:11.435
 Kikumap is free and open source. Get it on GitHub.
 

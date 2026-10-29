@@ -393,7 +393,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         let menu = NSRect(x: bar.minX + 340, y: 72, width: 270, height: 182)
         card(menu)
         let hf = NSFont.systemFont(ofSize: 11, weight: .semibold), rf = NSFont.systemFont(ofSize: 13)
-        let running = switched ? [tr("论文 Video", "Paper video")] : [tr("论文 Video", "Paper video"), "Mac mini"]
+        let running = switched ? [tr("旅行规划", "Trip planning")] : [tr("旅行规划", "Trip planning"), "Mac mini"]
         let waiting = switched ? ["Mac mini", tr("设计稿", "Design draft")] : [tr("设计稿", "Design draft")]
         var y = menu.minY + 10
         func header(_ s: String) { text(s, hf, Theme.muted, NSPoint(x: menu.minX + 14, y: y)); y += 20 }
