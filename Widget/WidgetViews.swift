@@ -7,8 +7,8 @@ import SwiftUI
 /// (Sources/WidgetFeed.swift writes the same shape — keep the two in step).
 struct WidgetState: Codable {
     struct Item: Codable, Hashable { var id: String; var title: String }
-    /// One usage window; `group` is whose: "claude" (also when missing) or "gpt".
-    struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String?; var group: String? }
+    /// One usage window; `group` is whose: "claude" (also when missing) or "gpt"; `minutes` how long it is.
+    struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String?; var group: String?; var minutes: Int? }
     /// One hour: seconds Claude worked per colour slot (legend order); the last one is every other chat.
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
@@ -56,8 +56,8 @@ struct WidgetState: Codable {
                      Item(id: "d", title: t("论文第三章润色", "Polish chapter 3")),
                      Item(id: "e", title: t("网站首页文案", "Homepage copy"))],
             runningCount: 2, unreadCount: 3,
-            meters: [Meter(label: t("会话", "Session"), percent: 42, resets: WidgetTime.iso(now.addingTimeInterval(2 * 3600 + 600))),
-                     Meter(label: t("本周", "Week"), percent: 18, resets: WidgetTime.iso(now.addingTimeInterval(3 * 86400)))],
+            meters: [Meter(label: t("会话", "Session"), percent: 42, resets: WidgetTime.iso(now.addingTimeInterval(2 * 3600 + 600)), minutes: 300),
+                     Meter(label: t("本周", "Week"), percent: 18, resets: WidgetTime.iso(now.addingTimeInterval(3 * 86400)), minutes: 7 * 1440)],
             usageOff: false, hours: hours,
             legend: [t("重构登录流程", "Refactor the login flow"), t("周报数据整理", "Weekly report numbers"),
                      t("旅行行程规划", "Trip itinerary"), t("论文第三章润色", "Polish chapter 3"), t("网站首页文案", "Homepage copy")])
@@ -317,18 +317,23 @@ struct KikumapWidgetView: View {
         }
     }
 
+    /// A window's length, short: "5h", "7d".
+    static func span(_ minutes: Int) -> String {
+        minutes >= 1440 && minutes % 1440 == 0 ? "\(minutes / 1440)d" : "\(max(1, minutes / 60))h"
+    }
+
     /// `mark`: nil without marks; otherwise whether this row (its group's first) shows it.
     private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, mark: Bool?) -> some View {
         let high = m.percent >= 90
-        // the small widget: "S" / "W", or the two-character Chinese label
-        let label = size == .small && en ? String(m.label.prefix(1)) : m.label
+        // the small widget: how long the window is ("5h", "7d"), or the two-character Chinese label
+        let label = size == .small && en ? (m.minutes.map(Self.span) ?? String(m.label.prefix(1))) : m.label
         return HStack(spacing: 6) {
             if let show = mark {
                 Group { if show { ProviderMark(gpt: m.group == "gpt") } else { Color.clear } }
                     .frame(width: 20, height: 10, alignment: .leading)
             }
             Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
-                .frame(width: labelWidth ?? (en ? 10 : 22), alignment: .leading)
+                .frame(width: labelWidth ?? (en ? 16 : 22), alignment: .leading)
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.1))

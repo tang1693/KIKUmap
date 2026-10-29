@@ -13,7 +13,7 @@ final class WidgetFeed {
     /// Same shape as WidgetState in Widget/WidgetViews.swift — keep the two in step.
     private struct State: Codable {
         struct Item: Codable { var id: String; var title: String }
-        struct Meter: Codable { var label: String; var percent: Double; var resets: String?; var group: String? }
+        struct Meter: Codable { var label: String; var percent: Double; var resets: String?; var group: String?; var minutes: Int? }
         struct Hour: Codable { var start: String; var parts: [Double] }
         var updated: String
         var english: Bool
@@ -50,13 +50,15 @@ final class WidgetFeed {
         let run = closed ? [] : store.runningChats, unread = closed ? [] : store.unreadChats
         var meters: [State.Meter] = []
         // whole percents and minutes, so small wobbles don't cost a redraw
-        func meter(_ label: String, _ percent: Double, _ resets: Date?, _ group: String) -> State.Meter {
+        func meter(_ label: String, _ percent: Double, _ resets: Date?, _ group: String, minutes: Int) -> State.Meter {
             let r = resets.map { Date(timeIntervalSince1970: ($0.timeIntervalSince1970 / 60).rounded() * 60) }
-            return State.Meter(label: label, percent: percent.rounded(), resets: r.map { Clock.iso($0) }, group: group)
+            return State.Meter(label: label, percent: percent.rounded(), resets: r.map { Clock.iso($0) }, group: group,
+                               minutes: minutes > 0 ? minutes : nil)
         }
         if UsageMonitor.enabled {
-            for (label, w) in [(tr("会话", "Session"), usage.session), (tr("本周", "Week"), usage.weekly)] {
-                if let w = w { meters.append(meter(label, w.percent, w.resets, "claude")) }
+            // Claude's: the 5-hour session and the week
+            for (label, w, minutes) in [(tr("会话", "Session"), usage.session, 300), (tr("本周", "Week"), usage.weekly, 7 * 1440)] {
+                if let w = w { meters.append(meter(label, w.percent, w.resets, "claude", minutes: minutes)) }
             }
         }
         // ChatGPT's, as its latest answer left them; a window that has reset since starts again at zero
@@ -65,7 +67,7 @@ final class WidgetFeed {
             for w in u.windows {
                 let label = w.minutes > 0 && w.minutes <= 1440 ? tr("会话", "Session") : tr("本周", "Week")
                 let over = w.resets.map { $0 < Date() } ?? false
-                meters.append(meter(label, over ? 0 : w.percent, over ? nil : w.resets, "gpt"))
+                meters.append(meter(label, over ? 0 : w.percent, over ? nil : w.resets, "gpt", minutes: w.minutes))
             }
         }
         let key = [run.map(\.id).joined(separator: ","), unread.map(\.id).joined(separator: ","),
