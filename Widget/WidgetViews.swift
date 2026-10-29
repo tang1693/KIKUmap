@@ -310,8 +310,7 @@ struct KikumapWidgetView: View {
             let list = shown(s, limit: limit), tag = tagged(s)
             VStack(alignment: .leading, spacing: compact ? 4 : 5) {
                 ForEach(list.indices, id: \.self) { i in
-                    let first = i == 0 || (list[i - 1].group ?? "claude") != (list[i].group ?? "claude")
-                    meter(list[i], labelWidth: labelWidth, compact: compact, mark: tag ? first : nil)
+                    meter(list[i], labelWidth: labelWidth, compact: compact, marked: tag)
                 }
             }
         }
@@ -322,15 +321,14 @@ struct KikumapWidgetView: View {
         minutes >= 1440 && minutes % 1440 == 0 ? "\(minutes / 1440)d" : "\(max(1, minutes / 60))h"
     }
 
-    /// `mark`: nil without marks; otherwise whether this row (its group's first) shows it.
-    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, mark: Bool?) -> some View {
+    /// `marked`: each row shows whose it is (Claude's mark or "GPT") when both are there.
+    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, marked: Bool) -> some View {
         let high = m.percent >= 90
         // the small widget: how long the window is ("5h", "7d"), or the two-character Chinese label
         let label = size == .small && en ? (m.minutes.map(Self.span) ?? String(m.label.prefix(1))) : m.label
         return HStack(spacing: 6) {
-            if let show = mark {
-                Group { if show { ProviderMark(gpt: m.group == "gpt") } else { Color.clear } }
-                    .frame(width: 20, height: 10, alignment: .leading)
+            if marked {
+                ProviderMark(gpt: m.group == "gpt").frame(width: 20, height: 10, alignment: .leading)
             }
             Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
                 .frame(width: labelWidth ?? (en ? 16 : 22), alignment: .leading)
