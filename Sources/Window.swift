@@ -91,6 +91,13 @@ final class HeaderView: NSView {
     var onToggleSide: (() -> Void)?
     var onToggleTimeline: (() -> Void)?
     var onStats: (() -> Void)?
+    var onRefresh: (() -> Void)?
+    /// The ▸ To-do button was clicked (it's the anchor for the list).
+    var onTodo: ((NSView) -> Void)?
+    /// Open to-dos (nil: none at all, so no button; 0: all ignored, a muted ▸).
+    var todoCount: Int? { didSet { if todoCount != oldValue { todoBtn.isHidden = todoCount == nil; todoBtn.count = todoCount ?? 0; needsLayout = true; needsDisplay = true } } }
+    private lazy var todoBtn: TodoButton = { let b = TodoButton(target: self, action: #selector(openTodo)); b.isHidden = true; return b }()
+    private lazy var refreshBtn = IconButton("arrow.clockwise", tip: tr("刷新", "Refresh")) { [weak self] in self?.onRefresh?() }
     private lazy var gear = IconButton("gearshape", tip: tr("设置", "Settings")) { [weak self] in self?.onSettings?() }
     private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
     private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
@@ -101,7 +108,7 @@ final class HeaderView: NSView {
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if gear.superview == nil { [sideBtn, timelineBtn, statsBtn, lights, gear].forEach(addSubview) }
+        if gear.superview == nil { [refreshBtn, sideBtn, timelineBtn, statsBtn, lights, gear, todoBtn].forEach(addSubview) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -112,6 +119,7 @@ final class HeaderView: NSView {
         sideBtn.setSymbol("sidebar.left")
         timelineBtn.setSymbol("rectangle.bottomthird.inset.filled")
         statsBtn.setSymbol("chart.bar.xaxis")
+        refreshBtn.setSymbol("arrow.clockwise")
         needsDisplay = true
     }
 
@@ -121,7 +129,12 @@ final class HeaderView: NSView {
         sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
         timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
         statsBtn.toolTip = tr("统计  ⌘Y", "Statistics  ⌘Y")
+        refreshBtn.toolTip = tr("刷新：马上重新读 Claude、ChatGPT 和用量  ⌘R", "Refresh: read Claude, ChatGPT and usage again now  ⌘R")
+        todoBtn.toolTip = tr("哪些事还没做，没做会影响什么；做不做由你决定", "What's left to do and what it affects; up to you whether to do it")
+        todoBtn.needsDisplay = true
     }
+
+    @objc private func openTodo() { onTodo?(todoBtn) }
 
     private func rebuildButtons() {
         buttons.forEach { $0.removeFromSuperview() }
@@ -143,7 +156,7 @@ final class HeaderView: NSView {
         super.layout()
         let midY = (bounds.height - 1) / 2
         var x = bounds.width - 14
-        for b in [gear, lights, statsBtn, timelineBtn, sideBtn] {
+        for b in [gear, lights, statsBtn, timelineBtn, sideBtn, refreshBtn] {
             x -= 28
             b.frame = NSRect(x: x, y: midY - 13, width: 28, height: 26)
         }
@@ -153,6 +166,11 @@ final class HeaderView: NSView {
             x -= s.width
             b.frame = NSRect(x: x, y: midY - s.height / 2, width: s.width, height: s.height)
             x -= 8
+        }
+        if !todoBtn.isHidden {
+            let s = todoBtn.intrinsicContentSize
+            x -= s.width
+            todoBtn.frame = NSRect(x: x, y: midY - s.height / 2, width: s.width, height: s.height)
         }
     }
 
@@ -190,7 +208,7 @@ final class HeaderView: NSView {
             x += w + 6 + ls.width + 16
         }
         let small = Theme.ui(12)
-        let limit = (buttons.first?.frame.minX ?? (bounds.width - 90)) - 12
+        let limit = (todoBtn.isHidden ? (buttons.first?.frame.minX ?? (bounds.width - 90)) : todoBtn.frame.minX) - 12
         let meterW: CGFloat = {
             let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .bold)
             let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
@@ -269,8 +287,10 @@ final class SidebarView: NSView, NSDraggingSource {
     private let top: CGFloat = 62
     /// Spinner phase for running chats (0…1), driven by the map's animation timer.
     var phase: CGFloat = 0
-    /// Why the list is empty when Claude's pins can't be read yet (no access, Claude closed…).
-    var emptyNote: String?
+    /// What's being read, when it was and when it will be next (a heading and a line per app): shown in full
+    /// while the list is empty, and on hovering the heading.
+    var status: (() -> (title: String, lines: [String]))?
+    private var statusTick: Timer?
 
     init(store: Store, usage: UsageMonitor) {
         self.store = store
@@ -285,6 +305,16 @@ final class SidebarView: NSView, NSDraggingSource {
 
     func reload() {
         rows = store.pinnedList()
+        // while the list is empty its status counts down to the next read, so it redraws every second
+        if rows.isEmpty, statusTick == nil {
+            statusTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { if self?.window?.isVisible == true { self?.needsDisplay = true } }
+            }
+        } else if !rows.isEmpty {
+            statusTick?.invalidate(); statusTick = nil
+        }
+        removeAllToolTips()
+        addToolTip(NSRect(x: 0, y: 0, width: bounds.width, height: top - 6), owner: self, userData: nil)
         picked.formIntersection(rows.map(\.id))
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
@@ -305,12 +335,16 @@ final class SidebarView: NSView, NSDraggingSource {
         let gpt = GPTWatcher.enabled && GPTWatcher.available
         (tr(gpt ? "Claude、ChatGPT 置顶 · 拖到画布上" : "和 Claude 的置顶同步 · 拖到画布上",
             gpt ? "Pins from Claude & ChatGPT · drag to canvas" : "Synced with Claude's pins · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
-        if rows.isEmpty {
-            let msg = emptyNote ?? (gpt ? tr("在 Claude 或 ChatGPT 里置顶对话，就会出现在这里", "Pin chats in Claude or ChatGPT and they show up here")
-                                        : tr("在 Claude 里置顶对话，就会出现在这里", "Pin chats in Claude and they show up here"))
-            (msg as NSString).draw(with: NSRect(x: 18, y: top + 8, width: bounds.width - 36, height: rowH * 2),
-                                   options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
-                                   attributes: [.font: Theme.ui(13), .foregroundColor: Theme.muted])
+        if rows.isEmpty, let st = status?() {
+            var y = top + 6
+            let w = bounds.width - 36
+            for (i, line) in ([st.title] + st.lines).enumerated() {
+                let a: [NSAttributedString.Key: Any] = [.font: i == 0 ? Theme.ui(13, .semibold) : Theme.ui(11.5),
+                                                        .foregroundColor: i == 0 ? Theme.ink : Theme.muted]
+                let h = ceil((line as NSString).boundingRect(with: NSSize(width: w, height: 200), options: .usesLineFragmentOrigin, attributes: a).height)
+                (line as NSString).draw(with: NSRect(x: 18, y: y, width: w, height: h), options: .usesLineFragmentOrigin, attributes: a)
+                y += h + (i == 0 ? 8 : 5)
+            }
         }
         for (i, c) in rows.enumerated() {
             let r = NSRect(x: 10, y: top + CGFloat(i) * rowH, width: bounds.width - 20, height: rowH - 4)
@@ -357,7 +391,7 @@ final class SidebarView: NSView, NSDraggingSource {
     }
 
     /// Scheduled tasks follow the inbox.
-    private var schedTop: CGFloat { top + CGFloat(max(rows.isEmpty ? 2 : 1, rows.count)) * rowH + 22 }
+    private var schedTop: CGFloat { top + CGFloat(max(rows.isEmpty ? 4 : 1, rows.count)) * rowH + 22 }
 
     private func drawSchedule(_ dirtyRect: NSRect) {
         guard !sched.isEmpty else { return }
@@ -1021,5 +1055,12 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         }
         if sel == #selector(NSResponder.cancelOperation(_:)) { closeSearch(); return true }
         return false
+    }
+}
+
+extension SidebarView: NSViewToolTipOwner {
+    /// Hovering the heading: what's being read and when.
+    nonisolated func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
+        MainActor.assumeIsolated { status?().lines.joined(separator: "\n") ?? "" }
     }
 }

@@ -205,8 +205,6 @@ final class TimelineView: NSView {
             let s = tr("下一个计划任务：", "Next scheduled task: ") + "\(r.name) · \(Clock.countdown(d))"
             text(s, Theme.ui(12, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
             hx += s.size(Theme.ui(12, .semibold)).width + 16
-        } else if !usage.hint.isEmpty {
-            text(usage.hint, Theme.ui(12), Theme.muted, at: NSPoint(x: hx, y: 10))
         }
         // the ranges: one segmented control
         let segW = ranges.map { $0.0.size(smallB).width + 16 }

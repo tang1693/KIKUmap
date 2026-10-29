@@ -125,7 +125,9 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var minuteTimer: Timer?
 
     // metrics
-    private let R: CGFloat = 36
+    /// The centre: a small solid grey dot, no words (main topics stay `reach` from it).
+    private let R: CGFloat = 9
+    private let reach: CGFloat = 120
     private let rootF = Theme.geo(15)
     private let mainF = Theme.ui(15, .bold)
     private let subF = Theme.ui(14, .bold)
@@ -388,7 +390,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             let h = arr.reduce(0) { $0 + $1.sh } + 26 * CGFloat(max(0, arr.count - 1))
             var y = -h / 2
             for k in arr {
-                place(k, dir > 0 ? R + 84 : -R - 84, y + k.sh / 2, dir)
+                place(k, dir > 0 ? reach : -reach, y + k.sh / 2, dir)
                 y += k.sh + 26
             }
         }
@@ -641,12 +643,8 @@ final class MapView: NSView, NSTextFieldDelegate {
         if alpha < 1 { NSGraphicsContext.current?.cgContext.setAlpha(alpha) }
         switch v.kind {
         case .root:
-            Theme.ink.setFill()
+            Theme.muted.setFill()
             NSBezierPath(ovalIn: r).fill()
-            if !isEditing {
-                let w = min(r.width - 12, ceil(v.title.size(rootF).width) + 2)
-                drawText(v.title, rootF, Theme.bg, x: r.midX - w / 2, midY: r.midY, width: w)
-            }
         case .main:
             let shape = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: 7, yRadius: 7)
             Theme.paper.setFill(); shape.fill()
@@ -807,8 +805,8 @@ final class MapView: NSView, NSTextFieldDelegate {
         if v.unrN > 0 { items.append((v.unrN, 1)) }
         guard !items.isEmpty else { return }
         let r = v.frame
-        var x = v.kind == .root ? r.maxX - 22 : (v.dir < 0 ? r.minX - 11 : r.maxX - 11 - CGFloat(items.count - 1) * 25)
-        let y = v.kind == .root ? r.minY : r.minY - 11
+        var x = v.kind == .root ? r.maxX + 4 : (v.dir < 0 ? r.minX - 11 : r.maxX - 11 - CGFloat(items.count - 1) * 25)
+        let y = v.kind == .root ? r.minY - 16 : r.minY - 11
         for (n, state) in items {
             let s = String(n)
             let w = max(22, ceil(s.size(badgeF).width) + 10)
@@ -929,7 +927,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         for v in all.reversed() {
             if v.kind == .root {
                 let c = NSPoint(x: v.frame.midX, y: v.frame.midY)
-                if hypot(p.x - c.x, p.y - c.y) <= R { return v }
+                if hypot(p.x - c.x, p.y - c.y) <= max(R, 16) { return v }
             } else if v.frame.insetBy(dx: -3, dy: -3).contains(p) {
                 return v
             }
@@ -1186,7 +1184,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     func startEdit(_ key: String) {
-        guard let v = byKey[key] else { return }
+        guard let v = byKey[key], v.kind != .root else { return }        // the centre is a dot, with no name
         if editing != nil { finishEdit() }
         let text: String
         if let id = v.chatId { text = store.mapLabel(id) } else { text = store.map.locate(key)?.item.node?.title ?? v.title }

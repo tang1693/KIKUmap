@@ -99,6 +99,13 @@ final class UsageMonitor: NSObject {
         refresh()
     }
 
+    /// The refresh button: read now, quietly (never brings up macOS's Keychain dialog).
+    func refreshNow() {
+        guard UsageMonitor.enabled, status != .denied else { return }
+        lastRead = .distantPast
+        refresh()
+    }
+
     /// From a click: read the sign-in again (macOS may ask).
     func reconnect() {
         token = nil

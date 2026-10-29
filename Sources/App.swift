@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var exportWin = ExportWindow(store: store, archive: archive)
     lazy var stats = StatsWindow(store: store)
     lazy var widget = WidgetFeed(store: store, usage: usage, gpt: gpt)
+    private let todoList = TodoPopover()
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
@@ -72,6 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.header.onSettings = { [weak self] in self?.settings.show() }
         main.header.onLights = { Prefs.toggleLights() }
         main.header.onStats = { [weak self] in self?.stats.show() }
+        main.header.onRefresh = { [weak self] in self?.refreshAll() }
+        main.sidebar.status = { [weak self] in self?.pinStatus() ?? ("", []) }
+        main.header.onTodo = { [weak self] anchor in
+            guard let self = self else { return }
+            self.todoList.show(self.todos(), from: anchor) { [weak self] in self?.refreshUI() }
+        }
         statusBar.openRoutines = { AppDelegate.openRoutines() }
         perms.onGPT = { [weak self] on in
             guard let self = self else { return }
@@ -87,13 +94,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.openAbout = { [weak self] in self?.settings.show(tab: SettingsWindow.aboutTab) }
         statusBar.openStats = { [weak self] in self?.stats.show() }
         stats.onOpen = { [weak self] id in self?.open(id) }
-        statusBar.permissionsNeeded = { [weak self] in
-            guard let s = self else { return false }
-            return s.notifications.status != .ok || s.sidebar.status == .noAccess
-        }
-        statusBar.openPermissions = { [weak self] in self?.settings.show(tab: 2) }
-        statusBar.syncNote = { [weak self] in self?.sidebar.syncNote }
-        statusBar.syncHelp = { [weak self] in self?.sidebar.syncIssue?.help }
+        statusBar.refreshAll = { [weak self] in self?.refreshAll() }
+        statusBar.todos = { [weak self] in self?.todos() ?? [] }
+        statusBar.todosChanged = { [weak self] in self?.refreshUI() }
 
         settings.onLanguage = { [weak self] in self?.relabelAll() }
         settings.onHotKey = { [weak self] in self?.registerHotKey(); self?.relabelAll(rebuildSettings: false) }
@@ -126,10 +129,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.sidebar.schedule(0.3)
         }
         notifications.onStatus = { [weak self] in self?.refreshUI() }
-        sidebar.onScan = { [weak self] links in
+        sidebar.onScan = { [weak self] links, noPins in
             guard let self = self else { return }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == claudeBundleID
-            let ev = self.store.apply(scan: links, claudeFront: front)
+            let ev = self.store.apply(scan: links, claudeFront: front, noPins: noPins)
             if !self.archive.busy { self.sounds.play(ev) }       // the archive's own replies stay quiet
             self.refreshUI()                 // the "synced · just now" line
         }
@@ -147,10 +150,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.sounds.play(sounds)
         }
-        gpt.onThreads = { [weak self] threads, unread in
+        gpt.onThreads = { [weak self] threads, unread, pinsRead in
             guard let self = self else { return }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == GPTWatcher.bundleID
-            let ev = self.store.apply(gpt: threads, unread: unread, front: front)
+            let ev = self.store.apply(gpt: threads, unread: unread, pinsRead: pinsRead, front: front)
             self.sounds.play(ev)
             self.widget.update()                                   // ChatGPT's usage may have moved
         }
@@ -207,20 +210,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             h.meters = []
         }
-        h.usageHint = h.meters.isEmpty ? usage.hint : ""
+        h.usageHint = ""
+        let all = todos()
+        h.todoCount = all.isEmpty ? nil : Todos.open(all).count
         h.liveText = archive.busy ? tr("正在存档 ", "Archiving ") + archive.progress + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone") : syncText()
         h.liveHelp = archive.busy
             ? tr("Kikumap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止存档」。",
                  "Kikumap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop archiving\".")
             : syncHelp()
-        main.sidebar.emptyNote = store.pinsKnown ? nil : pinsNote()
         var actions: [(String, Bool, () -> Void)] = []
-        if notifications.status == .noAccess || sidebar.status == .noAccess {
-            actions.append((tr("开启权限", "Grant access"), true, { [weak self] in self?.settings.show(tab: 2) }))
-        }
-        if UsageMonitor.enabled && (usage.status == .denied || usage.status == .error) {
-            actions.append((tr("重新读取用量", "Read usage again"), false, { [weak self] in self?.usage.reconnect() }))
-        }
         if archive.busy {
             actions.append((tr("停止存档", "Stop archiving"), true, { [weak self] in self?.archive.cancel() }))
         }
@@ -239,9 +237,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func syncText() -> String {
         switch sidebar.status {
         case .noAccess: return ""                                   // the "Grant access" button says it
-        case .noApp: return tr("Claude App 没打开 · 只有通知和 Claude Code", "Claude app closed · notifications and Claude Code only")
+        case .noApp: return tr("Claude App 没打开", "Claude app closed")
         default:
-            if let n = sidebar.syncNote { return "⚠︎ " + n }
+            if sidebar.syncIssue != nil { return tr("同步暂停", "Sync paused") }
             guard let d = sidebar.lastSync else { return tr("同步中…", "Syncing…") }
             return tr("已同步 · ", "Synced · ") + Clock.ago(Clock.iso(d))
         }
@@ -335,16 +333,117 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         archive.importNotes(todo)
     }
 
-    /// Claude's pins haven't been read yet: what's in the way.
-    private func pinsNote() -> String {
-        switch sidebar.status {
-        case .noAccess: return tr("要先开「辅助功能」权限，才能读到 Claude 的置顶对话（右上角「开启权限」）",
-                                  "Turn on Accessibility first to read Claude's pinned chats (\"Grant access\", top right)")
-        case .noApp: return tr("打开 Claude App，就能读到置顶对话", "Open the Claude app to read your pinned chats")
-        default:
-            if let n = sidebar.syncNote { return n }
-            return tr("正在读取 Claude 的置顶对话…", "Reading Claude's pinned chats…")
+    /// What the left column is reading, when it last did and when it will next: a heading and a line per app.
+    private func pinStatus() -> (title: String, lines: [String]) {
+        let now = Date()
+        func ago(_ d: Date) -> String {
+            let s = Int(now.timeIntervalSince(d))
+            return s < 5 ? tr("刚刚读过", "read just now") : s < 60 ? tr("\(s) 秒前读过", "read \(s)s ago") : tr("\(s / 60) 分钟前读过", "read \(s / 60) min ago")
         }
+        func next(_ d: Date?) -> String {
+            guard let d = d else { return "" }
+            return tr("，\(max(0, Int(d.timeIntervalSince(now)))) 秒后再读（有变化会马上读）", " · next read in \(max(0, Int(d.timeIntervalSince(now))))s (sooner if something changes)")
+        }
+        var reading = false
+        var lines: [String] = []
+        let claudePins = store.chats.filter { !$0.outsideClaude && $0.pinned == true }.count
+        switch sidebar.status {
+        case .noAccess: lines.append(tr("Claude：要先开「辅助功能」权限才能读（见顶部「待办」）", "Claude: can't read it until Accessibility is on (see To-do at the top)"))
+        case .noApp: lines.append(tr("Claude：App 没打开，打开后会自动开始读", "Claude: the app is closed; reading starts when it opens"))
+        case .starting:
+            reading = true
+            lines.append(tr("Claude：正在连接…", "Claude: connecting…"))
+        case .ok:
+            if let i = sidebar.syncIssue {
+                lines.append(tr("Claude：暂停，", "Claude: paused, ") + i.note)
+            } else if let d = sidebar.lastSync {
+                lines.append(tr("Claude：置顶 \(claudePins) 个，", "Claude: \(claudePins) pinned · ") + ago(d) + next(sidebar.nextRead))
+            } else {
+                reading = true
+                lines.append(tr("Claude：正在读侧边栏…", "Claude: reading the sidebar…"))
+            }
+        }
+        if !GPTWatcher.enabled {
+            lines.append(tr("ChatGPT：已关闭（设置 → 授权）", "ChatGPT: off (Settings → Access)"))
+        } else if !GPTWatcher.available {
+            lines.append(tr("ChatGPT：这台 Mac 上没找到 ChatGPT 桌面 App", "ChatGPT: the desktop app isn't on this Mac"))
+        } else if let d = gpt.lastRead {
+            let n = store.chats.filter { $0.isGPT && $0.pinned == true }.count
+            lines.append(tr("ChatGPT：置顶 \(n) 个，", "ChatGPT: \(n) pinned · ") + ago(d) + next(gpt.nextRead))
+        } else {
+            reading = true
+            lines.append(tr("ChatGPT：正在读…", "ChatGPT: reading…"))
+        }
+        let gptOn = GPTWatcher.enabled && GPTWatcher.available
+        let title = reading ? tr("正在读取置顶…", "Reading your pins…")
+            : tr("没有找到置顶对话", "No pinned chats found")
+        if !reading && store.pinnedList().isEmpty {
+            lines.append(gptOn ? tr("在 Claude 或 ChatGPT 里置顶一个对话，它就会出现在这里。", "Pin a chat in Claude or ChatGPT and it shows up here.")
+                               : tr("在 Claude 里置顶一个对话，它就会出现在这里。", "Pin a chat in Claude and it shows up here."))
+        }
+        return (title, lines)
+    }
+
+    /// Reads everything again now (⟳ in the top bar, ⌘R): Claude's sidebar and notifications, ChatGPT, usage.
+    func refreshAll() {
+        notifications.check()
+        sidebar.attach()
+        sidebar.schedule(0)
+        if GPTWatcher.enabled { gpt.read() }
+        usage.refreshNow()
+        widget.update()
+        refreshUI()
+    }
+
+    /// What's left to do, each with what it affects until it's done (the ▸ To-do in the top bar and the menu).
+    func todos() -> [Todo] {
+        var out: [Todo] = []
+        let access: () -> Void = { [weak self] in self?.settings.show(tab: 2) }
+        if sidebar.status == .noAccess {
+            out.append(Todo(id: "accessibility", title: tr("给 Kikumap 开「辅助功能」权限", "Turn on Accessibility for Kikumap"),
+                            impact: tr("在那之前读不到 Claude App 里的置顶、进行中和未读。ChatGPT 和 Claude Code 不受影响。",
+                                       "Until then, Claude app chats have no pins, running or unread. ChatGPT and Claude Code aren't affected."),
+                            action: (tr("去开启", "Turn on"), access)))
+        }
+        if notifications.status == .noAccess {
+            out.append(Todo(id: "full-disk", title: tr("给 Kikumap 开「完全磁盘访问」权限", "Turn on Full Disk Access for Kikumap"),
+                            impact: tr("在那之前，Claude App 里的对话做完或等你批准时没有提示音和提醒。其他都正常。",
+                                       "Until then, no sound or alert when a Claude app chat finishes or needs you. Everything else works."),
+                            action: (tr("去开启", "Turn on"), access)))
+        }
+        if sidebar.status == .noApp {
+            out.append(Todo(id: "claude-closed", title: tr("打开 Claude App", "Open the Claude app"),
+                            impact: tr("关着时，Claude App 里对话的进行中、未读和置顶都停在上次读到的样子。ChatGPT 和 Claude Code 不受影响。",
+                                       "While it's closed, running, unread and pins for Claude app chats stay as last read. ChatGPT and Claude Code aren't affected."),
+                            action: (tr("打开 Claude", "Open Claude"), {
+                                if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
+                                    NSWorkspace.shared.openApplication(at: u, configuration: .init())
+                                }
+                            })))
+        } else if sidebar.status == .ok, let i = sidebar.syncIssue {
+            out.append(Todo(id: "sync-\(i)", title: i.note, impact: i.help, action: nil))
+        }
+        if UsageMonitor.enabled {
+            let none = tr("在那之前，菜单、窗口和小组件里没有 Claude 的用量。", "Until then, no Claude usage in the menu, the window or the widget.")
+            let again: (String, () -> Void) = (tr("重新读取", "Read again"), { [weak self] in self?.usage.reconnect() })
+            switch usage.status {
+            case .noLogin:
+                out.append(Todo(id: "usage-login", title: tr("用量要 Claude Code 登录", "Usage needs Claude Code signed in"),
+                                impact: tr("用量来自 Claude Pro 或 Max 套餐：在终端运行 claude，输入 /login 登录。免费套餐没有用量可看，忽略这条就好。\n",
+                                           "Usage comes with a Claude Pro or Max plan: run claude in Terminal and type /login. The Free plan has no usage to show, so just ignore this.\n") + none,
+                                action: again))
+            case .noScope:
+                out.append(Todo(id: "usage-scope", title: usage.hint,
+                                impact: tr("在终端运行 claude，输入 /login 重新登录一次。\n", "Run claude in Terminal and type /login again.\n") + none, action: again))
+            case .expired:
+                out.append(Todo(id: "usage-expired", title: usage.hint, impact: none, action: again))
+            case .denied:
+                out.append(Todo(id: "usage-denied", title: usage.hint,
+                                impact: tr("点「重新读取」，macOS 问的时候选「始终允许」。\n", "Click Read again and choose Always Allow when macOS asks.\n") + none, action: again))
+            default: break
+            }
+        }
+        return out
     }
 
     /// Language or shortcut changed: refresh every fixed label.
@@ -497,6 +596,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showExport() { exportWin.show() }
     @objc private func showMap() { main.show() }
     @objc private func showStats() { stats.show() }
+    @objc private func refreshFromMenu() { refreshAll() }
 
     /// kikumap://chat/<id>, kikumap://map, kikumap://stats (the desktop widget's links).
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -541,6 +641,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let tl = view.addItem(withTitle: tr("显示 / 隐藏时间线", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
         tl.keyEquivalentModifierMask = [.control, .command]
         view.addItem(withTitle: tr("统计…", "Statistics…"), action: #selector(showStats), keyEquivalent: "y")
+        view.addItem(withTitle: tr("刷新", "Refresh"), action: #selector(refreshFromMenu), keyEquivalent: "r")
         view.addItem(.separator())
         view.addItem(withTitle: tr("放大", "Bigger"), action: #selector(bigger), keyEquivalent: "+")
         view.addItem(withTitle: tr("缩小", "Smaller"), action: #selector(smaller), keyEquivalent: "-")

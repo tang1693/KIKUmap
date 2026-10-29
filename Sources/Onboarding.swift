@@ -192,8 +192,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         case .usage:
             permissionPage(step: 3, symbol: "gauge.with.dots.needle.50percent",
                            title: tr("第 3 步：用量（可选）", "Step 3: Usage (optional)"),
-                           body: tr("想在菜单里看到套餐用量和计划任务，可以借用 Claude Code 存在钥匙串里的登录：只读取，不修改、不保存，只发给 api.anthropic.com。\nKikumap 和 Claude Code 用同一种方式读取，macOS 一般不会问；如果问了，请选「始终允许」。不需要就直接下一步，以后也能在设置里开。",
-                                    "To see your plan usage and scheduled tasks in the menu, Kikumap can borrow the sign-in Claude Code keeps in the Keychain: read-only, never saved, sent only to api.anthropic.com.\nIt's read the same way Claude Code reads it, so macOS usually doesn't ask; if it does, choose \"Always Allow\". Don't need it? Just go on; you can turn it on later in Settings."),
+                           body: tr("想在菜单里看到套餐用量和计划任务（需要 Claude Pro 或 Max 套餐，免费套餐没有用量可看），可以借用 Claude Code 存在钥匙串里的登录：只读取，不修改、不保存，只发给 api.anthropic.com。\nKikumap 和 Claude Code 用同一种方式读取，macOS 一般不会问；如果问了，请选「始终允许」。不需要就直接下一步，以后也能在设置里开。",
+                                    "To see your plan usage and scheduled tasks in the menu (Claude Pro or Max; the Free plan has no usage to show), Kikumap can borrow the sign-in Claude Code keeps in the Keychain: read-only, never saved, sent only to api.anthropic.com.\nIt's read the same way Claude Code reads it, so macOS usually doesn't ask; if it does, choose \"Always Allow\". Don't need it? Just go on; you can turn it on later in Settings."),
                            action: tr("连接", "Connect"),
                            check: { [perms] in perms.usageOK }, run: { [perms] in perms.connectUsage(explained: true) })
         case .code:

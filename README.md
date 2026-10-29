@@ -234,6 +234,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | hold space, two-finger swipe | move around the map (a quick tap on space opens the chat) |
 | ⌃⌘S / ⌃⌘T | show or hide the left column / the timeline |
 | ⌘Y | statistics |
+| ⌘R, ⟳ | refresh: read Claude, ChatGPT and usage again now |
 | ⌘A, ⌫ | select everything; delete what's selected |
 | ⌘Z / ⇧⌘Z | undo / redo |
 | ⌘F | search |
@@ -274,7 +275,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 <details>
 <summary><b>Something isn't showing</b></summary>
 
-- **Hover the status in the top bar**: it says what's holding things up (Claude's sidebar hidden, its Pinned section folded, Code mode, the window closed…), what still works, and what to do.
+- **▸ To-do in the top bar** lists what's left to do (a permission, opening Claude, signing in for usage…), what each one affects until it's done, and a button that does it. Ignore any you don't need; they stay out of the way until you ask for them back. The empty left column also says what it's reading, when it last did and when it reads next.
 - **Something doesn't work:** Settings → Access → *Diagnostic report* writes `kikumap-check.txt`: what Kikumap can see on this Mac and how it reads Claude's sidebar. It has no chat titles, messages or passwords, so you can attach it to an issue.
 - **Nothing shows as running:** open the Claude app's sidebar, then write the diagnostic report.
 - **Access shows as off but it's on in System Settings:** remove Kikumap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.

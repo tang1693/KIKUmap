@@ -56,10 +56,13 @@ final class GPTWatcher {
         set { UserDefaults.standard.set(newValue, forKey: "ChatGPTOn") }
     }
 
-    /// The threads, and the ones ChatGPT shows as unread (nil when its window state can't be read).
-    var onThreads: (([GPTThread], Set<String>?) -> Void)?
+    /// The threads, the ones ChatGPT shows as unread (nil when it doesn't say), and whether its pins were read.
+    var onThreads: (([GPTThread], Set<String>?, Bool) -> Void)?
     /// Plan usage as of the latest answer (nil until one is found).
     private(set) var usage: GPTUsage?
+    /// When its files were last read, and when they will be next at the latest (also whenever they change).
+    private(set) var lastRead: Date?
+    var nextRead: Date? { timer?.fireDate }
     private var watcher: FileWatcher?
     private var timer: Timer?
     private var cache = Cache()
@@ -79,6 +82,8 @@ final class GPTWatcher {
         var unread: Set<String>?
         var pins = Pins()
         var chats: [GPTThread] = []
+        /// The file was read: what's pinned is known (an empty list means nothing is pinned).
+        var read = false
     }
 
     /// What's pinned in ChatGPT's sidebar, in its order: threads one by one, then projects (folders) with the
@@ -136,8 +141,9 @@ final class GPTWatcher {
                     self.pending = false
                     guard self.watcher != nil else { return }          // turned off meanwhile
                     self.cache = c
+                    self.lastRead = Date()
                     if let u = usage { self.usage = u }
-                    if let t = found?.threads { self.onThreads?(t + window.chats, window.unread) }
+                    if let t = found?.threads { self.onThreads?(t + window.chats, window.unread, window.read) }
                 }
             }
         }
@@ -296,12 +302,13 @@ final class GPTWatcher {
         var w = Window(unread: nil, pins: cache?.window.pins ?? Pins(), chats: cache?.window.chats ?? [])
         if let data = FileManager.default.contents(atPath: path),
            let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            w.read = true
             if let state = o["electron-thread-read-state-v1"] as? [String: Any],
                let byAccount = state["unreadByIdentity"] as? [String: [String: [String]]] {
                 w.unread = Set(byAccount.values.flatMap { $0.values.joined() })
             }
-            if o["pinned-thread-ids"] != nil || o["pinned-project-ids"] != nil { w.pins = pins(o) }
-            if let chats = pinnedChats(o["electron-persisted-atom-state"] as? [String: Any] ?? [:]) { w.chats = chats }
+            w.pins = pins(o)
+            w.chats = pinnedChats(o["electron-persisted-atom-state"] as? [String: Any] ?? [:]) ?? []
         }
         cache = (stamp, w)
         return w

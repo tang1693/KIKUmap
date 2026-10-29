@@ -302,11 +302,8 @@ struct KikumapWidgetView: View {
 
     @ViewBuilder
     private func meters(_ s: WidgetState, labelWidth: CGFloat?, compact: Bool, limit: Int) -> some View {
-        if s.usageOff || s.meters.isEmpty {
-            Text(s.usageOff ? t("用量未开启", "Usage off") : t("用量读取中…", "Usage loading…"))
-                .font(.system(size: 10)).foregroundStyle(Color.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
+        // no usage (off, the Free plan, or not read yet): nothing, rather than a note about it
+        if !s.usageOff && !s.meters.isEmpty {
             let list = shown(s, limit: limit), tag = tagged(s)
             VStack(alignment: .leading, spacing: compact ? 4 : 5) {
                 ForEach(list.indices, id: \.self) { i in

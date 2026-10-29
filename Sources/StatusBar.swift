@@ -98,15 +98,14 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var diagnose: (() -> Void)?
     /// Usage is off until you say yes: this explains it and asks.
     var enableUsage: (() -> Void)?
-    var permissionsNeeded: (() -> Bool)?
-    var openPermissions: (() -> Void)?
     var openRoutines: (() -> Void)?
     var openSettings: (() -> Void)?
     var openAbout: (() -> Void)?
     var openStats: (() -> Void)?
-    var syncNote: (() -> String?)?
-    /// What the sync note means and what to do (shown on hover).
-    var syncHelp: (() -> String?)?
+    var refreshAll: (() -> Void)?
+    /// What's left to do (the menu lists the ones not ignored); `todosChanged` after one is ignored.
+    var todos: (() -> [Todo])?
+    var todosChanged: (() -> Void)?
     private var spin: Timer?
     private var phase: CGFloat = 0
     private var appearanceWatch: NSKeyValueObservation?
@@ -235,11 +234,37 @@ final class StatusBar: NSObject, NSMenuDelegate {
             }
             if list.count > 15 { header(tr("　还有 \(list.count - 15) 个…", "　\(list.count - 15) more…")) }
         }
-        if let n = syncNote?() {
-            // clickable, so the explanation is a click away (tool tips don't show on disabled items)
-            let w = menu.addItem(withTitle: "⚠︎ " + n, action: #selector(explainSync), keyEquivalent: "")
-            w.target = self
-            w.toolTip = syncHelp?()
+        // first, the map
+        let open = menu.addItem(withTitle: tr("打开导图", "Open map") + (Prefs.hotKeyEnabled ? "   " + Prefs.hotKeyLabel() : ""),
+                                action: #selector(openMap), keyEquivalent: "")
+        open.target = self
+        menu.addItem(.separator())
+        let todo = Todos.open(todos?() ?? [])
+        if !todo.isEmpty {
+            // one line; each to-do opens to what it affects, a button that does it, and Ignore
+            let t = menu.addItem(withTitle: "▸ " + tr("待办 · \(todo.count)", "To-do · \(todo.count)"), action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            for d in todo {
+                let m = NSMenu()
+                let note = NSTextField(wrappingLabelWithString: d.impact)
+                note.font = Theme.ui(11.5)
+                note.textColor = .secondaryLabelColor
+                note.preferredMaxLayoutWidth = 300
+                note.setFrameSize(NSSize(width: 300, height: note.fittingSize.height))
+                let box = NSView(frame: NSRect(x: 0, y: 0, width: 330, height: note.frame.height + 8))
+                note.setFrameOrigin(NSPoint(x: 15, y: 4))
+                box.addSubview(note)
+                let info = NSMenuItem()
+                info.view = box
+                m.addItem(info)
+                m.addItem(.separator())
+                if let a = d.action { m.addItem(MenuAction(title: a.title) { a.run() }) }
+                m.addItem(MenuAction(title: tr("忽略（可在窗口顶部的「待办」里恢复）", "Ignore (bring it back from To-do at the top of the window)")) { [weak self] in
+                    Todos.ignore(d.id, true); self?.todosChanged?()
+                })
+                sub.addItem(withTitle: d.title, action: nil, keyEquivalent: "").submenu = m
+            }
+            t.submenu = sub
             menu.addItem(.separator())
         }
         let run = store.runningChats, unread = store.unreadChats
@@ -278,6 +303,9 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         let statsItem = menu.addItem(withTitle: tr("统计…", "Statistics…"), action: #selector(stats), keyEquivalent: "")
         statsItem.target = self
+        let refresh = menu.addItem(withTitle: tr("刷新", "Refresh"), action: #selector(refreshNow), keyEquivalent: "r")
+        refresh.target = self
+        refresh.toolTip = tr("马上重新读 Claude、ChatGPT 和用量", "Read Claude, ChatGPT and usage again now")
         menu.addItem(.separator())
 
         let next = TimelineView.upcoming(usage.routines)
@@ -295,7 +323,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
         header(tr("用量", "Usage"))
         if !UsageMonitor.enabled {
-            let on = menu.addItem(withTitle: tr("显示用量和计划任务…", "Show usage and scheduled tasks…"), action: #selector(turnOnUsage), keyEquivalent: "")
+            let on = menu.addItem(withTitle: tr("显示用量和计划任务（Pro / Max）…", "Show usage and scheduled tasks (Pro / Max)…"), action: #selector(turnOnUsage), keyEquivalent: "")
             on.target = self
         } else if usage.session != nil || usage.weekly != nil {
             let v = UsageMenuView(rows: [(tr("当前会话", "Current session"), usage.session), (tr("本周", "This week"), usage.weekly)])
@@ -304,29 +332,15 @@ final class StatusBar: NSObject, NSMenuDelegate {
             menu.addItem(it)
         }
         if usage.status != .ok && usage.status != .unknown {
-            header("　" + usage.hint)
-            switch usage.status {
-            case .noLogin, .noScope:
-                header(tr("　在终端运行 claude，输入 /login，选 Claude 账号", "　Run claude in Terminal, type /login, pick your Claude account"))
-            default: break
-            }
-            let r = menu.addItem(withTitle: tr("重新读取用量", "Read usage again"), action: #selector(retryUsage), keyEquivalent: "")
-            r.target = self
+            header(tr("　没有用量数据（见「待办」）", "　No usage to show (see To-do)"))
         } else if usage.status == .unknown && UsageMonitor.enabled {
             header(tr("　读取中…", "　Reading…"))
         }
         menu.addItem(.separator())
 
-        let open = menu.addItem(withTitle: tr("打开导图", "Open map") + (Prefs.hotKeyEnabled ? "   " + Prefs.hotKeyLabel() : ""),
-                                action: #selector(openMap), keyEquivalent: "")
-        open.target = self
         let all = menu.addItem(withTitle: tr("全部标为已读", "Mark all as read"), action: #selector(markAll), keyEquivalent: "")
         all.target = self
         all.isEnabled = !unread.isEmpty
-        if permissionsNeeded?() == true {
-            let p = menu.addItem(withTitle: tr("开启权限…", "Grant access…"), action: #selector(perms), keyEquivalent: "")
-            p.target = self
-        }
         let st = menu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(settings), keyEquivalent: ",")
         st.target = self
         let ab = menu.addItem(withTitle: tr("关于 Kikumap", "About Kikumap"), action: #selector(about), keyEquivalent: "")
@@ -338,10 +352,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     @objc private func settings() { openSettings?() }
     @objc private func about() { openAbout?() }
     @objc private func stats() { openStats?() }
-    @objc private func explainSync() {
-        guard let n = syncNote?(), let help = syncHelp?() else { return }
-        Permissions.alert(n, help)
-    }
+    @objc private func refreshNow() { refreshAll?() }
 
     @objc private func openItem(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }
@@ -362,9 +373,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         return img
     }
     @objc private func markAll() { store.markAllSeen() }
-    @objc private func retryUsage() { usage.reconnect() }
     @objc private func turnOnUsage() { enableUsage?() }
-    @objc private func perms() { openPermissions?() }
     @objc private func diag() { diagnose?() }
     func relabel() { update() }
 }

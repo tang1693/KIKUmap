@@ -527,7 +527,9 @@ enum AXScan {
 
     /// Every link to a chat in the Claude app's windows.
     /// Every chat in the Claude app's sidebar. `note` says why syncing can't work right now (nil = fine).
-    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:]) -> (links: [AXLink], dump: String, issue: SyncIssue?) {
+    /// `noPins`: the chat list was read whole and has no Pinned section (the last pin was removed, or every chat
+    /// deleted), so nothing is pinned any more.
+    static func scan(pid: pid_t, wantDump: Bool, known: [String: String] = [:]) -> (links: [AXLink], dump: String, issue: SyncIssue?, noPins: Bool) {
         var issue: SyncIssue?
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 3.0)
@@ -536,6 +538,7 @@ enum AXScan {
         var out: [AXLink] = []
         var seen = Set<String>()
         var allWebs: [AXUIElement] = [], sidebars: [AXUIElement] = []
+        var noPins: Bool?
         var titles = Set(known.keys)            // left out of the log
         // Electron builds its accessibility tree only after AXManualAccessibility is set — give it a moment
         var winErr = AXError.success
@@ -646,6 +649,10 @@ enum AXScan {
                 } else if headings.contains(where: { pinnedHeadings.contains($0) }) && !rows.contains(where: { $0.pinned }) {
                     issue = .pinsCollapsed
                 }
+                // no "Pinned" heading, and the chats all under headings of one depth (the date groups): no pins
+                let none = !codeMode && !headings.contains(where: { pinnedHeadings.contains($0) }) && !rows.contains(where: { $0.pinned })
+                    && Set(rows.map(\.section.depth)).count <= 1
+                noPins = (noPins ?? true) && none
                 if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · open chat '\(short(openTitle, 60))' \(openID ?? "-")\n" }
                 for r in rows {
                     titles.insert(r.title)
@@ -678,7 +685,7 @@ enum AXScan {
         if issue == nil && !foundSidebar && !windows.isEmpty { issue = .sidebarHidden }
         if wantDump, let n = issue { dump = "# Sync problem: \(n.note)\n" + dump }
         if wantDump { dump = redact(dump, titles: titles) }
-        return (out, dump, issue)
+        return (out, dump, issue, issue == nil && noPins == true)
     }
 
     /// The log without chat titles (each becomes ‹title›), so it can be sent to someone.
@@ -709,7 +716,10 @@ private func axObserverCallback(_ observer: AXObserver, _ element: AXUIElement, 
 final class SidebarWatcher: NSObject {
     enum Status { case starting, ok, noAccess, noApp }
     private(set) var status = Status.starting
-    var onScan: (([AXLink]) -> Void)?
+    /// The chats read, and whether nothing is pinned any more (seen twice in a row, so a list still loading
+    /// doesn't count).
+    var onScan: (([AXLink], Bool) -> Void)?
+    private var noPinsSeen = 0
     var onQuit: (() -> Void)?
     var onStatus: (() -> Void)?
     private let store: Store
@@ -724,6 +734,10 @@ final class SidebarWatcher: NSObject {
     private var fallback: Timer?
     /// When the sidebar was last read cleanly, and what's stopping it otherwise.
     private(set) var lastSync: Date?
+    /// When the sidebar was last looked at, and when it will be next at the latest (it's also read the moment
+    /// Claude's window changes).
+    var lastRead: Date? { lastScan == .distantPast ? nil : lastScan }
+    var nextRead: Date? { pid == 0 ? nil : fallback?.fireDate }
     private(set) var syncIssue: SyncIssue?
     var syncNote: String? { syncIssue?.note }
 
@@ -850,7 +864,8 @@ final class SidebarWatcher: NSObject {
                         self.dumpDone = []
                         for f in waiting { f(head + r.dump) }
                     }
-                    self.onScan?(r.links)
+                    self.noPinsSeen = r.noPins ? self.noPinsSeen + 1 : 0
+                    self.onScan?(r.links, self.noPinsSeen >= 2)
                 }
             }
         }

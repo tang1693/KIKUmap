@@ -510,7 +510,8 @@ final class Store {
     // MARK: ChatGPT
 
     /// The ChatGPT app's threads, read from ~/.codex. Returns sounds to play. Pins follow ChatGPT's.
-    func apply(gpt threads: [GPTThread], unread: Set<String>?, front: Bool) -> [Event] {
+    /// `pinsRead`: ChatGPT's window state, where it keeps its pins, was read (so a pin missing from it is gone).
+    func apply(gpt threads: [GPTThread], unread: Set<String>?, pinsRead: Bool = true, front: Bool) -> [Event] {
         var events: [Event] = []
         var changed = false, seenChanged = false, dotsChanged = false
         let now = Clock.iso()
@@ -552,9 +553,8 @@ final class Store {
         // archived or gone from the list: no longer running
         let listed = Set(threads.map { "gpt-" + $0.id })
         for id in running where id.hasPrefix("gpt-") && !listed.contains(id) { running.remove(id); changed = true }
-        // unpinned in ChatGPT and no longer listed (older, or archived): no longer pinned here either
-        // (only when its window state, where it keeps the pins, could be read)
-        for i in chats.indices where unread != nil && chats[i].isGPT && chats[i].pinned == true && !listed.contains(chats[i].id) {
+        // unpinned or deleted in ChatGPT, so no longer listed: no longer pinned here either
+        for i in chats.indices where pinsRead && chats[i].isGPT && chats[i].pinned == true && !listed.contains(chats[i].id) {
             chats[i].pinned = nil; changed = true
         }
         // ChatGPT's own unread dots: one that appears there is unread here too, one read there is read here
@@ -626,9 +626,15 @@ final class Store {
     }
 
     /// The Claude app's sidebar was read: which chats run, which are unread, which one is open.
-    func apply(scan links: [AXLink], claudeFront: Bool) -> [Event] {
-        // An empty read means the sidebar is hidden or still loading, not that everything finished.
-        guard !links.isEmpty else { return [] }
+    func apply(scan links: [AXLink], claudeFront: Bool, noPins: Bool = false) -> [Event] {
+        // An empty read means the sidebar is hidden or still loading, not that everything finished; unless the
+        // list was read whole and is empty: every chat is gone, so nothing is pinned any more
+        guard !links.isEmpty else {
+            var changed = false
+            for i in chats.indices where noPins && !chats[i].outsideClaude && chats[i].pinned == true { chats[i].pinned = false; changed = true }
+            if changed { saveChats(); notify() }
+            return []
+        }
         let rules = loadRules()
         var nowRunning = Set<String>(), nowUnread = Set<String>()
         var current: String?
@@ -658,7 +664,7 @@ final class Store {
         }
         // pinned order, as in the Claude app
         let pinnedIDs = links.filter { $0.pinned == true }.map { $0.id }
-        if !pinnedIDs.isEmpty {
+        if !pinnedIDs.isEmpty || noPins {
             for (n, id) in pinnedIDs.enumerated() { if let i = index[id], chats[i].pinIndex != n { chats[i].pinIndex = n; changed = true } }
             // the Pinned section was read whole: anything else is no longer pinned (unpinned or deleted in Claude)
             let pinnedSet = Set(pinnedIDs)
