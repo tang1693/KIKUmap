@@ -56,7 +56,7 @@ One icon in the menu bar. The orange flower spins while a chat is running. A red
 
 **Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Experiment plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
-Works with the Claude desktop app, Claude Code (Terminal, VS Code, the app's Code mode) and, **new in 0.9.5**, the ChatGPT desktop app. Everything you pin in ChatGPT shows next to Claude's chats, marked **GPT**, in ChatGPT's order: pinned threads, the threads in pinned projects, and pinned chats. Running and unread follow ChatGPT's own dots (pinned chats on its chat side have no status: ChatGPT doesn't keep that on your Mac). Nothing to set up: Kikumap reads what ChatGPT keeps on your Mac.
+Works with the Claude desktop app, Claude Code (Terminal, VS Code, the app's Code mode) and, **new in 0.9.5**, the ChatGPT desktop app. Everything you pin in ChatGPT shows next to Claude's chats, marked **GPT**, in ChatGPT's order: pinned threads and the threads in pinned projects. Running and unread follow ChatGPT's own dots. Codex sessions in VS Code show like Claude Code sessions: while they run, while unread, and for 12 hours after. Nothing to set up: Kikumap reads what ChatGPT keeps on your Mac.
 
 </td>
 </tr>
@@ -185,9 +185,9 @@ The first time you open it, macOS says it can't check the app, because it isn't 
 
 1. Open **System Settings → Privacy & Security**.
 2. Scroll down and click **Open Anyway** next to Kikumap. (On macOS 13–14 you can also right-click the app → Open.)
-3. A short intro walks you through the permissions.
+3. A short intro asks for one permission, Accessibility, so Kikumap can look at the Claude app's chat list. Everything else is optional.
 
-In the Claude app, turn on **Response completions** (Settings → Notifications) and keep the sidebar open. ChatGPT needs nothing: Kikumap reads what its desktop app keeps on your Mac.
+Keep the Claude app's sidebar open. ChatGPT needs nothing: Kikumap reads what its desktop app keeps on your Mac.
 
 <details>
 <summary><b>Build from source</b></summary>
@@ -211,7 +211,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 
 | What it shows | Where it comes from | Permission |
 |---|---|---|
-| Finished / needs your input | The Claude app's notifications in Notification Center (read-only) | Full Disk Access |
+| Finished with Claude's window closed, needs your approval (optional) | The Claude app's notifications in Notification Center (read-only), with Response completions on in Claude → Settings → Notifications | Full Disk Access |
 | Running, unread, pinned chats | The Claude app's sidebar, through Accessibility | Accessibility |
 | Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
 | ChatGPT threads | What the ChatGPT desktop app keeps in `~/.codex`: its thread list and pins, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
@@ -261,9 +261,9 @@ No. Kikumap is an independent, open-source project. Claude is a trademark of Ant
 </details>
 
 <details>
-<summary><b>Why does it need Accessibility and Full Disk Access?</b></summary>
+<summary><b>Why does it need Accessibility?</b></summary>
 
-The Claude app has no API for "which chats are running". Kikumap reads the sidebar (Accessibility) and Claude's notifications (Notification Center's database, which needs Full Disk Access). Both are read-only. Nothing leaves your Mac.
+The Claude app has no API for "which chats are running", so Kikumap looks at its chat list, the way you would; macOS calls that Accessibility. It's the one permission Kikumap needs. Full Disk Access is optional: it lets Kikumap read Claude's notifications, so it also knows a chat finished while Claude's window was closed, and when Claude asks for your approval. Both are read-only. Nothing leaves your Mac.
 </details>
 
 <details>

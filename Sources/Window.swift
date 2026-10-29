@@ -79,6 +79,8 @@ final class HeaderView: NSView {
     var running = 0, unread = 0
     /// (label, percent, "今天 18:40 重置") — drawn as two stacked bars like claude.ai's Usage page.
     var meters: [(String, Double?, String)] = []
+    /// ChatGPT's, drawn as a column of their own next to Claude's (each marked when both are there).
+    var gptMeters: [(String, Double?, String)] = []
     var usageHint = ""
     var liveText = ""
     /// Shown on hovering `liveText`: what the status means, what it holds up, what to do.
@@ -209,19 +211,38 @@ final class HeaderView: NSView {
         }
         let small = Theme.ui(12)
         let limit = (todoBtn.isHidden ? (buttons.first?.frame.minX ?? (bounds.width - 90)) : todoBtn.frame.minX) - 12
-        let meterW: CGFloat = {
+        // Claude's usage, then ChatGPT's beside it: a column each, with its mark when both are there
+        let columns = [(meters, false), (gptMeters, true)].filter { !$0.0.isEmpty }
+        let marked = columns.count > 1
+        func columnW(_ ms: [(String, Double?, String)]) -> CGFloat {
             let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .bold)
-            let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
-            let tw = meters.map { ((($0.1.map { "\(Int($0.rounded()))%" } ?? "–") + "  " + $0.2) as String).size(pf).width }.max() ?? 0
-            return lw + 8 + 90 + 8 + ceil(tw)
-        }()
-        if !meters.isEmpty && x + meterW <= limit {
+            let lw = ceil(ms.map { $0.0.size(lf).width }.max() ?? 0)
+            let tw = ms.map { ((($0.1.map { "\(Int($0.rounded()))%" } ?? "–") + "  " + $0.2) as String).size(pf).width }.max() ?? 0
+            return (marked ? 22 : 0) + lw + 8 + 90 + 8 + ceil(tw)
+        }
+        var shownColumns: [([(String, Double?, String)], Bool)] = []
+        var used: CGFloat = 0
+        for c in columns {
+            let w = columnW(c.0) + (shownColumns.isEmpty ? 0 : 18)
+            guard x + used + w <= limit else { break }
+            shownColumns.append(c); used += w
+        }
+        for (meters, gpt) in shownColumns {
+            if marked {
+                if gpt {
+                    let img = GPTWatcher.mark(Theme.muted, height: 12)
+                    img.draw(in: NSRect(x: x, y: mid - 6, width: img.size.width, height: 12))
+                } else {
+                    Logo.draw(in: NSRect(x: x + 2, y: mid - 7, width: 14, height: 14), color: Theme.muted)
+                }
+                x += 22
+            }
             let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .medium)
             let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
             let barW: CGFloat = 90
             var maxW: CGFloat = 0
             for (i, m) in meters.enumerated() {
-                let cy = mid + (i == 0 ? -8 : 8)
+                let cy = meters.count == 1 ? mid : mid + (i == 0 ? -8 : 8)
                 let ls = m.0.size(lf)
                 (m.0 as NSString).draw(at: NSPoint(x: x, y: cy - ls.height / 2), withAttributes: [.font: lf, .foregroundColor: Theme.muted])
                 let bx = x + lw + 8
@@ -240,8 +261,9 @@ final class HeaderView: NSView {
                                      withAttributes: [.font: font, .foregroundColor: high ? Theme.ink : Theme.muted])
                 maxW = max(maxW, lw + 8 + barW + 8 + ts.width)
             }
-            x += maxW + 22
+            x += maxW + 18
         }
+        if !shownColumns.isEmpty { x += 4 }
         var liveRect: NSRect?
         for text in [usageHint, liveText] where !text.isEmpty {
             let s = text.size(small)
@@ -332,9 +354,7 @@ final class SidebarView: NSView, NSDraggingSource {
         (head as NSString).draw(at: NSPoint(x: 16, y: 14), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
         let n = String(rows.count)
         (n as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 15), withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
-        let gpt = GPTWatcher.enabled && GPTWatcher.available
-        (tr(gpt ? "Claude、ChatGPT 置顶 · 拖到画布上" : "和 Claude 的置顶同步 · 拖到画布上",
-            gpt ? "Pins from Claude & ChatGPT · drag to canvas" : "Synced with Claude's pins · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+        (tr("置顶对话 + 编辑器里的会话 · 拖到画布上", "Pins + editor sessions · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         if rows.isEmpty, let st = status?() {
             var y = top + 6
             let w = bounds.width - 36

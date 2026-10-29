@@ -534,8 +534,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let p = perms
         let rows = [
             row(tr("完全磁盘访问", "Full Disk Access"),
-                tr("读 macOS 通知中心里 Claude 的通知 → 知道哪个对话做完了、未读。只读，不上传。",
-                   "Reads Claude's notifications from Notification Center → knows which chat finished and is unread. Read-only, never uploaded."),
+                tr("可选。读 macOS 通知中心里 Claude 的通知 → Claude 窗口关着也知道哪个对话做完了，Claude 问「允许吗？」时也提醒你。只读，不上传。",
+                   "Optional. Reads Claude's notifications from Notification Center → knows a chat finished even with Claude's window closed, and when Claude asks \"Allow this?\". Read-only, never uploaded."),
                 tr("打开设置", "Open Settings"), { p.fullDisk }, { p.openFullDisk() }),
             row(tr("辅助功能", "Accessibility"),
                 tr("读 Claude App 侧边栏 → 知道哪些对话还在跑、你在 Claude 里看过哪个。",

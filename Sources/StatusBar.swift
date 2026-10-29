@@ -103,6 +103,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openAbout: (() -> Void)?
     var openStats: (() -> Void)?
     var refreshAll: (() -> Void)?
+    /// ChatGPT's usage windows, shown under Claude's.
+    var gptUsage: (() -> [(label: String, window: UsageMonitor.Window)])?
     /// What's left to do (the menu lists the ones not ignored); `todosChanged` after one is ignored.
     var todos: (() -> [Todo])?
     var todosChanged: (() -> Void)?
@@ -322,14 +324,20 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
 
         header(tr("用量", "Usage"))
-        if !UsageMonitor.enabled {
-            let on = menu.addItem(withTitle: tr("显示用量和计划任务（Pro / Max）…", "Show usage and scheduled tasks (Pro / Max)…"), action: #selector(turnOnUsage), keyEquivalent: "")
-            on.target = self
-        } else if usage.session != nil || usage.weekly != nil {
-            let v = UsageMenuView(rows: [(tr("当前会话", "Current session"), usage.session), (tr("本周", "This week"), usage.weekly)])
+        // Claude's, then ChatGPT's, in one list
+        var rows: [(String, UsageMonitor.Window?)] = []
+        if UsageMonitor.enabled && (usage.session != nil || usage.weekly != nil) {
+            rows += [(tr("当前会话", "Current session"), usage.session), (tr("本周", "This week"), usage.weekly)]
+        }
+        rows += (gptUsage?() ?? []).map { ("ChatGPT · " + $0.label, $0.window) }
+        if !rows.isEmpty {
             let it = NSMenuItem()
-            it.view = v
+            it.view = UsageMenuView(rows: rows)
             menu.addItem(it)
+        }
+        if !UsageMonitor.enabled {
+            let on = menu.addItem(withTitle: tr("显示 Claude 的用量和计划任务（Pro / Max）…", "Show Claude's usage and scheduled tasks (Pro / Max)…"), action: #selector(turnOnUsage), keyEquivalent: "")
+            on.target = self
         }
         if usage.status != .ok && usage.status != .unknown {
             header(tr("　没有用量数据（见「待办」）", "　No usage to show (see To-do)"))

@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var stats = StatsWindow(store: store)
     lazy var widget = WidgetFeed(store: store, usage: usage, gpt: gpt)
     private let todoList = TodoPopover()
+    private var shownGPTUsage: GPTUsage?
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
@@ -95,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.openStats = { [weak self] in self?.stats.show() }
         stats.onOpen = { [weak self] id in self?.open(id) }
         statusBar.refreshAll = { [weak self] in self?.refreshAll() }
+        statusBar.gptUsage = { [weak self] in self?.gptUsageRows() ?? [] }
         statusBar.todos = { [weak self] in self?.todos() ?? [] }
         statusBar.todosChanged = { [weak self] in self?.refreshUI() }
 
@@ -156,6 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let ev = self.store.apply(gpt: threads, unread: unread, pinsRead: pinsRead, front: front)
             self.sounds.play(ev)
             self.widget.update()                                   // ChatGPT's usage may have moved
+            if self.gpt.usage != self.shownGPTUsage { self.shownGPTUsage = self.gpt.usage; self.refreshUI() }
         }
         sidebar.onStatus = { [weak self] in self?.refreshUI() }
         usage.onChange = { [weak self] in self?.refreshUI() }
@@ -211,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             h.meters = []
         }
         h.usageHint = ""
+        h.gptMeters = gptUsageRows().map { ($0.label, $0.window.percent, Clock.resets($0.window.resets)) }
         let all = todos()
         h.todoCount = all.isEmpty ? nil : Todos.open(all).count
         h.liveText = archive.busy ? tr("正在存档 ", "Archiving ") + archive.progress + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone") : syncText()
@@ -333,6 +337,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         archive.importNotes(todo)
     }
 
+    /// ChatGPT's usage, shown like Claude's (a window past its reset starts again at zero).
+    func gptUsageRows() -> [(label: String, window: UsageMonitor.Window)] {
+        guard GPTWatcher.enabled && GPTWatcher.available, let u = gpt.usage else { return [] }
+        return u.windows.map { w in
+            let over = w.resets.map { $0 < Date() } ?? false
+            let label = w.minutes > 0 && w.minutes <= 1440 ? tr("会话", "Session") : tr("本周", "Week")
+            return (label, UsageMonitor.Window(percent: over ? 0 : w.percent, resets: over ? nil : w.resets))
+        }
+    }
+
     /// What the left column is reading, when it last did and when it will next: a heading and a line per app.
     private func pinStatus() -> (title: String, lines: [String]) {
         let now = Date()
@@ -374,6 +388,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reading = true
             lines.append(tr("ChatGPT：正在读…", "ChatGPT: reading…"))
         }
+        let sessions = store.pinnedList().filter { $0.isCode || $0.isCodexSession }.count
+        lines.append(tr("编辑器里的 Claude Code、Codex 会话：显示 \(sessions) 个（运行中、未读，或做完后 12 小时内）",
+                        "Claude Code and Codex sessions in editors: \(sessions) shown (while running or unread, and for 12 hours after)"))
         let gptOn = GPTWatcher.enabled && GPTWatcher.available
         let title = reading ? tr("正在读取置顶…", "Reading your pins…")
             : tr("没有找到置顶对话", "No pinned chats found")
@@ -405,22 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                        "Until then, Claude app chats have no pins, running or unread. ChatGPT and Claude Code aren't affected."),
                             action: (tr("去开启", "Turn on"), access)))
         }
-        if notifications.status == .noAccess {
-            out.append(Todo(id: "full-disk", title: tr("给 Kikumap 开「完全磁盘访问」权限", "Turn on Full Disk Access for Kikumap"),
-                            impact: tr("在那之前，Claude App 里的对话做完或等你批准时没有提示音和提醒。其他都正常。",
-                                       "Until then, no sound or alert when a Claude app chat finishes or needs you. Everything else works."),
-                            action: (tr("去开启", "Turn on"), access)))
-        }
-        if sidebar.status == .noApp {
-            out.append(Todo(id: "claude-closed", title: tr("打开 Claude App", "Open the Claude app"),
-                            impact: tr("关着时，Claude App 里对话的进行中、未读和置顶都停在上次读到的样子。ChatGPT 和 Claude Code 不受影响。",
-                                       "While it's closed, running, unread and pins for Claude app chats stay as last read. ChatGPT and Claude Code aren't affected."),
-                            action: (tr("打开 Claude", "Open Claude"), {
-                                if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
-                                    NSWorkspace.shared.openApplication(at: u, configuration: .init())
-                                }
-                            })))
-        } else if sidebar.status == .ok, let i = sidebar.syncIssue {
+        if sidebar.status == .ok, let i = sidebar.syncIssue {
             out.append(Todo(id: "sync-\(i)", title: i.note, impact: i.help, action: nil))
         }
         if UsageMonitor.enabled {
@@ -465,7 +467,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func open(_ id: String) {
         if let c = store.chat(id), c.isGPT {
             store.markSeen([id])
-            GPTWatcher.open(String(id.dropFirst(4)))
+            // a Codex session from VS Code opens its folder there, like a Claude Code session
+            if c.isCodexSession { openCode(c) } else { GPTWatcher.open(String(id.dropFirst(4))) }
             return
         }
         // a Claude Code session: bring up the app it runs in (VS Code opens its folder)

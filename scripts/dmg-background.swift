@@ -23,7 +23,6 @@ func draw() {
         .draw(in: NSRect(x: 0, y: 0, width: W, height: H), angle: -90)
 
     centred("Drag Kikumap into Applications", .systemFont(ofSize: 17, weight: .semibold), ink, top: 30)
-    centred("把 Kikumap 拖进「应用程序」", .systemFont(ofSize: 13), ink2, top: 56)
 
     // the arrow, between the two icons (their edges are at x 204 and 356)
     let cy = y(165)

@@ -538,6 +538,8 @@ enum AXScan {
         var out: [AXLink] = []
         var seen = Set<String>()
         var allWebs: [AXUIElement] = [], sidebars: [AXUIElement] = []
+        // links to chats anywhere in the window: older Claude apps listed chats this way; now only a fallback
+        var linkOut: [AXLink] = [], linkSeen = Set<String>()
         var noPins: Bool?
         var titles = Set(known.keys)            // left out of the log
         // Electron builds its accessibility tree only after AXManualAccessibility is set — give it a moment
@@ -591,12 +593,12 @@ enum AXScan {
                 for l in links {
                     let url = str(l, "AXURL")
                     let ns = url as NSString
-                    // only links to chats — a UUID inside some web page a chat cites doesn't count
-                    guard url.contains("claude.ai/chat/") || url.contains("claude.ai/code/"),
+                    // only links to chats — a UUID inside some web page a chat cites, or an artifact, doesn't count
+                    guard url.contains("claude.ai/chat/") || url.contains("claude.ai/code/"), !url.contains("/artifact"),
                           let m = uuidRx.firstMatch(in: url, range: NSRange(location: 0, length: ns.length)) else { continue }
                     let id = ns.substring(with: m.range).lowercased()
-                    if seen.contains(id) { continue }
-                    seen.insert(id)
+                    if linkSeen.contains(id) { continue }
+                    linkSeen.insert(id)
                     let path = URL(string: url)?.path ?? ""
                     let title = linkText(l)
                     titles.insert(title)
@@ -604,7 +606,7 @@ enum AXScan {
                     if let parent = element(attr(l, "AXParent")), children(parent).count <= 6 {
                         flags += " || parent: " + describe(parent, limit: 50)
                     }
-                    out.append(AXLink(id: id, path: path, title: title, flags: flags))
+                    linkOut.append(AXLink(id: id, path: path, title: title, flags: flags))
                     if wantDump { dump += "LINK \(path)\n  title=\(short(title, 80))\n  flags=\(flags)\n" }
                 }
             }
@@ -614,9 +616,9 @@ enum AXScan {
         if windows.isEmpty {
             issue = winErr == .apiDisabled ? .accessOff : .noWindow
         }
-        // newer Claude apps: the sidebar has no links, read its rows instead
-        var foundSidebar = !out.isEmpty
-        if out.isEmpty && !windows.isEmpty {
+        // the sidebar's chat list first, always (links in the page, to an artifact say, mustn't hide it)
+        var foundSidebar = false
+        if !windows.isEmpty {
             for web in allWebs {
                 guard let sb = sidebar(in: web) else { continue }
                 foundSidebar = true
@@ -666,6 +668,12 @@ enum AXScan {
                     if wantDump { dump += "ROW \(r.pinned ? "📌 " : "")\(short(r.title, 70))  →  \(id)\n  flags=\(flags)\n" }
                 }
             }
+        }
+        // no chat list to read: chat links (older Claude apps), then known titles
+        if out.isEmpty && !linkOut.isEmpty {
+            out = linkOut
+            seen = linkSeen
+            foundSidebar = true
         }
         if out.isEmpty && !known.isEmpty {
             for web in allWebs { byTitle(web, known: known, into: &out, seen: &seen) }

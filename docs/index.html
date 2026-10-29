@@ -423,10 +423,10 @@
       <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量，而且只在你开启用量功能之后；ChatGPT 的用量从它自己的文件里读。不用注册，没有统计追踪。也不会突然弹窗：每个系统授权弹窗，都会先告诉你要做什么，你点了同意才出现。</p>
       <div class="perms">
         <div class="perm">
-          <b lang="en">Finished, or needs your input</b><b lang="zh">做完了、等你回复</b>
-          <p lang="en">Read from the Claude app's notifications in Notification Center, read-only.</p>
-          <p lang="zh">只读通知中心里 Claude 的通知。</p>
-          <span class="tag"><span lang="en">Full Disk Access</span><span lang="zh">完全磁盘访问</span></span>
+          <b lang="en">Finished with Claude's window closed, needs your approval</b><b lang="zh">窗口关着也知道做完了、等你批准</b>
+          <p lang="en">Optional. Read from the Claude app's notifications in Notification Center, read-only.</p>
+          <p lang="zh">可选。只读通知中心里 Claude 的通知。</p>
+          <span class="tag"><span lang="en">Full Disk Access (optional)</span><span lang="zh">完全磁盘访问（可选）</span></span>
         </div>
         <div class="perm">
           <b lang="en">Running, unread and pinned chats</b><b lang="zh">在跑、未读、置顶的对话</b>
@@ -500,8 +500,8 @@
         </details>
         <details>
           <summary><span lang="en">Does it work with ChatGPT?</span><span lang="zh">支持 ChatGPT 吗？</span></summary>
-          <p lang="en">Yes, from 0.9.5: the current ChatGPT desktop app (the one built on Codex). Everything you pin in ChatGPT (threads, the threads in pinned projects, pinned chats) shows next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them (pinned chats on its chat side have no status); they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Kikumap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
-          <p lang="zh">支持，0.9.5 起：新版 ChatGPT 桌面 App（Codex 内核）。你在 ChatGPT 里置顶的东西（对话、置顶项目里的对话、置顶的聊天）都会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致（聊天那边置顶的没有状态）；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。Kikumap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
+          <p lang="en">Yes, from 0.9.5: the current ChatGPT desktop app (the one built on Codex). Everything you pin in ChatGPT (threads, and the threads in pinned projects) shows next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them; Codex sessions in VS Code show like Claude Code sessions, while they run and for 12 hours after; they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Kikumap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
+          <p lang="zh">支持，0.9.5 起：新版 ChatGPT 桌面 App（Codex 内核）。你在 ChatGPT 里置顶的东西（对话、置顶项目里的对话）都会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致；VS Code 里的 Codex 会话和 Claude Code 会话一样，运行中和做完后 12 小时内显示；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。Kikumap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>

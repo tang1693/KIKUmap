@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/5bdd2a3f-29c6-4097-bbca-b5061c95526d
 
 **听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“实验计划做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
 
-支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 **0.9.5 新增的** ChatGPT 桌面 App。你在 ChatGPT 里置顶的东西都会和 Claude 的对话放在一起，前面标着 **GPT**，顺序和 ChatGPT 一样：置顶的对话、置顶项目里的对话、置顶的聊天。进行中、未读跟 ChatGPT 自己的小圆点一致（聊天那边置顶的没有状态：ChatGPT 不把这些存在你的 Mac 上）。不用任何设置：Kikumap 读 ChatGPT 存在你 Mac 上的内容。
+支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 **0.9.5 新增的** ChatGPT 桌面 App。你在 ChatGPT 里置顶的东西都会和 Claude 的对话放在一起，前面标着 **GPT**，顺序和 ChatGPT 一样：置顶的对话和置顶项目里的对话。进行中、未读跟 ChatGPT 自己的小圆点一致。VS Code 里的 Codex 会话和 Claude Code 会话一样显示：运行中、未读，以及做完后 12 小时内。不用任何设置：Kikumap 读 ChatGPT 存在你 Mac 上的内容。
 
 </td>
 </tr>
@@ -185,9 +185,9 @@ Claude 和 ChatGPT 干了多久，按对话分段；每根柱子可以是 1、3�
 
 1. 打开 **系统设置 → 隐私与安全性**。
 2. 往下滑，在 Kikumap 旁边点 **仍要打开**。（macOS 13–14 也可以右键应用 → 打开。）
-3. 接下来有个简短的引导，一步步开权限。
+3. 接下来的简短引导只要你开一个权限：「辅助功能」，让 Kikumap 能看 Claude App 的对话列表。其他都是可选的。
 
-在 Claude App 里打开 **Response completions**（设置 → 通知），并保持侧边栏展开。ChatGPT 不用设置：Kikumap 读它的桌面 App 存在你 Mac 上的内容。
+保持 Claude App 的侧边栏展开。ChatGPT 不用设置：Kikumap 读它的桌面 App 存在你 Mac 上的内容。
 
 <details>
 <summary><b>从源码编译</b></summary>
@@ -211,7 +211,7 @@ open Install.command        # 或者在 Finder 里双击它
 
 | 显示什么 | 从哪里来 | 权限 |
 |---|---|---|
-| 做完了 / 等你回复 | 通知中心里 Claude 的通知（只读） | 完全磁盘访问 |
+| Claude 窗口关着时也知道做完了、等你批准（可选） | 通知中心里 Claude 的通知（只读），需在 Claude → 设置 → 通知 里打开 Response completions | 完全磁盘访问 |
 | 进行中、未读、置顶对话 | 通过「辅助功能」读 Claude 的侧边栏 | 辅助功能 |
 | Claude Code 会话 | 点「连接」时写进 `~/.claude/settings.json` 的 hooks（原文件会备份） | 不需要 |
 | ChatGPT 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表和置顶、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
@@ -261,9 +261,9 @@ Claude 的 ⌘W 其实只是把窗口藏起来，App 还在运行，做完的通
 </details>
 
 <details>
-<summary><b>为什么需要「辅助功能」和「完全磁盘访问」？</b></summary>
+<summary><b>为什么需要「辅助功能」？</b></summary>
 
-Claude App 没有“哪些对话在跑”的接口。Kikumap 通过「辅助功能」读侧边栏，通过通知中心的数据库读 Claude 的通知（这需要完全磁盘访问）。两者都是只读，数据不会离开你的 Mac。
+Claude App 没有“哪些对话在跑”的接口，所以 Kikumap 像你一样去看它的对话列表，macOS 把这叫「辅助功能」。这是 Kikumap 唯一需要的权限。「完全磁盘访问」是可选的：开了能读 Claude 的通知，Claude 窗口关着时也知道对话做完了，Claude 等你批准时也会提醒。两者都是只读，数据不会离开你的 Mac。
 </details>
 
 <details>

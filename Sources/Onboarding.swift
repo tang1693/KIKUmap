@@ -28,7 +28,8 @@ final class AnimView: NSView {
 /// First launch: what the app does, then each permission on its own page.
 @MainActor
 final class Onboarding: NSObject, NSWindowDelegate {
-    enum Page: CaseIterable { case welcome, menubar, map, timeline, colors, fullDisk, accessibility, usage, code, claude, done }
+    /// One permission (Accessibility) is all Kikumap needs; the rest is offered on one page, all optional.
+    enum Page: CaseIterable { case welcome, menubar, map, timeline, colors, accessibility, extras, done }
 
     private let perms: Permissions
     private var window: NSWindow!
@@ -137,13 +138,17 @@ final class Onboarding: NSObject, NSWindowDelegate {
         statusL = nil
         grantedAt = nil
         extra.subviews.forEach { $0.removeFromSuperview() }
+        // the extras page makes room for its list; every other page has the usual layout
+        let W = extra.superview?.bounds.width ?? 720
+        bodyL.frame = NSRect(x: 90, y: 126, width: W - 180, height: 80)
+        extra.frame = NSRect(x: 40, y: 76, width: W - 80, height: 44)
         let p = page
         dots.count = Page.allCases.count
         dots.current = index
         back.title = tr("上一步", "Back")
         back.isHidden = index == 0
         skip.title = tr("跳过介绍", "Skip intro")
-        skip.isHidden = index >= Page.allCases.firstIndex(of: .fullDisk)!
+        skip.isHidden = index >= Page.allCases.firstIndex(of: .accessibility)!
         next.title = p == .done ? tr("开始使用", "Get started") : tr("下一步", "Next")
 
         switch p {
@@ -175,45 +180,15 @@ final class Onboarding: NSObject, NSWindowDelegate {
             bodyL.stringValue = tr("界面本身是灰阶的，状态用形状区分（空心环 = 在跑，实心点 = 未读）。颜色只用来做你自己的标记：给分支上色，给对话和主题加任意多个标签。",
                                    "The interface is greyscale; status is shown by shape (ring = running, dot = unread). Colour is only for your own marks: colour branches, and give chats and topics as many tags as you like.")
             art.painter = { r, t in Onboarding.paintColors(r, t) }
-        case .fullDisk:
-            permissionPage(step: 1, symbol: "externaldrive",
-                           title: tr("第 1 步：完全磁盘访问", "Step 1: Full Disk Access"),
-                           body: tr("用来读 macOS 通知中心里 Claude 的通知，这样才知道哪个对话做完了。只读，不会上传任何东西。\n点下面的按钮 → 在列表里打开 Kikumap（没有的话点 ＋，从刚弹出的 Finder 窗口里选它）。",
-                                    "Lets the app read Claude's notifications in Notification Center, so it knows when a chat finishes. Read-only; nothing is uploaded.\nClick below → switch on Kikumap in the list (if it's missing, click ＋ and pick it from the Finder window that just opened)."),
-                           action: tr("打开系统设置", "Open System Settings"),
-                           check: { [perms] in perms.fullDisk }, run: { [perms] in perms.openFullDisk() })
         case .accessibility:
-            permissionPage(step: 2, symbol: "accessibility",
-                           title: tr("第 2 步：辅助功能", "Step 2: Accessibility"),
-                           body: tr("用来读 Claude App 的侧边栏，这样才知道哪些对话还在跑、你在 Claude 里看过哪个。\n点下面的按钮 → 在列表里打开 Kikumap。",
-                                    "Lets the app read the Claude app's sidebar, so it knows which chats are still running and which you've already read.\nClick below → switch on Kikumap in the list."),
+            permissionPage(step: 1, symbol: "accessibility",
+                           title: tr("只需要一步：辅助功能", "Just one step: Accessibility"),
+                           body: tr("用来看 Claude App 的对话列表：哪些在跑、哪些做完了、哪些置顶了。只看，不改。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 Kikumap。",
+                                    "Lets Kikumap look at the Claude app's chat list: which chats are running, which are done, which are pinned. It only looks. ChatGPT needs no permission at all.\nClick below → switch on Kikumap in the list."),
                            action: tr("打开系统设置", "Open System Settings"),
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
-        case .usage:
-            permissionPage(step: 3, symbol: "gauge.with.dots.needle.50percent",
-                           title: tr("第 3 步：用量（可选）", "Step 3: Usage (optional)"),
-                           body: tr("想在菜单里看到套餐用量和计划任务（需要 Claude Pro 或 Max 套餐，免费套餐没有用量可看），可以借用 Claude Code 存在钥匙串里的登录：只读取，不修改、不保存，只发给 api.anthropic.com。\nKikumap 和 Claude Code 用同一种方式读取，macOS 一般不会问；如果问了，请选「始终允许」。不需要就直接下一步，以后也能在设置里开。",
-                                    "To see your plan usage and scheduled tasks in the menu (Claude Pro or Max; the Free plan has no usage to show), Kikumap can borrow the sign-in Claude Code keeps in the Keychain: read-only, never saved, sent only to api.anthropic.com.\nIt's read the same way Claude Code reads it, so macOS usually doesn't ask; if it does, choose \"Always Allow\". Don't need it? Just go on; you can turn it on later in Settings."),
-                           action: tr("连接", "Connect"),
-                           check: { [perms] in perms.usageOK }, run: { [perms] in perms.connectUsage(explained: true) })
-        case .code:
-            permissionPage(step: 4, symbol: "terminal",
-                           title: tr("第 4 步：Claude Code", "Step 4: Claude Code"),
-                           body: tr("如果你在终端或 VS Code 里用 Claude Code，点「连接」：会在 ~/.claude/settings.json 里加几个 hook，会话一开始跑、做完、等你批准，这里马上知道。原文件会备份，随时可以在设置里断开。\n只对之后新开的会话生效。不用 Claude Code 可以跳过。",
-                                    "If you use Claude Code in Terminal or VS Code, click Connect: a few hooks go into ~/.claude/settings.json, so this app knows the moment a session starts, finishes or waits for your approval. The old file is backed up; disconnect any time in Settings.\nApplies to sessions started afterwards. Don't use Claude Code? Skip this."),
-                           action: tr("连接", "Connect"),
-                           check: { [perms] in perms.codeHooks }, run: { [perms] in perms.connectCode() })
-        case .claude:
-            titleL.stringValue = tr("最后：打开 Claude 的通知", "Last: Claude's notifications")
-            bodyL.stringValue = tr("在 Claude App → 设置 → 通知 里打开「Response completions」。做完和需要你操作的提醒都靠它。\n另外请让 Claude App 的侧边栏（对话列表）保持展开。",
-                                   "In the Claude app → Settings → Notifications, turn on \"Response completions\". Finished / needs-input alerts depend on it.\nAlso keep the Claude app's sidebar (chat list) open.")
-            let b = ClosureButton(title: tr("打开 Claude", "Open Claude")) {
-                if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
-                    NSWorkspace.shared.openApplication(at: u, configuration: .init())
-                }
-            }
-            center(b)
-            art.painter = { r, t in Onboarding.paintSymbol(r, t, "bell.badge", granted: nil) }
+        case .extras:
+            extrasPage()
         case .done:
             titleL.stringValue = tr("准备好了", "You're set")
             bodyL.stringValue = tr("Kikumap 在菜单栏右上角。随时可以在「设置」里改语言、外观、通知、授权和快捷键。",
@@ -227,6 +202,59 @@ final class Onboarding: NSObject, NSWindowDelegate {
         }
         layoutButtons()
         art.restart()
+    }
+
+    /// The optional extras, each a button with what it adds; all can be skipped and turned on later in Settings.
+    private func extrasPage() {
+        titleL.stringValue = tr("可以再开的功能（都可选）", "Optional extras")
+        bodyL.stringValue = tr("不开也能正常用。以后在 设置 → 授权 里随时能开。", "Kikumap works without them. Turn them on any time in Settings → Access.")
+        bodyL.frame = NSRect(x: 90, y: 184, width: extra.superview!.bounds.width - 180, height: 22)
+        extra.frame = NSRect(x: 40, y: 66, width: extra.superview!.bounds.width - 80, height: 116)
+        var rows: [(String, String, () -> Bool, () -> Void)] = [
+            (tr("更全的提醒", "Fuller alerts"),
+             tr("Claude 窗口关着也知道对话做完了；Claude 问「允许这个操作吗？」时会提醒你。要开「完全磁盘访问」，并在 Claude 的设置 → 通知 里打开 Response completions。",
+                "Know when a chat finishes even with Claude's window closed, and get told when Claude asks \"Allow this?\". Needs Full Disk Access, and Response completions on in Claude → Settings → Notifications."),
+             { [perms] in perms.fullDisk }, { [perms] in perms.openFullDisk() }),
+            (tr("用量（Pro / Max）", "Usage (Pro / Max)"),
+             tr("在菜单和小组件里看 Claude 的 5 小时和每周用量。免费套餐没有用量可看。",
+                "See Claude's 5-hour and weekly usage in the menu and the widget. The Free plan has no usage to show."),
+             { [perms] in perms.usageOK }, { [perms] in perms.connectUsage(explained: true) }),
+        ]
+        if FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.claude") {
+            rows.append(("Claude Code",
+                         tr("终端、VS Code 里的 Claude Code 会话也显示进行中和未读。", "Claude Code sessions in Terminal or VS Code show as running and unread too."),
+                         { [perms] in perms.codeHooks }, { [perms] in perms.connectCode() }))
+        }
+        let width = extra.bounds.width
+        var views: [NSView] = []
+        var buttons: [(ClosureButton, () -> Bool, String)] = []
+        for (title, what, on, run) in rows {
+            let b = ClosureButton(title: title, run)
+            b.widthAnchor.constraint(equalToConstant: 170).isActive = true
+            let l = NSTextField(wrappingLabelWithString: what)
+            l.font = .systemFont(ofSize: 11.5)
+            l.textColor = Theme.muted
+            l.preferredMaxLayoutWidth = width - 190
+            let row = NSStackView(views: [b, l])
+            row.spacing = 14
+            row.alignment = .centerY
+            views.append(row)
+            buttons.append((b, on, title))
+        }
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 6
+        let s = stack.fittingSize
+        stack.frame = NSRect(x: (width - s.width) / 2, y: (extra.bounds.height - s.height) / 2, width: s.width, height: s.height)
+        extra.addSubview(stack)
+        let update = { for (b, on, title) in buttons { let done = on(); b.title = done ? "✓ " + title : title; b.isEnabled = !done } }
+        update()
+        let pageIndex = index
+        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { if self?.index == pageIndex { update() } }
+        }
+        art.painter = { r, t in Onboarding.paintSymbol(r, t, "plus.circle", granted: nil) }
     }
 
     private func center(_ v: NSView) {
@@ -298,7 +326,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
     }
 
     @objc private func goSkip() {
-        index = Page.allCases.firstIndex(of: .fullDisk)!
+        index = Page.allCases.firstIndex(of: .accessibility)!
         render()
     }
 

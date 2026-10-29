@@ -18,6 +18,8 @@ struct Chat: Codable, Equatable {
     var linked: Bool?
 
     var isCode: Bool { source == "code" }
+    /// A Codex thread started in an editor or a terminal (not the ChatGPT app): shown like a Claude Code session.
+    var isCodexSession: Bool { source == "gpt" && app != nil && app != "com.openai.codex" }
     /// A thread in the ChatGPT app.
     var isGPT: Bool { source == "gpt" }
     /// Not a chat in the Claude app (its pins, sidebar and archive don't apply).
@@ -138,9 +140,9 @@ final class Store {
     /// wait for you, for 12 hours after, or for good once you pin them here or file them on the map.
     var pinsKnown: Bool { chats.contains { !$0.outsideClaude && $0.pinned != nil } }
     func isShown(_ c: Chat) -> Bool {
-        if c.isCode {
+        if c.isCode || c.isCodexSession {
             // linked to the Claude app (Remote Control): shown through Claude's chat — only if that one is pinned
-            if c.linked == true && chats.contains(where: { !$0.isCode && $0.pinned == true && $0.title == c.title }) { return false }
+            if c.isCode && c.linked == true && chats.contains(where: { !$0.isCode && $0.pinned == true && $0.title == c.title }) { return false }
             if c.pinned == true || running.contains(c.id) || isUnread(c) || map.placedChats().contains(c.id) { return true }
             guard let d = Clock.parse(c.updated_at) else { return false }
             return Date().timeIntervalSince(d) < 12 * 3600
@@ -259,7 +261,7 @@ final class Store {
         }.map { $0.element }
     }
 
-    private static func group(_ c: Chat) -> Int { c.isCode ? 1 : (c.isGPT ? 2 : 0) }
+    private static func group(_ c: Chat) -> Int { c.isCode || c.isCodexSession ? 1 : (c.isGPT ? 2 : 0) }
 
     /// Chats not yet placed on the map.
     func unplaced() -> [Chat] {
@@ -520,7 +522,8 @@ final class Store {
             guard let i = index[id] else {
                 // already there before Kikumap saw it: not unread (unless ChatGPT's own list says so)
                 chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
-                                  last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd, app: GPTWatcher.bundleID))
+                                  last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd,
+                                  app: t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID))
                 chats[chats.count - 1].pinIndex = t.order
                 seen[id] = Clock.iso(t.finished ?? t.updated)
                 if t.running { running.insert(id) }
@@ -531,9 +534,12 @@ final class Store {
             if chats[i].title != t.title { chats[i].title = t.title; changed = true }
             if (chats[i].pinned == true) != t.pinned { chats[i].pinned = t.pinned ? true : nil; changed = true }
             if chats[i].pinIndex != t.order { chats[i].pinIndex = t.order; changed = true }      // ChatGPT's order
+            let app = t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID
+            if chats[i].app != app { chats[i].app = app; changed = true }
             if t.running && !running.contains(id) {
                 running.insert(id)
                 seen[id] = now; seenChanged = true                  // you just asked it something
+                gptUnread.remove(id)
                 changed = true
             } else if !t.running && running.contains(id) {
                 running.remove(id)
@@ -542,7 +548,8 @@ final class Store {
                 if t.finished != nil {
                     events.append(.finished(id))
                     if front { seen[id] = when; seenChanged = true }   // you were looking at ChatGPT (when its own list can't be read)
-                    if gptListed?.contains(id) == true { gptUnread.insert(id) }   // still unread there, and new again
+                    // still unread in ChatGPT, and new again; a session in an editor, until you open it or ask again
+                    if gptListed?.contains(id) == true || chats[i].isCodexSession { gptUnread.insert(id) }
                 }
                 changed = true
             } else if !t.running, let f = t.finished.map(Clock.iso), f > chats[i].updated_at {
