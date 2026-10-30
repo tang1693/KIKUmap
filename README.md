@@ -38,11 +38,7 @@ You pinned a dozen chats in Claude, and a few Codex chats in ChatGPT. One is pla
 
 **Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A small download that mostly waits for changes (with a light check every half minute), and stops drawing entirely when its window is hidden.
 
-
-
 https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
-
-
 
 > [!NOTE]
 > **Good to know.** The Claude app has no public API, so Kikumap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of Kikumap may stop working until it's updated. Kikumap is an independent project, not made by or affiliated with Anthropic or OpenAI.
@@ -337,8 +333,8 @@ The code is plain Swift and AppKit, no Xcode project and no dependencies.
 | `Settings.swift` / `Onboarding.swift` | settings, permissions, first-launch intro |
 | `Theme.swift` / `Logo.swift` | colours, language, the mark and app icon |
 
-<a href="https://star-history.com/#tang1693/KIKUmap&Date">
-  <img src="https://api.star-history.com/svg?repos=tang1693/KIKUmap&type=Date" width="600" alt="Star history">
+<a href="https://star-history.com/#tang1693/kikumap&Date">
+  <img src="https://api.star-history.com/svg?repos=tang1693/kikumap&type=Date" width="600" alt="Star history">
 </a>
 
 ## Support

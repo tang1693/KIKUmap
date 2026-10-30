@@ -38,7 +38,7 @@
 
 **原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码。安装包很小，主要靠系统通知等变化（每半分钟轻量检查一次），窗口一隐藏就完全停止绘制。
 
-<p align="center"><a href="https://tang1693.github.io/KIKUmap/#tour"><img src="docs/demo/intro-poster.jpg" width="100%" alt="观看两分钟介绍（英文配音，带字幕）"></a></p>
+https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
 
 > [!NOTE]
 > **须知。** Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 Kikumap 更新才能恢复。本项目由个人独立开发，与 Anthropic、OpenAI 都无关。
@@ -316,8 +316,8 @@ Claude App 没有“哪些对话在跑”的接口，所以 Kikumap 像你一样
 
 代码是纯 Swift + AppKit，没有 Xcode 工程，也没有依赖。各文件的作用见[英文 README](README.md#contributing)。
 
-<a href="https://star-history.com/#tang1693/KIKUmap&Date">
-  <img src="https://api.star-history.com/svg?repos=tang1693/KIKUmap&type=Date" width="600" alt="Star 历史">
+<a href="https://star-history.com/#tang1693/kikumap&Date">
+  <img src="https://api.star-history.com/svg?repos=tang1693/kikumap&type=Date" width="600" alt="Star 历史">
 </a>
 
 ## 支持
