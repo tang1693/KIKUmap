@@ -1,6 +1,7 @@
 import Cocoa
 
 /// Minimal 5-field cron ("CRON_TZ=Zone m h dom mon dow") — enough to place upcoming runs on the timeline.
+/// Claude's scheduled tasks are always in UTC (claude.ai's API says so), so UTC unless CRON_TZ= says otherwise.
 struct Cron {
     let minutes: Set<Int>, hours: Set<Int>, doms: Set<Int>, months: Set<Int>, dows: Set<Int>
     let domAny: Bool, dowAny: Bool
@@ -8,9 +9,10 @@ struct Cron {
 
     init?(_ expr: String) {
         var parts = expr.split(separator: " ").map(String.init)
-        var zone = TimeZone.current
+        let utc = TimeZone(identifier: "UTC") ?? TimeZone(secondsFromGMT: 0)!
+        var zone = utc
         if let first = parts.first, first.hasPrefix("CRON_TZ=") {
-            zone = TimeZone(identifier: String(first.dropFirst(8))) ?? .current
+            zone = TimeZone(identifier: String(first.dropFirst(8))) ?? utc
             parts.removeFirst()
         }
         guard parts.count == 5 else { return nil }
@@ -91,6 +93,12 @@ final class TimelineView: NSView {
     private var timer: Timer?
     private var tracking: NSTrackingArea?
     private var cronRuns: [String: [Date]] = [:]
+    /// Every run, read once per reload (not on every frame): live ones are drawn up to now.
+    private var spans: [(id: String, s: Date, e: Date, live: Bool, est: Bool, row: Int)] = []
+    /// What the spans were read from. A sleep ends the running ones and a wake starts them again without a reload:
+    /// then they're read again, so no bar runs on across the sleep.
+    private var spansFrom: (open: [String: String], count: Int) = ([:], 0)
+    private var stale: Bool { store.runStart != spansFrom.open || store.intervals.count != spansFrom.count }
     private var hits: [(NSRect, String, () -> Void)] = []
 
     private let labelW: CGFloat = 70
@@ -119,7 +127,11 @@ final class TimelineView: NSView {
 
     override var isFlipped: Bool { true }
 
-    @objc private func tick() { if window?.isVisible == true { needsDisplay = true } }
+    @objc private func tick() {
+        guard window?.isVisible == true else { return }
+        // (an estimated stretch of a run out of sight grows with the time too)
+        if stale || spans.contains(where: \.est) { reload() } else { needsDisplay = true }
+    }
 
     func reload() {
         cronRuns = [:]
@@ -127,7 +139,9 @@ final class TimelineView: NSView {
         for r in usage.routines where r.enabled && !r.cron.isEmpty {
             cronRuns[r.id] = Cron(r.cron)?.runs(from: from, to: to) ?? []
         }
-        let rows = max(1, (runs(now: Date()).map(\.row).max() ?? 0) + 1)
+        spans = runs(now: Date())
+        spansFrom = (store.runStart, store.intervals.count)
+        let rows = max(1, (spans.map(\.row).max() ?? 0) + 1)
         if rows != runRows { runRows = rows; onHeightChange?() }
         needsDisplay = true
     }
@@ -162,17 +176,23 @@ final class TimelineView: NSView {
     private func laneY(_ i: Int) -> CGFloat { i == 0 ? rowTop : rowTop + runLaneH }
 
     /// Every run with its row: runs are taken in order of start, each on the first row that's free by then.
-    private func runs(now: Date) -> [(id: String, s: Date, e: Date, live: Bool, row: Int)] {
-        var spans: [(String, Date, Date, Bool)] = store.intervals.compactMap { iv in
+    /// The same chats as Statistics and the widget count (ChatGPT's only while it's on).
+    private func runs(now: Date) -> [(id: String, s: Date, e: Date, live: Bool, est: Bool, row: Int)] {
+        var spans: [(String, Date, Date, Bool, Bool)] = store.intervals.compactMap { iv in
             guard let s = Clock.parse(iv.start), let e = Clock.parse(iv.end) else { return nil }
-            return (iv.id, s, e, false)
+            return (iv.id, s, e, false, iv.est == true)
         }
-        for (id, s) in store.runStart { if let d = Clock.parse(s) { spans.append((id, d, now, true)) } }
+        // (a Codex task whose log went quiet: seen up to its last activity, not drawn as live)
+        // (started again at a launch or wake after its log went quiet: nothing seen since, nothing drawn)
+        for (id, s) in store.runStart { if let d = Clock.parse(s) { let e = store.liveEnd(id, now: now); if e > d { spans.append((id, d, e, e >= now, false)) } } }
+        // what isn't seen of runs out of sight right now: estimated
+        for u in store.unseenStretches(now: now) { spans.append((u.id, u.a, u.b, false, true)) }
         var ends: [Date] = []
-        return spans.filter { store.isShown(id: $0.0) }.sorted { $0.1 < $1.1 }.map { sp in
+        return spans.filter { Store.counted($0.0) }.sorted { $0.1 < $1.1 }.map { sp in
+            // (an estimated stretch carries on its run's row)
             let row = ends.firstIndex { $0 <= sp.1 } ?? ends.count
             if row == ends.count { ends.append(sp.2) } else { ends[row] = sp.2 }
-            return (sp.0, sp.1, sp.2, sp.3, min(row, maxRows - 1))
+            return (sp.0, sp.1, sp.2, sp.3, sp.4, min(row, maxRows - 1))
         }
     }
 
@@ -187,6 +207,8 @@ final class TimelineView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        // the runs changed under it (a wake): read again just after this frame (a reload may resize the strip)
+        if stale { DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { if self?.stale == true { self?.reload() } } } }
         keepNow()
         hits = []
         Theme.paper.setFill(); bounds.fill()
@@ -202,7 +224,10 @@ final class TimelineView: NSView {
         text(head, Theme.ui(13, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
         hx += head.size(Theme.ui(13, .semibold)).width + 16
         if let (r, d) = TimelineView.upcoming(usage.routines).first {
+            // (a list not read for a while says when it's from: a task changed since isn't known)
+            let old = usage.routinesAt.flatMap { Date().timeIntervalSince($0) > 1800 ? $0 : nil }
             let s = tr("下一个计划任务：", "Next scheduled task: ") + "\(r.name) · \(Clock.countdown(d))"
+                + (old.map { tr(" · \(UsageMonitor.stamp($0)) 时的列表", " · list as of \(UsageMonitor.stamp($0))") } ?? "")
             text(s, Theme.ui(12, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
             hx += s.size(Theme.ui(12, .semibold)).width + 16
         }
@@ -259,25 +284,37 @@ final class TimelineView: NSView {
         }
 
         // lane 0: when Claude was working on each chat, one row per chat running at the same time
-        for (id, s, e, live, row) in runs(now: now) where e >= left && s <= right {
+        for (id, s, end, live, est, row) in spans {
+            let e = live ? max(end, now) : end
+            guard e >= left && s <= right else { continue }
             let r = NSRect(x: x(s), y: laneY(0) + 4 + rowH * CGFloat(row), width: max(4, x(e) - x(s)), height: rowH - 4)
-            // your branch colour if the chat has one, otherwise neutral
+            // your branch colour if the chat has one, otherwise neutral; time Kikumap didn't see (estimated) faint,
+            // with a dashed edge
             let base = store.branchColor(id) ?? Theme.muted
-            (live ? base : base.withAlphaComponent(0.55)).setFill()
+            (live ? base : base.withAlphaComponent(est ? 0.22 : 0.55)).setFill()
             NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3).fill()
-            if live {
-                Theme.ink.setStroke()
-                let o = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3); o.lineWidth = 1; o.stroke()
+            if live || est {
+                (est ? base.withAlphaComponent(0.8) : Theme.ink).setStroke()
+                let o = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3); o.lineWidth = 1
+                if est { o.setLineDash([3, 2], count: 2, phase: 0) }
+                o.stroke()
             }
             let name = store.mapLabel(id)
             if r.width > 46 {
                 NSGraphicsContext.current?.saveGraphicsState()
                 NSBezierPath(rect: r.insetBy(dx: 4, dy: 0)).addClip()
-                text(name, Theme.ui(10.5, .semibold), .white, at: NSPoint(x: r.minX + 5, y: r.minY + 1))
+                text(name, Theme.ui(10.5, .semibold), est ? Theme.ink : .white, at: NSPoint(x: r.minX + 5, y: r.minY + 1))
                 NSGraphicsContext.current?.restoreGraphicsState()
             }
-            let tip = "\(store.name(id))\n\(Self.hm(s)) – \(live ? tr("进行中", "running") : Self.hm(e)) (\(Self.dur(e.timeIntervalSince(s))))"
-            hits.append((r, tip, { [weak self] in self?.onOpenChat?(id) }))
+            // still going, but out of sight since its end here (a Codex task whose log went quiet): said so; a stretch
+            // Kikumap didn't see: estimated, and how
+            let unseen = !live && !est && store.runStart[id].flatMap(Clock.parse) == s && store.outOfSight(id)
+            let typical = Self.dur(store.typicalRun(id))
+            let tip = "\(store.name(id))\n\(est ? "≈ " : "")\(Self.hm(s)) – \(live ? tr("进行中", "running") : Self.hm(e)) (\(est ? "≈ " : "")\(Self.dur(e.timeIntervalSince(s))))"
+                + (unseen ? tr("\n之后没看到动静（在等你批准，还是一步做得久，不知道）", "\nNo activity seen since (waiting for you, or a long step: not known)") : "")
+                + (est ? tr("\n估算：这段 Kikumap 没看到\n（两次看到它之间，或按你一次运行的常见时长 \(typical)）",
+                            "\nEstimated: Kikumap didn't see this stretch\n(between two sightings, or your typical run of \(typical))") : "")
+            hits.append((r, tip, { [weak self] in if self?.store.canOpen(id) == true { self?.onOpenChat?(id) } }))
         }
 
         // lane 1: scheduled tasks — past runs as blocks, future runs as markers with countdowns
@@ -298,8 +335,10 @@ final class TimelineView: NSView {
                 Theme.ink.withAlphaComponent(0.55).setFill(); rect.fill()
                 hits.append((rect.insetBy(dx: -3, dy: -4), "\(r.name)\n" + tr("运行于 ", "ran at ") + Self.hm(f), { [weak self] in self?.onOpenRoutines?() }))
             }
+            // the server's next run is the one that counts: nothing runs before it, and the cron fills in the rest
             var future = cronRuns[r.id] ?? []
-            if future.isEmpty, let n = r.upcoming { future = [n] }
+            if let n = r.upcoming, n > now { future = [n] + future.filter { $0 > n.addingTimeInterval(60) } }
+            else if future.isEmpty, let n = r.upcoming { future = [n] }
             for d in future where d >= left && d <= right && d > now.addingTimeInterval(-60) {
                 marks.append((d, r.name, r.upcoming.map { abs($0.timeIntervalSince(d)) < 61 } ?? false))
             }
@@ -434,8 +473,13 @@ final class TimelineView: NSView {
         }
     }
 
+    private static let hmFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "HH:mm"; return f
+    }()
+    /// "20:00" in every region (Latin digits), with one formatter for every frame.
     static func hm(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm"; return f.string(from: d)
+        hmFormatter.timeZone = .current
+        return hmFormatter.string(from: d)
     }
     static func dayHM(_ d: Date) -> String {
         Clock.format(d, "M月d日 EEE HH:mm", "MMM d, EEE HH:mm")

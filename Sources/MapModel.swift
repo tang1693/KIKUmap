@@ -91,8 +91,9 @@ struct MapDoc: Codable {
 final class MapModel {
     private(set) var doc: MapDoc
     let url: URL
-    private var undoStack: [Data] = []
-    private var redoStack: [Data] = []
+    /// Each snapshot with how many chat ids had changed when it was taken (see `renames`).
+    private var undoStack: [(data: Data, gen: Int)] = []
+    private var redoStack: [(data: Data, gen: Int)] = []
     private var colorCache: [String: String]?
     private var placedCache: Set<String>?
     private let encoder: JSONEncoder = {
@@ -103,16 +104,66 @@ final class MapModel {
 
     var root: MapNode { doc.root }
     var aliases: [String: String] { doc.aliases }
+    /// The map on disk couldn't be read: where it was kept (nil: it was read, or there was none yet).
+    private(set) var unreadable: String?
+    /// The map on disk is left alone this session (it couldn't be moved aside, or a newer Kikumap wrote it).
+    private(set) var readOnly = false
+    /// Why the map can't be saved right now (nil: it can).
+    private(set) var saveError: String?
+    /// Chat ids changed this session, in order (old → new). A snapshot taken after the first `gen` of them gets
+    /// only the ones after, so a chat filed again under its old id stays.
+    private var renames: [(old: String, new: String)] = []
 
     init(url: URL) {
         self.url = url
-        if let d = try? Data(contentsOf: url), let m = try? JSONDecoder().decode(MapDoc.self, from: d) {
-            doc = m
+        let fm = FileManager.default
+        if fm.fileExists(atPath: url.path) {
+            do {
+                let d = try Data(contentsOf: url)
+                struct Version: Decodable { var v: Int? }
+                if let v = (try? JSONDecoder().decode(Version.self, from: d))?.v, v > 1 {
+                    // written by a newer Kikumap: shown empty here, never written over
+                    doc = MapDoc(root: MapNode(id: "root", title: "Claude"), aliases: [:])
+                    readOnly = true
+                    unreadable = "data/map.json" + tr("（新版 Kikumap 存的；现在对导图的改动不会保存）",
+                                                      " (saved by a newer Kikumap; changes you make to the map now won't be saved)")
+                    return
+                }
+                doc = try JSONDecoder().decode(MapDoc.self, from: d)
+            } catch {
+                // there but unreadable: moved aside before anything can write over it
+                doc = MapDoc(root: MapNode(id: "root", title: "Claude"), aliases: [:])
+                let dir = url.deletingLastPathComponent().appendingPathComponent("backups")
+                try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                let to = dir.appendingPathComponent("unreadable-map-" + MapModel.stamp("yyyyMMdd-HHmmss") + ".json")
+                if (try? fm.moveItem(at: url, to: to)) != nil { unreadable = "data/backups/" + to.lastPathComponent }
+                else {
+                    readOnly = true
+                    unreadable = "data/map.json" + tr("（没法移开；现在对导图的改动不会保存）",
+                                                      " (it couldn't be moved aside; changes you make to the map now won't be saved)")
+                }
+                MapModel.log(url, "map.json couldn't be read (\(error.localizedDescription)); kept as \(unreadable ?? "-")")
+            }
         } else {
             doc = MapDoc(root: MapNode(id: "root", title: "Claude"), aliases: [:])
         }
         backup()
         addPresetTags()
+    }
+
+    /// A date for a file name: Gregorian, Latin digits, whatever the Mac's calendar.
+    static func stamp(_ format: String) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = format
+        return f.string(from: Date())
+    }
+
+    private static func log(_ url: URL, _ text: String) {
+        let logs = url.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("logs/app.log")
+        guard let d = "\(Clock.iso()) \(text)\n".data(using: .utf8) else { return }
+        if let h = try? FileHandle(forWritingTo: logs) { defer { try? h.close() }; _ = try? h.seekToEnd(); try? h.write(contentsOf: d) }
+        else { try? d.write(to: logs) }
     }
 
     /// Starter tags: what a chat produces (like Claude's artifact kinds) and where it stands.
@@ -124,7 +175,7 @@ final class MapModel {
         ]
 
     private func addPresetTags() {
-        guard doc.presets != true else { return }
+        guard doc.presets != true, !readOnly else { return }
         let presets = MapModel.presetTags
         var list = doc.tags ?? []
         let have = Set(list.map { $0.name })
@@ -149,33 +200,49 @@ final class MapModel {
     }
 
     /// Once a day, before the first change, the map as it was is copied to data/backups/map-<date>.json.
-    /// The newest 14 are kept.
+    /// The newest 14 are kept (newest by when they were written, so a name in another calendar can't upset it).
     private func backup() {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: url.path) else { return }
+        guard !readOnly, fm.fileExists(atPath: url.path) else { return }
         let dir = url.deletingLastPathComponent().appendingPathComponent("backups")
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        let dest = dir.appendingPathComponent("map-\(f.string(from: Date())).json")
+        let dest = dir.appendingPathComponent("map-\(MapModel.stamp("yyyy-MM-dd")).json")
         guard !fm.fileExists(atPath: dest.path) else { return }
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         try? fm.copyItem(at: url, to: dest)
+        try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: dest.path)
         let files = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
-        let daily = files.filter { $0.hasPrefix("map-") && $0.hasSuffix(".json") && !$0.hasSuffix("-before.json") }.sorted()
+        func newestLast(_ names: [String]) -> [String] {
+            func date(_ n: String) -> Date { ((try? fm.attributesOfItem(atPath: dir.appendingPathComponent(n).path))?[.modificationDate] as? Date) ?? .distantPast }
+            return names.sorted { (date($0), $0) < (date($1), $1) }
+        }
+        let daily = newestLast(files.filter { $0.hasPrefix("map-") && $0.hasSuffix(".json") && !$0.hasSuffix("-before.json") })
         for old in daily.dropLast(14) { try? fm.removeItem(at: dir.appendingPathComponent(old)) }
-        let safety = files.filter { $0.hasSuffix("-before.json") }.sorted()
+        let safety = newestLast(files.filter { $0.hasPrefix("map-") && $0.hasSuffix("-before.json") })
         for old in safety.dropLast(30) { try? fm.removeItem(at: dir.appendingPathComponent(old)) }
     }
 
-
     func save() {
-        backup()
-        guardAgainstLoss()
+        // what's placed, and its colours, follow the map in memory, saved or not
         colorCache = nil
         placedCache = nil
+        guard !readOnly else { return }
+        backup()
+        guardAgainstLoss()
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys, .prettyPrinted]
-        if let d = try? e.encode(doc) { try? d.write(to: url, options: .atomic) }
+        guard let d = try? e.encode(doc) else { return }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try d.write(to: url, options: .atomic)
+            saveError = nil
+        } catch {
+            if saveError == nil { MapModel.log(url, "map.json couldn't be saved: \(error.localizedDescription)") }
+            saveError = error.localizedDescription
+        }
     }
+
+    /// The last save failed (a full disk, a folder that can't be written): try again, with no change needed.
+    func retrySave() { if saveError != nil { save() } }
 
     private static func itemCount(_ n: MapNode) -> Int {
         n.children.reduce(0) { $0 + 1 + ($1.node.map(itemCount) ?? 0) }
@@ -184,16 +251,20 @@ final class MapModel {
     /// About to write a map with several items fewer than the one on disk: keep that one first
     /// (backups/map-…-before.json) and note it in logs/app.log.
     private func guardAgainstLoss() {
-        guard let d = try? Data(contentsOf: url), let old = try? JSONDecoder().decode(MapDoc.self, from: d) else { return }
+        guard let d = try? Data(contentsOf: url) else { return }
+        let dir = url.deletingLastPathComponent().appendingPathComponent("backups")
+        // on disk but not readable as a map (a sync tool, a hand edit): kept before it's written over
+        guard let old = try? JSONDecoder().decode(MapDoc.self, from: d) else {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? d.write(to: dir.appendingPathComponent("map-\(MapModel.stamp("yyyy-MM-dd-HHmmss"))-before.json"))
+            MapModel.log(url, "map: the file on disk couldn't be read, kept in data/backups before saving")
+            return
+        }
         let before = MapModel.itemCount(old.root), now = MapModel.itemCount(doc.root)
         guard before - now >= 5 || (now == 0 && before > 0) else { return }
-        let dir = url.deletingLastPathComponent().appendingPathComponent("backups")
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HHmmss"
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? d.write(to: dir.appendingPathComponent("map-\(f.string(from: Date()))-before.json"))
-        let logs = url.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("logs/app.log")
-        let line = "\(Clock.iso()) map: \(before) → \(now) items, previous version kept in data/backups\n"
-        if let h = try? FileHandle(forWritingTo: logs) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
+        try? d.write(to: dir.appendingPathComponent("map-\(MapModel.stamp("yyyy-MM-dd-HHmmss"))-before.json"))
+        MapModel.log(url, "map: \(before) → \(now) items, previous version kept in data/backups")
     }
 
     private func snapshot() -> Data { (try? encoder.encode(doc)) ?? Data() }
@@ -205,7 +276,7 @@ final class MapModel {
         change()
         fillSides()
         if snapshot() != before {
-            undoStack.append(before)
+            undoStack.append((before, renames.count))
             if undoStack.count > 200 { undoStack.removeFirst() }
             redoStack.removeAll()
             save()
@@ -215,19 +286,48 @@ final class MapModel {
     }
 
     func undo() -> Bool {
-        guard let d = undoStack.popLast(), let m = try? JSONDecoder().decode(MapDoc.self, from: d) else { return false }
-        redoStack.append(snapshot())
+        guard let s = undoStack.popLast(), let m = restore(s) else { return false }
+        redoStack.append((snapshot(), renames.count))
         doc = m
         save()
         return true
     }
 
     func redo() -> Bool {
-        guard let d = redoStack.popLast(), let m = try? JSONDecoder().decode(MapDoc.self, from: d) else { return false }
-        undoStack.append(snapshot())
+        guard let s = redoStack.popLast(), let m = restore(s) else { return false }
+        undoStack.append((snapshot(), renames.count))
         doc = m
         save()
         return true
+    }
+
+    /// A snapshot as it would be now: chats that got new ids after it was taken take their places, names, tags and
+    /// sides along (the renames before it are in it already).
+    private func restore(_ s: (data: Data, gen: Int)) -> MapDoc? {
+        guard var m = try? JSONDecoder().decode(MapDoc.self, from: s.data) else { return nil }
+        for r in renames.dropFirst(s.gen) { MapModel.rename(r.old, to: r.new, in: &m) }
+        return m
+    }
+
+    /// One chat id for another everywhere in a map; if the new id is already placed, the old entry goes (no twins).
+    private static func rename(_ old: String, to new: String, in d: inout MapDoc) {
+        func placed(_ n: MapNode) -> Bool { n.children.contains { $0.chatId == new || ($0.node.map(placed) ?? false) } }
+        let twin = placed(d.root)
+        func walk(_ n: MapNode) {
+            var out: [MapItem] = []
+            for ch in n.children {
+                switch ch {
+                case .chat(let id) where id == old: if !twin { out.append(.chat(new)) }
+                case .node(let s): walk(s); out.append(ch)
+                default: out.append(ch)
+                }
+            }
+            n.children = out
+        }
+        walk(d.root)
+        if let a = d.aliases.removeValue(forKey: old), d.aliases[new] == nil { d.aliases[new] = a }
+        if let t = d.itemTags?.removeValue(forKey: "c:" + old), d.itemTags?["c:" + new] == nil { d.itemTags?["c:" + new] = t }
+        if let sd = d.sides?.removeValue(forKey: "c:" + old), d.sides?["c:" + new] == nil { d.sides?["c:" + new] = sd }
     }
 
     // MARK: sides
@@ -347,18 +447,10 @@ final class MapModel {
 
     /// Swaps a chat id everywhere (notification-only chat → real id). Not an undo step.
     func renameChat(_ old: String, to new: String) {
-        func walk(_ n: MapNode) {
-            for (i, ch) in n.children.enumerated() {
-                switch ch {
-                case .chat(let id): if id == old { n.children[i] = .chat(new) }
-                case .node(let s): walk(s)
-                }
-            }
-        }
-        walk(doc.root)
-        if let a = doc.aliases.removeValue(forKey: old) { doc.aliases[new] = a }
-        if let t = doc.itemTags?.removeValue(forKey: "c:" + old) { doc.itemTags?["c:" + new] = t }
-        if let sd = doc.sides?.removeValue(forKey: "c:" + old) { doc.sides?["c:" + new] = sd }
+        guard old != new else { return }
+        MapModel.rename(old, to: new, in: &doc)
+        // undo / redo snapshots taken before this still name the old id: they're brought along when restored
+        renames.append((old, new))
         save()
     }
 

@@ -42,9 +42,24 @@ final class StatsWindow: NSObject, NSWindowDelegate {
     }
 
     /// A chat started or finished, or was renamed.
+    /// Store changes come often (every read of Claude's sidebar): the chart is worked out again at most every
+    /// 15 seconds (its own timer keeps a running chat's bar moving).
+    private var lastReload = Date.distantPast
+    private var reloadPending = false
     func refresh() {
         guard window?.isVisible == true else { return }
-        chart?.reload()
+        let since = Date().timeIntervalSince(lastReload), wait = since < 0 ? 0 : 15 - since
+        if wait <= 0 { lastReload = Date(); chart?.reload(); return }
+        guard !reloadPending else { return }
+        reloadPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self = self else { return }
+                self.reloadPending = false
+                self.lastReload = Date()
+                if self.window?.isVisible == true { self.chart?.reload() }
+            }
+        }
     }
 
     func relabel() {
@@ -63,12 +78,9 @@ final class StatsView: NSView {
     let store: Store
     var onOpen: ((String) -> Void)?
 
-    /// Categorical colours, in this fixed order (checked for colour-blind separation in both modes).
-    static let colours: [NSColor] = [
-        Theme.dyn(0x2A78D6, 0x3987E5), Theme.dyn(0xEB6834, 0xD95926), Theme.dyn(0x1BAF7A, 0x199E70),
-        Theme.dyn(0xEDA100, 0xC98500), Theme.dyn(0xE87BA4, 0xD55181), Theme.dyn(0x008300, 0x008300),
-        Theme.dyn(0x6250D6, 0x9085E9),
-    ]
+    /// How many chats are named in the chart and the legend; the rest share "other chats".
+    static let named = 7
+    /// The colour the chats too small to name share (a named chat wears its branch's, see `colour`).
     static let otherColour = Theme.dyn(0xB9B9BC, 0x57575C)
 
     private enum Part: Equatable { case chat(String), other }
@@ -93,6 +105,13 @@ final class StatsView: NSView {
     private var perBar: [[String: Double]] = []
     private var dayStarts: [Date] = []               // the summary goes by day: each day's start, then tomorrow's
     private var daySums: [Double] = []
+    /// How much of the range's time is estimated (stretches Kikumap didn't see): in all, by day, by bar and chat.
+    private var estTotal: Double = 0
+    private var estDays: [Double] = []
+    private var estPerBar: [[String: Double]] = []
+    private var estTotals: [String: Double] = [:]
+    /// A time, with "≈" when a minute or more of it is estimated.
+    private func dur(_ secs: Double, _ est: Double) -> String { (est >= 60 ? "≈" : "") + Clock.duration(secs) }
     private var totals: [String: Double] = [:]
     /// Chat → colour. Kept while the window lives, so a chat keeps its colour when the range changes.
     private var slots: [String: Int] = [:]
@@ -168,24 +187,51 @@ final class StatsView: NSView {
         range.setFrameOrigin(NSPoint(x: max(bounds.width - pad - range.frame.width, every.frame.maxX + 12), y: 108))
     }
 
-    func reload() {
-        let cal = Calendar.current, now = Date()
-        let today = cal.startOfDay(for: now)
-        dayStarts = (0...days).map { cal.date(byAdding: .day, value: $0 - days + 1, to: today)! }
-        daySums = store.worked(dayStarts).map { $0.values.reduce(0, +) }
-        // the bars: from the first day's start, up to the one that holds now
-        var b = [dayStarts[0]]
-        while let last = b.last, last <= now, b.count <= Self.maxBars + 1,
-              let next = hours >= 24 ? cal.date(byAdding: .day, value: hours / 24, to: last) : cal.date(byAdding: .hour, value: hours, to: last) {
-            b.append(next)
+    /// The summary's days (each day's start, then tomorrow's) and the bars (each bar's start, then the next one's), from
+    /// the first day up to the bar that holds `now`. Each day starts at its own first moment, found from its noon, so a
+    /// midnight that daylight saving skips (Santiago, Havana, Cairo, Beirut) moves only that day's start.
+    static func grid(days: Int, hours: Int, now: Date, cal: Calendar = .current) -> (days: [Date], bars: [Date]) {
+        let noon = cal.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+        func day(_ k: Int) -> Date { cal.startOfDay(for: cal.date(byAdding: .day, value: k - days + 1, to: noon) ?? noon) }
+        let ds = (0...days).map(day)
+        var b: [Date] = []
+        if hours >= 24 {
+            // whole days, each from its own date
+            for k in stride(from: 0, through: days + hours / 24, by: hours / 24) {
+                b.append(day(k))
+                if b[b.count - 1] > now || b.count > maxBars + 1 { break }
+            }
+        } else if hours == 1 {
+            // hours one by one (the hour that comes twice when daylight saving ends is two bars)
+            b = [ds[0]]
+            while let last = b.last, last <= now, b.count <= maxBars + 1, let next = cal.date(byAdding: .hour, value: 1, to: last) { b.append(next) }
+        } else {
+            // 3, 6, 12 hours: the same clock hours every day (0:00, 6:00…); a skipped hour moves to the next one
+            fill: for d in ds {
+                for h in stride(from: 0, to: 24, by: hours) {
+                    guard let t = h == 0 ? d : cal.date(bySettingHour: h, minute: 0, second: 0, of: d), t > (b.last ?? .distantPast) else { continue }
+                    b.append(t)
+                    if t > now || b.count > maxBars + 1 { break fill }
+                }
+            }
         }
-        starts = b
+        return (ds, b)
+    }
+
+    func reload() {
+        (dayStarts, starts) = Self.grid(days: days, hours: hours, now: Date())
+        daySums = store.worked(dayStarts).map { $0.values.reduce(0, +) }
+        estDays = store.estimated(dayStarts).map { $0.values.reduce(0, +) }
+        estTotal = estDays.reduce(0, +)
+        estPerBar = store.estimated(starts)
+        estTotals = [:]
+        for d in estPerBar { for (id, s) in d { estTotals[id, default: 0] += s } }
         perBar = store.worked(starts, wholeDays: hours >= 24)
         totals = [:]
         for d in perBar { for (id, s) in d { totals[id, default: 0] += s } }
-        let top = totals.sorted { $0.value > $1.value }.prefix(Self.colours.count).map { $0.key }
+        let top = totals.sorted { $0.value > $1.value }.prefix(Self.named).map { $0.key }
         slots = slots.filter { top.contains($0.key) }
-        var free = (0..<Self.colours.count).filter { s in !slots.values.contains(s) }
+        var free = (0..<Self.named).filter { s in !slots.values.contains(s) }
         for id in top where slots[id] == nil { slots[id] = free.removeFirst() }
         needsDisplay = true
     }
@@ -219,8 +265,9 @@ final class StatsView: NSView {
         return out
     }
 
+    /// A chat wears the colour you gave its branch on the map, as in the timeline; one you gave none is grey.
     private func colour(_ p: Part) -> NSColor {
-        if case .chat(let id) = p, let s = slots[id] { return Self.colours[s] }
+        if case .chat(let id) = p { return store.branchColor(id) ?? Theme.muted }
         return Self.otherColour
     }
 
@@ -261,12 +308,14 @@ final class StatsView: NSView {
         let step = [1, 2, 3, 6, 12, 24, 48, 72, 168].first { $0 % hours == 0 && CGFloat($0 / hours) * slotW >= 44 } ?? 168
         return (0..<n).compactMap { i in
             let d = starts[i], h = cal.component(.hour, from: d)
-            let midnight = h == 0 && cal.component(.minute, from: d) == 0
+            // a day's start, also where daylight saving skips midnight and the day starts at 1:00
+            let midnight = d == cal.startOfDay(for: d)
             if step >= 24 {
-                let back = cal.dateComponents([.day], from: cal.startOfDay(for: d), to: today).day ?? 0
+                // (days counted, not 24-hour spans: a day that starts at 1:00, its midnight skipped, is a whole one)
+                let back = Clock.days(from: d, to: today, cal)
                 guard midnight, back % (step / 24) == 0 else { return nil }
             } else {
-                guard h % step == 0 else { return nil }
+                guard midnight || h % step == 0 else { return nil }
             }
             let isToday = cal.isDateInToday(d)
             let text = !midnight ? Clock.format(d, "H:mm", "H:mm") : isToday ? tr("今天", "Today") : Clock.format(d, "M/d", "MMM d")
@@ -293,10 +342,10 @@ final class StatsView: NSView {
         let active = daySums.filter { $0 > 0 }.count
         let busiest = daySums.indices.max { daySums[$0] < daySums[$1] }
         let tiles: [(String, String)] = [
-            (tr("\(GPTWatcher.who) 干活总时长", "\(GPTWatcher.who) worked"), total > 0 ? Clock.duration(total) : "—"),
-            (tr("有活动的日子 · 平均", "Average per active day"), active > 0 ? Clock.duration(total / Double(active)) : "—"),
+            (tr("\(GPTWatcher.who) 干活总时长", "\(GPTWatcher.who) worked"), total > 0 ? (estTotal >= 60 ? "≈" : "") + Clock.duration(total) : "—"),
+            (tr("有活动的日子 · 平均", "Average per active day"), active > 0 ? dur(total / Double(active), estTotal / Double(active)) : "—"),
             (busiest.map { daySums[$0] > 0 ? tr("最忙 · ", "Busiest · ") + dayLabel($0) : tr("最忙", "Busiest") } ?? tr("最忙", "Busiest"),
-             busiest.map { daySums[$0] > 0 ? Clock.duration(daySums[$0]) : "—" } ?? "—"),
+             busiest.map { daySums[$0] > 0 ? dur(daySums[$0], $0 < estDays.count ? estDays[$0] : 0) : "—" } ?? "—"),
         ]
         var x = pad
         for (label, value) in tiles {
@@ -308,6 +357,10 @@ final class StatsView: NSView {
             : hours == 1 ? tr("每小时", "each hour") : tr("每 \(hours) 小时", "every \(hours) hours")
         var note = tr("\(per) \(GPTWatcher.who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
                       "Hours \(GPTWatcher.who) worked \(per), split by chat. Chats running side by side share the time.")
+        if estTotal >= 60 {
+            note += tr(" 其中 ≈\(Clock.duration(estTotal)) 是估算：Kikumap 看不到的时候（Claude 窗口关了、Codex 任务没动静），按你一次运行的常见时长算。",
+                       " ≈\(Clock.duration(estTotal)) of it is estimated: while Kikumap couldn't see (Claude's window closed, a Codex task quiet), at your typical run's length.")
+        }
         if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] {
             let d = Clock.format(until, "M月d日", "MMM d")
             note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")
@@ -394,7 +447,11 @@ final class StatsView: NSView {
             .sorted { $0.2 > $1.2 }
         let rest = chats.filter { slots[$0.key] == nil }
         if !rest.isEmpty {
-            rows.append((.other, tr("其他 \(rest.count) 个对话", "\(rest.count) other chats"), rest.values.reduce(0, +)))
+            rows.append((.other, tr("其他 \(rest.count) 个对话", rest.count == 1 ? "1 other chat" : "\(rest.count) other chats"), rest.values.reduce(0, +)))
+        }
+        func estimated(_ part: Part) -> Double {
+            if case .chat(let id) = part { return estTotals[id] ?? 0 }
+            return estTotals.filter { slots[$0.key] == nil }.values.reduce(0, +)
         }
         for (part, title, secs) in rows {
             guard y + 24 < bounds.height - 12 else { break }
@@ -406,7 +463,7 @@ final class StatsView: NSView {
             }
             colour(part).setFill()
             NSBezierPath(roundedRect: NSRect(x: x, y: y + 3, width: 10, height: 10), xRadius: 3, yRadius: 3).fill()
-            let value = Clock.duration(secs)
+            let value = dur(secs, estimated(part))
             let vw = (value as NSString).size(withAttributes: attrs(Theme.mono(11.5, .regular), Theme.ink)).width
             draw(title, Theme.ui(12), Theme.ink, in: NSRect(x: x + 18, y: y, width: w - 26 - vw, height: 16))
             draw(value, Theme.mono(11.5, .regular), Theme.ink, in: NSRect(x: x + w - vw - 2, y: y, width: vw + 2, height: 16), .right)
@@ -419,24 +476,25 @@ final class StatsView: NSView {
         guard let h = hover, let d = h.bar, d < perBar.count else { return }
         let day = perBar[d]
         let sum = day.values.reduce(0, +)
+        let est = d < estPerBar.count ? estPerBar[d] : [:], estSum = est.values.reduce(0, +)
         let date = barTitle(d)
         var lines: [(String, NSFont, NSColor)] = []
         switch h.part {
         case .chat(let id)?:
             lines = [(store.name(id), Theme.ui(12, .semibold), Theme.ink),
-                     (date + " · " + Clock.duration(day[id] ?? 0), Theme.ui(11.5), Theme.ink),
-                     (tr("合计 ", "Total ") + Clock.duration(sum), Theme.ui(11.5), Theme.muted)]
+                     (date + " · " + dur(day[id] ?? 0, est[id] ?? 0), Theme.ui(11.5), Theme.ink),
+                     (tr("合计 ", "Total ") + dur(sum, estSum), Theme.ui(11.5), Theme.muted)]
         case .other?:
             let rest = day.filter { slots[$0.key] == nil }
-            lines = [(tr("其他 \(rest.count) 个对话", "\(rest.count) other chats"), Theme.ui(12, .semibold), Theme.ink),
-                     (date + " · " + Clock.duration(rest.values.reduce(0, +)), Theme.ui(11.5), Theme.ink)]
+            lines = [(tr("其他 \(rest.count) 个对话", rest.count == 1 ? "1 other chat" : "\(rest.count) other chats"), Theme.ui(12, .semibold), Theme.ink),
+                     (date + " · " + dur(rest.values.reduce(0, +), est.filter { slots[$0.key] == nil }.values.reduce(0, +)), Theme.ui(11.5), Theme.ink)]
             for (id, s) in rest.sorted(by: { $0.value > $1.value }).prefix(4) {
-                lines.append(("  " + store.name(id) + " · " + Clock.duration(s), Theme.ui(11), Theme.muted))
+                lines.append(("  " + store.name(id) + " · " + dur(s, est[id] ?? 0), Theme.ui(11), Theme.muted))
             }
         case nil:
             guard sum > 0 else { return }
             lines = [(date, Theme.ui(12, .semibold), Theme.ink),
-                     (tr("共 ", "Total ") + Clock.duration(sum) + tr(" · \(day.count) 个对话", " · \(day.count) chats"), Theme.ui(11.5), Theme.ink)]
+                     (tr("共 ", "Total ") + dur(sum, estSum) + tr(" · \(day.count) 个对话", " · \(day.count) chats"), Theme.ui(11.5), Theme.ink)]
         }
         let w = min(300, lines.map { ($0.0 as NSString).size(withAttributes: [.font: $0.1]).width }.max()! + 24)
         let ht = CGFloat(lines.count) * 17 + 14
@@ -476,7 +534,7 @@ final class StatsView: NSView {
     override func mouseMoved(with event: NSEvent) {
         mouse = convert(event.locationInWindow, from: nil)
         let h = hit(mouse)
-        if case .chat? = h?.part { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        if case .chat(let id)? = h?.part, store.canOpen(id) { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
         if h != hover || h?.bar != nil {
             hover = h
             needsDisplay = true
@@ -490,6 +548,6 @@ final class StatsView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if case .chat(let id)? = hit(convert(event.locationInWindow, from: nil))?.part { onOpen?(id) }
+        if case .chat(let id)? = hit(convert(event.locationInWindow, from: nil))?.part, store.canOpen(id) { onOpen?(id) }
     }
 }

@@ -1,27 +1,40 @@
 import Cocoa
 
 /// A view that redraws itself every frame; `painter` gets the bounds and seconds since `restart()`.
+/// With Reduce Motion on, it's drawn once, as it looks `settled` seconds in.
 final class AnimView: NSView {
     var painter: ((NSRect, CGFloat) -> Void)?
+    var settled: CGFloat = 0
     private var start = Date()
     private var timer: Timer?
+    private var frozen: CGFloat?
+    private var watching: NSObjectProtocol?
 
     override var isFlipped: Bool { true }
 
     func restart() {
         start = Date()
-        timer?.invalidate()
+        timer?.invalidate(); timer = nil
+        if watching == nil {
+            // Reduce Motion switched while this shows: from then on
+            watching = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+                                                                         object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if let s = self, s.timer != nil || s.frozen != nil { s.restart() } }
+            }
+        }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { frozen = settled; needsDisplay = true; return }
+        frozen = nil
         let t = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in self?.needsDisplay = true }
         RunLoop.main.add(t, forMode: .common)
         timer = t
         needsDisplay = true
     }
 
-    func stop() { timer?.invalidate(); timer = nil }
+    func stop() { timer?.invalidate(); timer = nil; frozen = nil }
 
     override func draw(_ dirtyRect: NSRect) {
         Theme.bg.setFill(); bounds.fill()
-        painter?(bounds, CGFloat(Date().timeIntervalSince(start)))
+        painter?(bounds, frozen ?? CGFloat(Date().timeIntervalSince(start)))
     }
 }
 
@@ -29,7 +42,7 @@ final class AnimView: NSView {
 @MainActor
 final class Onboarding: NSObject, NSWindowDelegate {
     /// One permission (Accessibility) is all Kikumap needs; the rest is offered on one page, all optional.
-    enum Page: CaseIterable { case welcome, menubar, map, timeline, colors, accessibility, extras, done }
+    enum Page: CaseIterable { case welcome, menubar, map, timeline, colors, sources, accessibility, extras, done }
 
     private let perms: Permissions
     private var window: NSWindow!
@@ -46,6 +59,9 @@ final class Onboarding: NSObject, NSWindowDelegate {
     private var granted = false
     private var grantedAt: Date?
     private var statusL: NSTextField?
+    /// Open Kikumap at login (asked on the last page; on unless you untick it).
+    private var startAtLogin = true
+    private var sawDone = false
     var onLanguage: (() -> Void)?
     var onFinish: (() -> Void)?
 
@@ -56,9 +72,11 @@ final class Onboarding: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    func show() {
+    /// `resume`: back where you were (macOS restarted Kikumap for Full Disk Access, say).
+    func show(resume: Bool = false) {
         if window == nil { build() }
-        index = 0
+        index = resume ? min(max(UserDefaults.standard.integer(forKey: "IntroPage"), 0), Page.allCases.count - 1) : 0
+        sawDone = false
         render()
         window.center()
         Front.activate()
@@ -67,6 +85,12 @@ final class Onboarding: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         art.stop(); poll?.invalidate()
+        UserDefaults.standard.removeObject(forKey: "IntroPage")
+        // the first time through: start at login as chosen on the last page (not seen, run from the disk image, or
+        // not written: the To-do offers it later)
+        if sawDone && !LoginItem.chosen && !LoginItem.temporaryPlace && (!startAtLogin || LoginItem.set(true) == nil) {
+            LoginItem.chosen = true
+        }
         Prefs.onboarded = true
         onFinish?()
     }
@@ -134,9 +158,11 @@ final class Onboarding: NSObject, NSWindowDelegate {
     // MARK: pages
 
     private func render() {
+        UserDefaults.standard.set(index, forKey: "IntroPage")
         poll?.invalidate(); poll = nil
         statusL = nil
         grantedAt = nil
+        art.settled = 0
         extra.subviews.forEach { $0.removeFromSuperview() }
         // the extras page makes room for its list; every other page has the usual layout
         let W = extra.superview?.bounds.width ?? 720
@@ -154,50 +180,93 @@ final class Onboarding: NSObject, NSWindowDelegate {
         switch p {
         case .welcome:
             titleL.stringValue = "Kikumap"
-            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？这个小工具住在菜单栏里，告诉你哪个还在跑、哪个做完了还没看（未读），还能把对话整理成一张导图。",
-                                   "Many Claude and ChatGPT chats going at once? This little menu-bar app tells you which are still running and which finished and are still unread — and lets you sort them into a mind map.")
+            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 里把要盯的对话置顶，或在 ChatGPT 里置顶 Codex 对话，这个菜单栏小工具就告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
+                                   "Many Claude and ChatGPT chats going at once? Pin the ones to watch in Claude, or Codex chats in ChatGPT, and this menu-bar app tells you which are still running and which finished unread — and lets you sort them into a mind map.")
             let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
             seg.selectedSegment = Prefs.english ? 1 : 0
             center(seg)
             art.painter = { r, t in Onboarding.paintWelcome(r, t) }
+            art.settled = 1.8
         case .menubar:
             titleL.stringValue = tr("菜单栏一眼看完", "Everything at a glance")
             bodyL.stringValue = tr("菜单栏里只占一个图标：红色数字 = 未读，做完了还没看（带 ! 表示要你批准），橙色小菊花在转 = 还在跑。点开是列表和用量，点一下直接跳到那个对话。",
                                    "One icon in the menu bar: a red number = unread, finished but not yet seen (with ! when it needs your approval); the orange burst turning = still running. Click for the list and your usage; click a chat to jump to it.")
             art.painter = { r, t in Onboarding.paintMenuBar(r, t) }
+            art.settled = 4
         case .map:
             titleL.stringValue = tr("导图：把对话归好类", "A map for your chats")
-            bodyL.stringValue = tr("按 \(Prefs.hotKeyLabel()) 打开导图。新对话先进左边的收件栏，拖到主题上就归好了。键盘操作和 MindNode 一样。",
-                                   "Press \(Prefs.hotKeyLabel()) for the map. New chats wait in the inbox on the left; drag them onto a topic. Keys work like MindNode.")
+            let open = Prefs.hotKeyEnabled ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) for the map. ")
+                                           : tr("点菜单栏图标 →「打开导图」。", "Click the menu-bar icon → Open map. ")
+            bodyL.stringValue = open + tr("左栏是你在 Claude 和 ChatGPT（Codex 对话）里置顶的对话，还有编辑器里的 Claude Code、Codex 会话，拖到主题上就归好了。键盘操作和 MindNode 一样。",
+                                          "The left column holds the chats you pinned in Claude and ChatGPT (its Codex chats), and Claude Code / Codex sessions from your editors; drag them onto a topic. Keys work like MindNode.")
             art.painter = { r, t in Onboarding.paintMap(r, t) }
+            art.settled = 3
         case .timeline:
             titleL.stringValue = tr("时间线", "Timeline")
             bodyL.stringValue = tr("导图下方是时间线：Claude 和 ChatGPT 什么时候在忙哪个对话、计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。",
                                    "Below the map: when Claude and ChatGPT worked on which chat and when scheduled tasks run (with countdowns). Hover for names.")
             art.painter = { r, t in Onboarding.paintTimeline(r, t) }
+            art.settled = 3
         case .colors:
             titleL.stringValue = tr("颜色只留给你", "Colour is yours")
             bodyL.stringValue = tr("界面本身是灰阶的，状态用形状区分（空心环 = 在跑，实心点 = 未读）。颜色只用来做你自己的标记：给分支上色，给对话和主题加任意多个标签。",
                                    "The interface is greyscale; status is shown by shape (ring = running, dot = unread). Colour is only for your own marks: colour branches, and give chats and topics as many tags as you like.")
             art.painter = { r, t in Onboarding.paintColors(r, t) }
+            art.settled = 5
+        case .sources:
+            titleL.stringValue = tr("Kikumap 能看到什么", "What Kikumap can see")
+            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的 Codex 对话。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及普通 ChatGPT 聊天，它看不到。",
+                                   "It reads what's on this Mac: chats you pin in the Claude app (pinned on your phone or the web too), Claude Code and Codex run on this Mac, and Codex chats you pin in the ChatGPT app. Claude Code or Codex running on another computer, a server or in the cloud (SSH, remote), and ordinary ChatGPT chats, are out of its sight.")
+            art.painter = { r, t in Onboarding.paintSources(r, t) }
+            art.settled = 0.4
+        case .accessibility where perms.sidebar.status == .notInstalled && !AXIsProcessTrusted():
+            // no Claude app here: nothing to give access to
+            titleL.stringValue = tr("辅助功能：这台 Mac 用不上", "Accessibility: not needed on this Mac")
+            bodyL.stringValue = tr("辅助功能只用来看 Claude App 的对话列表，这台 Mac 上没装 Claude App，跳过就好；以后装了，在 设置 → 授权 里再开。ChatGPT 和 Claude Code 不需要它。",
+                                   "Accessibility is only for reading the Claude app's chat list, and there's no Claude app on this Mac, so skip it. If you install it later, turn it on in Settings → Access. ChatGPT and Claude Code don't need it.")
+            art.painter = { r, t in Onboarding.paintSymbol(r, t, "accessibility", granted: nil) }
         case .accessibility:
             permissionPage(step: 1, symbol: "accessibility",
                            title: tr("只需要一步：辅助功能", "Just one step: Accessibility"),
-                           body: tr("用来看 Claude App 的对话列表：哪些在跑、哪些做完了、哪些置顶了。只看，不改。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 Kikumap。",
-                                    "Lets Kikumap look at the Claude app's chat list: which chats are running, which are done, which are pinned. It only looks. ChatGPT needs no permission at all.\nClick below → switch on Kikumap in the list."),
+                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 Kikumap。",
+                                    "Lets Kikumap read the Claude app's chat list: which chats are running, done or pinned. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting). ChatGPT needs no permission.\nClick below → switch on Kikumap in the list."),
                            action: tr("打开系统设置", "Open System Settings"),
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
         case .extras:
             extrasPage()
         case .done:
+            sawDone = true
             titleL.stringValue = tr("准备好了", "You're set")
-            bodyL.stringValue = tr("Kikumap 在菜单栏右上角。随时可以在「设置」里改语言、外观、通知、授权和快捷键。",
-                                   "The console lives in the menu bar. Change language, appearance, notifications, access and shortcuts any time in Settings.")
+            bodyL.stringValue = tr("下一步：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单和左栏里。Kikumap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
+                                   "Next: pin a chat in Claude, or a Codex chat in ChatGPT, and it shows up in the menu and the left column. Kikumap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
+            bodyL.frame = NSRect(x: 90, y: 150, width: (extra.superview?.bounds.width ?? 720) - 180, height: 62)
+            extra.frame = NSRect(x: 40, y: 70, width: (extra.superview?.bounds.width ?? 720) - 80, height: 74)
             let looks = Prefs.Appearance.allCases
             let seg = NSSegmentedControl(labels: [tr("跟随系统", "System"), tr("浅色", "Light"), tr("深色", "Dark")],
                                          trackingMode: .selectOne, target: self, action: #selector(pickLook(_:)))
             seg.selectedSegment = looks.firstIndex(of: Prefs.appearance) ?? 0
-            center(seg)
+            seg.sizeToFit()
+            // open at login: on a first run with nothing chosen yet it's ticked, and applied when you leave; otherwise (the
+            // installer asked, it's already on, the intro again) the box is the setting itself. From the disk image it
+            // can't be turned on: the To-do offers it once Kikumap runs from Applications.
+            let away = LoginItem.temporaryPlace && !LoginItem.enabled
+            let live = !away && (LoginItem.chosen || Prefs.onboarded || FileManager.default.fileExists(atPath: LoginItem.url.path))
+            if live { LoginItem.chosen = true }
+            weak var b: NSButton?               // weak: the box holds this closure
+            let box = ClosureCheck(title: away ? tr("登录时自动打开：先把 Kikumap 拖进「应用程序」，从那里打开", "Open at login: first drag Kikumap into Applications and open it from there")
+                                               : tr("登录 Mac 时自动打开 Kikumap（只在菜单栏）", "Open Kikumap when you log in (menu bar only)"),
+                                   on: live ? LoginItem.enabled : startAtLogin && !away) { [weak self] on in
+                guard live else { self?.startAtLogin = on; return }
+                LoginItem.choose(on)
+                b?.state = LoginItem.enabled ? .on : .off
+            }
+            b = box
+            box.isEnabled = !away
+            if !away { box.toolTip = tr("macOS 会提示一次「已添加后台项目」，说的就是这个。随时可以在 设置 → 通用 里改。", "macOS then says \"Background Items Added\" once: that's this. Change it any time in Settings → General.") }
+            let stack = NSStackView(views: [seg, box])
+            stack.orientation = .vertical
+            stack.spacing = 10
+            center(stack)
             art.painter = { r, t in Onboarding.paintDone(r, t) }
         }
         layoutButtons()
@@ -212,13 +281,13 @@ final class Onboarding: NSObject, NSWindowDelegate {
         extra.frame = NSRect(x: 40, y: 66, width: extra.superview!.bounds.width - 80, height: 116)
         var rows: [(String, String, () -> Bool, () -> Void)] = [
             (tr("更全的提醒", "Fuller alerts"),
-             tr("Claude 窗口关着也知道对话做完了；Claude 问「允许这个操作吗？」时会提醒你。要开「完全磁盘访问」，并在 Claude 的设置 → 通知 里打开 Response completions。",
-                "Know when a chat finishes even with Claude's window closed, and get told when Claude asks \"Allow this?\". Needs Full Disk Access, and Response completions on in Claude → Settings → Notifications."),
+             tr("Claude 问「允许这个操作吗？」或等你回答时提醒你；Claude App 里的 Cowork 任务做完时，窗口关着也知道。要开「完全磁盘访问」。（普通对话回复完，Claude 不发通知。）",
+                "Get told when Claude asks \"Allow this?\" or waits for your answer, and know when a Cowork task in the Claude app finishes, even with its window closed. Needs Full Disk Access. (Claude sends no notification when an ordinary chat's reply finishes.)"),
              { [perms] in perms.fullDisk }, { [perms] in perms.openFullDisk() }),
-            (tr("用量（Pro / Max）", "Usage (Pro / Max)"),
-             tr("在菜单和小组件里看 Claude 的 5 小时和每周用量。免费套餐没有用量可看。",
-                "See Claude's 5-hour and weekly usage in the menu and the widget. The Free plan has no usage to show."),
-             { [perms] in perms.usageOK }, { [perms] in perms.connectUsage(explained: true) }),
+            (tr("Claude 用量（付费套餐）", "Claude usage (paid plans)"),
+             tr("在菜单和小组件里看 Claude 的 5 小时和每周用量。借用 Claude Code 的登录：要先装好 Claude Code 并用付费账号登录。",
+                "Claude's 5-hour and weekly usage in the menu and the widget. Uses Claude Code's sign-in, so Claude Code must be installed and signed in with a paid plan."),
+             { [perms] in perms.usageOK }, { [perms] in perms.connectUsage() }),
         ]
         if FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.claude") {
             rows.append(("Claude Code",
@@ -228,19 +297,23 @@ final class Onboarding: NSObject, NSWindowDelegate {
         let width = extra.bounds.width
         var views: [NSView] = []
         var buttons: [(ClosureButton, () -> Bool, String)] = []
-        for (title, what, on, run) in rows {
+        var usageLabel: NSTextField?, diskLabel: NSTextField?
+        for (k, (title, what, on, run)) in rows.enumerated() {
             let b = ClosureButton(title: title, run)
             b.widthAnchor.constraint(equalToConstant: 170).isActive = true
             let l = NSTextField(wrappingLabelWithString: what)
             l.font = .systemFont(ofSize: 11.5)
             l.textColor = Theme.muted
             l.preferredMaxLayoutWidth = width - 190
+            if k == 0 { diskLabel = l }
+            if k == 1 { usageLabel = l }
             let row = NSStackView(views: [b, l])
             row.spacing = 14
             row.alignment = .centerY
             views.append(row)
             buttons.append((b, on, title))
         }
+        let usageWhat = rows[1].1, diskWhat = rows[0].1
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -248,7 +321,35 @@ final class Onboarding: NSObject, NSWindowDelegate {
         let s = stack.fittingSize
         stack.frame = NSRect(x: (width - s.width) / 2, y: (extra.bounds.height - s.height) / 2, width: s.width, height: s.height)
         extra.addSubview(stack)
-        let update = { for (b, on, title) in buttons { let done = on(); b.title = done ? "✓ " + title : title; b.isEnabled = !done } }
+        let usage = perms.usage, pm = perms
+        let update = {
+            for (k, (b, on, title)) in buttons.enumerated() {
+                let done = on(); b.title = done ? "✓ " + title : title; b.isEnabled = !done
+                // Full Disk Access opened and still off: if it was switched on, macOS gives it only after a reopen
+                if k == 0, let l = diskLabel {
+                    let text = !done && pm.fullDiskAsked
+                        ? tr("在系统设置里开好了？Kikumap 要退出并重新打开才能用上：再点一下这个按钮。", "Switched it on in System Settings? Kikumap gets it once it quits and reopens: click this button again.")
+                        // on, but Notification Center's database can't be read (moved or changed by a macOS update)
+                        : done && pm.notifications.status == .unreadable
+                        ? tr("「完全磁盘访问」已开，但读不了 macOS 的通知数据库（系统更新改了它？），Claude 通知里的提醒暂时用不了。", "Full Disk Access is on, but macOS's notification database can't be read (changed by an update?), so the alerts from Claude's notifications don't work for now.")
+                        : diskWhat
+                    if l.stringValue != text { l.stringValue = text }
+                }
+            }
+            // what came of turning usage on, right under its button
+            guard let l = usageLabel else { return }
+            var text = usageWhat
+            if UsageMonitor.enabled {
+                switch usage.status {
+                case .ok: text = usageWhat
+                case .unknown: text = tr("读取中…", "Reading…")
+                case .noLogin where !UsageMonitor.claudeCodeInstalled:
+                    text = tr("这台 Mac 上没有 Claude Code：先安装并用付费账号登录，或者跳过这项。", "Claude Code isn't on this Mac: install it and sign in with a paid plan, or skip this.")
+                default: text = usage.hint
+                }
+            }
+            if l.stringValue != text { l.stringValue = text }
+        }
         update()
         let pageIndex = index
         poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -295,6 +396,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
                 guard now != self.granted else { return }
                 self.granted = now
                 update()
+                self.art.needsDisplay = true
                 self.next.title = now ? tr("下一步", "Next") : tr("稍后再说", "Later")
                 if now {
                     // just granted: show the tick, then move on by itself
@@ -307,7 +409,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         }
         art.painter = { [weak self] r, t in
             let since = self?.grantedAt.map { CGFloat(Date().timeIntervalSince($0)) }
-            Onboarding.paintSymbol(r, t, symbol, granted: (self?.granted ?? false) ? (since ?? 10) : nil)
+            Onboarding.paintSymbol(r, t, symbol, granted: (self?.granted ?? false) ? (Theme.lessMotion ? 10 : since ?? 10) : nil)
         }
     }
 
@@ -414,7 +516,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
     static func paintMap(_ r: NSRect, _ t: CGFloat) {
         let side = NSRect(x: 40, y: 24, width: 170, height: 270)
         card(side)
-        text(tr("新对话", "Inbox"), .systemFont(ofSize: 12.5, weight: .semibold), Theme.ink, NSPoint(x: side.minX + 14, y: side.minY + 12))
+        text(tr("置顶对话", "Pinned"), .systemFont(ofSize: 12.5, weight: .semibold), Theme.ink, NSPoint(x: side.minX + 14, y: side.minY + 12))
         let c = t.truncatingRemainder(dividingBy: 5)
         let move = ease((c - 1.2) / 1.2)
         let chips = [tr("报税问题", "Tax question"), tr("周报草稿", "Weekly report"), tr("旅行计划", "Trip plan")]
@@ -463,6 +565,92 @@ final class Onboarding: NSObject, NSWindowDelegate {
                 text(chips[0], .systemFont(ofSize: 12.5, weight: .semibold), Theme.bg, NSPoint(x: chip.minX + 9, y: chip.minY + 4))
             }
         }
+    }
+
+    /// What it sees: the apps on this Mac feed Kikumap; what runs elsewhere stops at the Mac's edge.
+    static func paintSources(_ r: NSRect, _ t: CGFloat) {
+        let mac = NSRect(x: 30, y: 22, width: 404, height: 276)
+        card(mac)
+        let lf = NSFont.systemFont(ofSize: 11.5, weight: .semibold)
+        text(tr("这台 Mac", "This Mac"), lf, Theme.muted, NSPoint(x: mac.minX + 16, y: mac.minY + 12))
+        let hub = NSPoint(x: mac.maxX - 72, y: mac.midY + 4)
+        let here: [(String, String, String)] = [
+            ("sparkle", tr("Claude App", "Claude app"), tr("置顶的对话", "chats you pin")),
+            ("terminal", tr("终端 · 编辑器", "Terminal · editors"), "Claude Code · Codex"),
+            ("gpt", tr("ChatGPT App", "ChatGPT app"), tr("置顶的 Codex 对话", "Codex chats you pin")),
+        ]
+        for (i, (sym, name, sub)) in here.enumerated() {
+            let row = NSRect(x: mac.minX + 16, y: mac.minY + 40 + CGFloat(i) * 78, width: 196, height: 58)
+            chip(row, dashed: false)
+            let icon = NSRect(x: row.minX + 12, y: row.midY - 9, width: 18, height: 18)
+            switch sym {
+            case "sparkle": Logo.draw(in: icon.insetBy(dx: 1, dy: 1), color: Theme.ink)
+            case "gpt": let g = GPTWatcher.mark(Theme.ink, height: 11); g.draw(in: NSRect(x: icon.minX - 2, y: icon.midY - 5.5, width: g.size.width, height: 11))
+            default: symbol(sym, in: icon, Theme.ink)
+            }
+            text(name, .systemFont(ofSize: 13, weight: .semibold), Theme.ink, NSPoint(x: row.minX + 40, y: row.minY + 11))
+            text(sub, .systemFont(ofSize: 11.5), Theme.muted, NSPoint(x: row.minX + 40, y: row.minY + 31))
+            // its path into Kikumap, a dot running along it
+            let a = NSPoint(x: row.maxX + 2, y: row.midY), d = NSPoint(x: hub.x - 34, y: hub.y)
+            let b = NSPoint(x: (a.x + d.x) / 2, y: a.y), c = NSPoint(x: (a.x + d.x) / 2, y: d.y)
+            let p = NSBezierPath(); p.move(to: a); p.curve(to: d, controlPoint1: b, controlPoint2: c)
+            Theme.line.setStroke(); p.lineWidth = 1.5; p.stroke()
+            let k = ease((t * 0.5 + CGFloat(i) * 0.33).truncatingRemainder(dividingBy: 1))
+            let m = cubic(a, b, c, d, k)
+            Theme.ink.setFill(); NSBezierPath(ovalIn: NSRect(x: m.x - 3.5, y: m.y - 3.5, width: 7, height: 7)).fill()
+        }
+        Logo.draw(in: NSRect(x: hub.x - 30, y: hub.y - 30, width: 60, height: 60))
+        let kf = NSFont.systemFont(ofSize: 13, weight: .semibold), ks = "Kikumap".size(kf)
+        text("Kikumap", kf, Theme.ink, NSPoint(x: hub.x - ks.width / 2, y: hub.y + 38))
+        // elsewhere: it never gets in
+        let away = NSRect(x: mac.maxX + 46, y: mac.minY, width: r.width - mac.maxX - 46 - 22, height: mac.height)
+        text(tr("别处", "Elsewhere"), lf, Theme.muted, NSPoint(x: away.minX + 2, y: away.minY + 12))
+        let there: [(String, String, String)] = [
+            ("server.rack", tr("别的电脑、服务器", "Another computer"), tr("远程的 Claude Code、Codex", "Claude Code, Codex over SSH")),
+            ("iphone", tr("网页、手机", "Web and phone"), tr("普通 ChatGPT 聊天", "ordinary ChatGPT chats")),
+            ("cloud", tr("云端", "Cloud"), tr("云端运行的会话", "sessions run in the cloud")),
+        ]
+        for (i, (sym, name, sub)) in there.enumerated() {
+            let row = NSRect(x: away.minX, y: away.minY + 40 + CGFloat(i) * 78, width: away.width, height: 58)
+            chip(row, dashed: true)
+            symbol(sym, in: NSRect(x: row.minX + 10, y: row.midY - 9, width: 18, height: 18), Theme.muted)
+            text(name, .systemFont(ofSize: 12.5, weight: .medium), Theme.muted, NSPoint(x: row.minX + 36, y: row.minY + 11))
+            text(sub, .systemFont(ofSize: 11), Theme.muted, NSPoint(x: row.minX + 36, y: row.minY + 31))
+            // a dot heads for the Mac and fades out before its edge
+            let x0 = row.minX - 6, x1 = mac.maxX + 14, y = row.midY
+            let dash = NSBezierPath(); dash.move(to: NSPoint(x: x0, y: y)); dash.line(to: NSPoint(x: x1, y: y))
+            dash.setLineDash([3, 3], count: 2, phase: 0); Theme.line.setStroke(); dash.lineWidth = 1.2; dash.stroke()
+            let k = (t * 0.45 + CGFloat(i) * 0.3).truncatingRemainder(dividingBy: 1)
+            let x = x0 - (x0 - x1) * ease(k)
+            Theme.muted.withAlphaComponent(0.9 * (1 - k)).setFill()
+            NSBezierPath(ovalIn: NSRect(x: x - 3, y: y - 3, width: 6, height: 6)).fill()
+            let cx = mac.maxX + 8
+            let xx = NSBezierPath()
+            xx.move(to: NSPoint(x: cx - 4, y: y - 4)); xx.line(to: NSPoint(x: cx + 4, y: y + 4))
+            xx.move(to: NSPoint(x: cx - 4, y: y + 4)); xx.line(to: NSPoint(x: cx + 4, y: y - 4))
+            xx.lineWidth = 1.6; xx.lineCapStyle = .round; Theme.muted.setStroke(); xx.stroke()
+        }
+    }
+
+    private static func chip(_ r: NSRect, dashed: Bool) {
+        let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8)
+        if !dashed { Theme.bg.setFill(); p.fill() }
+        if dashed { p.setLineDash([4, 3], count: 2, phase: 0) }
+        p.lineWidth = 1; Theme.line.setStroke(); p.stroke()
+    }
+
+    private static func symbol(_ name: String, in r: NSRect, _ c: NSColor) {
+        guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: r.height * 0.8, weight: .regular)) else { return }
+        let s = img.size
+        let tinted = NSImage(size: s, flipped: false) { rr in img.draw(in: rr); c.set(); rr.fill(using: .sourceAtop); return true }
+        tinted.draw(in: NSRect(x: r.midX - s.width / 2, y: r.midY - s.height / 2, width: s.width, height: s.height),
+                    from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    }
+
+    private static func cubic(_ a: NSPoint, _ b: NSPoint, _ c: NSPoint, _ d: NSPoint, _ k: CGFloat) -> NSPoint {
+        let u = 1 - k
+        func f(_ p: KeyPath<NSPoint, CGFloat>) -> CGFloat { u * u * u * a[keyPath: p] + 3 * u * u * k * b[keyPath: p] + 3 * u * k * k * c[keyPath: p] + k * k * k * d[keyPath: p] }
+        return NSPoint(x: f(\.x), y: f(\.y))
     }
 
     static func paintTimeline(_ r: NSRect, _ t: CGFloat) {

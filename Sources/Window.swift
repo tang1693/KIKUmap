@@ -53,6 +53,8 @@ final class FlatButton: NSButton {
 /// A borderless SF Symbol button.
 final class IconButton: NSButton {
     private let run: () -> Void
+    /// VoiceOver reads what the tooltip says (the symbol alone has no useful name).
+    override var toolTip: String? { didSet { setAccessibilityLabel(toolTip) } }
     init(_ symbol: String, tip: String, _ run: @escaping () -> Void) {
         self.run = run
         super.init(frame: NSRect(x: 0, y: 0, width: 28, height: 26))
@@ -77,12 +79,21 @@ final class IconButton: NSButton {
 @MainActor
 final class HeaderView: NSView {
     var running = 0, unread = 0
-    /// (label, percent, "今天 18:40 重置") — drawn as two stacked bars like claude.ai's Usage page.
+    /// Some of those running are out of Kikumap's sight (shown "2?").
+    var runningUnsure = false
+    /// (label, percent, "今天 18:40 重置") — drawn as stacked bars like claude.ai's Usage page (a third while the Sonnet-only week holds you back).
     var meters: [(String, Double?, String)] = []
     /// ChatGPT's, drawn as a column of their own next to Claude's (each marked when both are there).
     var gptMeters: [(String, Double?, String)] = []
     var usageHint = ""
-    var liveText = ""
+    var liveText = "" { didSet { if liveText != oldValue { needsLayout = true } } }      // (buttons may make room for it)
+    /// The status says something's off (not synced, Claude closed, archiving): it keeps its room before the meters.
+    var liveImportant = false
+    /// Shorter ways to say `liveText`, in order, for a narrow window: an important status is shortened rather than
+    /// left out. The first still says all that matters (without the chat's title; the problems without "Synced ·
+    /// 12m ago"); the rest leave something out, so the counts' words go first.
+    var liveShort: [String] = []
+    private var liveRoom: CGFloat { liveImportant && !liveText.isEmpty ? ceil(liveText.size(Theme.ui(12)).width) + 24 : 0 }
     /// Shown on hovering `liveText`: what the status means, what it holds up, what to do.
     var liveHelp = ""
     private var liveTip: (rect: NSRect, help: NSString, tag: NSView.ToolTipTag)?   // the string is kept: tool tips don't retain it
@@ -93,13 +104,11 @@ final class HeaderView: NSView {
     var onToggleSide: (() -> Void)?
     var onToggleTimeline: (() -> Void)?
     var onStats: (() -> Void)?
-    var onRefresh: (() -> Void)?
     /// The ▸ To-do button was clicked (it's the anchor for the list).
     var onTodo: ((NSView) -> Void)?
     /// Open to-dos (nil: none at all, so no button; 0: all ignored, a muted ▸).
     var todoCount: Int? { didSet { if todoCount != oldValue { todoBtn.isHidden = todoCount == nil; todoBtn.count = todoCount ?? 0; needsLayout = true; needsDisplay = true } } }
     private lazy var todoBtn: TodoButton = { let b = TodoButton(target: self, action: #selector(openTodo)); b.isHidden = true; return b }()
-    private lazy var refreshBtn = IconButton("arrow.clockwise", tip: tr("刷新", "Refresh")) { [weak self] in self?.onRefresh?() }
     private lazy var gear = IconButton("gearshape", tip: tr("设置", "Settings")) { [weak self] in self?.onSettings?() }
     private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
     private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
@@ -110,7 +119,7 @@ final class HeaderView: NSView {
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if gear.superview == nil { [refreshBtn, sideBtn, timelineBtn, statsBtn, lights, gear, todoBtn].forEach(addSubview) }
+        if gear.superview == nil { [sideBtn, timelineBtn, statsBtn, lights, gear, todoBtn].forEach(addSubview) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -121,7 +130,6 @@ final class HeaderView: NSView {
         sideBtn.setSymbol("sidebar.left")
         timelineBtn.setSymbol("rectangle.bottomthird.inset.filled")
         statsBtn.setSymbol("chart.bar.xaxis")
-        refreshBtn.setSymbol("arrow.clockwise")
         needsDisplay = true
     }
 
@@ -131,7 +139,6 @@ final class HeaderView: NSView {
         sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
         timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
         statsBtn.toolTip = tr("统计  ⌘Y", "Statistics  ⌘Y")
-        refreshBtn.toolTip = tr("刷新：马上重新读 Claude、ChatGPT 和用量  ⌘R", "Refresh: read Claude, ChatGPT and usage again now  ⌘R")
         todoBtn.toolTip = tr("哪些事还没做，没做会影响什么；做不做由你决定", "What's left to do and what it affects; up to you whether to do it")
         todoBtn.needsDisplay = true
     }
@@ -158,12 +165,22 @@ final class HeaderView: NSView {
         super.layout()
         let midY = (bounds.height - 1) / 2
         var x = bounds.width - 14
-        for b in [gear, lights, statsBtn, timelineBtn, sideBtn, refreshBtn] {
+        for b in [gear, lights, statsBtn, timelineBtn, sideBtn] {
             x -= 28
             b.frame = NSRect(x: x, y: midY - 13, width: 28, height: 26)
         }
         x -= 10
-        for b in buttons.reversed() {
+        // too little room left of them for the counts (a narrow or zoomed window, archiving): the leftmost buttons that
+        // are also somewhere else go first (Export… is in the menu and ⇧⌘E, ＋ Topic is ⏎ / ⇥ / a double-click, Mark all
+        // read is in the menu); one that stops something stays
+        // (room for the usage meters too, at their narrowest: what they say isn't anywhere else on screen)
+        let need = countsEnd() + 12 + (meters.isEmpty && gptMeters.isEmpty ? 0 : 160) + liveRoom, todoW = todoBtn.isHidden ? 0 : todoBtn.intrinsicContentSize.width + 8
+        var shown = buttons.map { _ in true }
+        func used() -> CGFloat { zip(buttons, shown).filter(\.1).reduce(todoW) { $0 + $1.0.intrinsicContentSize.width + 8 } }
+        for i in buttons.indices where i < actions.count && !actions[i].1 && x - used() < need { shown[i] = false }
+        for (i, b) in buttons.enumerated().reversed() {
+            b.isHidden = !shown[i]
+            guard shown[i] else { continue }
             let s = b.intrinsicContentSize
             x -= s.width
             b.frame = NSRect(x: x, y: midY - s.height / 2, width: s.width, height: s.height)
@@ -176,9 +193,29 @@ final class HeaderView: NSView {
         }
     }
 
+    /// Where the logo, the name and the two counts with their words (or the pills alone) end, as `draw` lays them out.
+    private func countsEnd(words: Bool = true) -> CGFloat {
+        var x: CGFloat = 48 + ceil("Kikumap".size(Theme.ui(15, .semibold)).width) + 22
+        for (n, label) in [(running, tr("进行中", "Running")), (unread, tr("未读", "Unread"))] {
+            let w = max(24, ceil((String(n) + "?").size(Theme.mono(12.5, .bold)).width) + 14)
+            x += words ? w + 6 + ceil(label.size(Theme.ui(12.5, .medium)).width) + 16 : w + 10
+        }
+        return x - (words ? 16 : 10)
+    }
+
+    /// The first of `texts` that fits in `width`; else the last one, cut short with "…".
+    static func fit(_ texts: [String], _ font: NSFont, _ width: CGFloat) -> String {
+        func w(_ t: String) -> CGFloat { ceil(t.size(font).width) }
+        if let t = texts.first(where: { w($0) <= width }) { return t }
+        guard let last = texts.last else { return "" }
+        var n = last.count
+        while n > 1 && w(String(last.prefix(n)) + "…") > width { n -= 1 }
+        return String(last.prefix(n)) + "…"
+    }
+
     /// A count pill: outlined (running) or solid (waiting for you).
-    static func drawCount(_ n: Int, solid: Bool, at x: CGFloat, midY: CGFloat, font: NSFont) -> CGFloat {
-        let s = String(n)
+    static func drawCount(_ n: Int, solid: Bool, at x: CGFloat, midY: CGFloat, font: NSFont, unsure: Bool = false) -> CGFloat {
+        let s = String(n) + (unsure ? "?" : "")
         let w = max(24, ceil(s.size(font).width) + 14)
         let r = NSRect(x: x, y: midY - 11, width: w, height: 22)
         let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: 10.25, yRadius: 10.25)
@@ -202,78 +239,130 @@ final class HeaderView: NSView {
         let ts = title.size(tf)
         (title as NSString).draw(at: NSPoint(x: x, y: mid - ts.height / 2), withAttributes: [.font: tf, .foregroundColor: Theme.ink])
         x += ts.width + 22
+        let small = Theme.ui(12)
+        let limit = (todoBtn.isHidden ? (buttons.first(where: { !$0.isHidden })?.frame.minX ?? sideBtn.frame.minX) : todoBtn.frame.minX) - 12
+        // an important status (archiving, a sync problem) goes before the meters, and before the counts' words: beside
+        // the words, whole or in its first fewer words (that still say everything that matters); else beside the pills
+        // alone, shorter still or cut short if it must be, never left out
+        var live = ""
+        if liveImportant && !liveText.isEmpty {
+            let texts = [liveText] + liveShort
+            live = texts.prefix(2).first { ceil($0.size(small).width) <= limit - countsEnd() - 12 }
+                ?? HeaderView.fit(texts, small, limit - countsEnd(words: false) - 12)
+        }
+        let liveW: CGFloat = live.isEmpty ? 0 : ceil(live.size(small).width) + 16
+        // still no room for the words beside the counts: the pills alone (their shapes say which is which)
+        let words = countsEnd() + (live.isEmpty ? 0 : 12 + liveW) <= limit
         for (n, label, solid) in [(running, tr("进行中", "Running"), false), (unread, tr("未读", "Unread"), true)] {
-            let w = HeaderView.drawCount(n, solid: solid, at: x, midY: mid, font: Theme.mono(12.5, .bold))
+            let w = HeaderView.drawCount(n, solid: solid, at: x, midY: mid, font: Theme.mono(12.5, .bold), unsure: !solid && runningUnsure)
+            guard words else { x += w + 10; continue }
             let lf = Theme.ui(12.5, .medium)
             let ls = label.size(lf)
             (label as NSString).draw(at: NSPoint(x: x + w + 6, y: mid - ls.height / 2), withAttributes: [.font: lf, .foregroundColor: Theme.ink])
             x += w + 6 + ls.width + 16
         }
-        let small = Theme.ui(12)
-        let limit = (todoBtn.isHidden ? (buttons.first?.frame.minX ?? (bounds.width - 90)) : todoBtn.frame.minX) - 12
-        // Claude's usage, then ChatGPT's beside it: a column each, with its mark when both are there
-        let columns = [(meters, false), (gptMeters, true)].filter { !$0.0.isEmpty }
-        let marked = columns.count > 1
-        func columnW(_ ms: [(String, Double?, String)]) -> CGFloat {
-            let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .bold)
-            let lw = ceil(ms.map { $0.0.size(lf).width }.max() ?? 0)
-            let tw = ms.map { ((($0.1.map { "\(Int($0.rounded()))%" } ?? "–") + "  " + $0.2) as String).size(pf).width }.max() ?? 0
-            return (marked ? 22 : 0) + lw + 8 + 90 + 8 + ceil(tw)
+        // Claude's usage, then ChatGPT's beside it; with ChatGPT's there, every row carries its service's mark (as in
+        // the widget). A narrower window gets shorter bars and reset times, then none (the tool tip has them all),
+        // then one column with each service's fullest meter, as the small widget does.
+        typealias Row = (m: (String, Double?, String), gpt: Bool)
+        let all: [[Row]] = [meters.map { ($0, false) }, gptMeters.map { ($0, true) }].filter { !$0.isEmpty }
+        let fullest: [[Row]] = all.isEmpty ? [] : [all.compactMap { c in c.max { ($0.m.1 ?? -1) < ($1.m.1 ?? -1) } }]
+        let marked = !gptMeters.isEmpty
+        let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .medium), bf = Theme.mono(11, .bold)
+        let markW: CGFloat = marked ? 27 : 0
+        func value(_ m: (String, Double?, String), _ when: Int) -> String {
+            let p = m.1.map { "\(Int($0.rounded()))%" } ?? "–"
+            // (numbers from an earlier read never pass for current ones: "as of …", or where that won't fit "old",
+            // and they're drawn dimmed)
+            let t = when == 0 ? m.2 : when == 1 ? HeaderView.shortWhen(m.2) : HeaderView.isAsOf(m.2) ? tr("旧数据", "old") : ""
+            return t.isEmpty ? p : p + "  " + t
         }
-        var shownColumns: [([(String, Double?, String)], Bool)] = []
-        var used: CGFloat = 0
-        for c in columns {
-            let w = columnW(c.0) + (shownColumns.isEmpty ? 0 : 18)
-            guard x + used + w <= limit else { break }
-            shownColumns.append(c); used += w
+        typealias Fit = (columns: [[Row]], bar: CGFloat, when: Int, labels: Bool)
+        func labelW(_ rs: [Row], _ f: Fit) -> CGFloat { f.labels ? ceil(rs.map { $0.m.0.size(lf).width }.max() ?? 0) + 8 : 0 }
+        func width(_ rs: [Row], _ f: Fit) -> CGFloat {
+            markW + labelW(rs, f) + f.bar + 8 + ceil(rs.map { value($0.m, f.when).size(bf).width }.max() ?? 0)
         }
-        for (meters, gpt) in shownColumns {
-            if marked {
-                if gpt {
-                    let img = GPTWatcher.mark(Theme.muted, height: 12)
-                    img.draw(in: NSRect(x: x, y: mid - 6, width: img.size.width, height: 12))
-                } else {
-                    Logo.draw(in: NSRect(x: x + 2, y: mid - 7, width: 14, height: 14), color: Theme.muted)
-                }
-                x += 22
-            }
-            let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .medium)
-            let lw = ceil(meters.map { $0.0.size(lf).width }.max() ?? 0)
-            let barW: CGFloat = 90
+        func total(_ f: Fit) -> CGFloat { f.columns.enumerated().reduce(0) { $0 + width($1.element, f) + ($1.offset > 0 ? 18 : 0) } }
+        let fits: [Fit] = [(all, 90, 0, true), (all, 64, 1, true), (all, 48, 2, true), (fullest, 48, 2, true), (fullest, 40, 2, false)]
+        let fit = fits.first { total($0) <= limit - liveW - x } ?? ([], 0, 2, false)
+        let meterStart = x
+        for rs in fit.columns {
+            let lw = labelW(rs, fit)
             var maxW: CGFloat = 0
-            for (i, m) in meters.enumerated() {
-                let cy = meters.count == 1 ? mid : mid + (i == 0 ? -8 : 8)
-                let ls = m.0.size(lf)
-                (m.0 as NSString).draw(at: NSPoint(x: x, y: cy - ls.height / 2), withAttributes: [.font: lf, .foregroundColor: Theme.muted])
-                let bx = x + lw + 8
-                let track = NSRect(x: bx, y: cy - 2, width: barW, height: 4)
+            for (i, row) in rs.enumerated() {
+                let (m, gpt) = row
+                let cy = rs.count == 1 ? mid : rs.count == 2 ? mid + (i == 0 ? -8 : 8) : mid + CGFloat(i - 1) * 12
+                if marked {
+                    if gpt {
+                        let img = GPTWatcher.mark(Theme.muted, height: 10)
+                        img.draw(in: NSRect(x: x, y: cy - 5, width: img.size.width, height: 10))
+                    } else {
+                        Logo.draw(in: NSRect(x: x + 1, y: cy - 5, width: 10, height: 10), color: Theme.muted)
+                    }
+                }
+                let lx = x + markW
+                if fit.labels {
+                    let ls = m.0.size(lf)
+                    (m.0 as NSString).draw(at: NSPoint(x: lx, y: cy - ls.height / 2), withAttributes: [.font: lf, .foregroundColor: Theme.muted])
+                }
+                let bx = lx + lw
+                let track = NSRect(x: bx, y: cy - 2, width: fit.bar, height: 4)
                 Theme.faint.setFill(); NSBezierPath(roundedRect: track, xRadius: 2, yRadius: 2).fill()
-                let high = (m.1 ?? 0) >= 90
+                let old = HeaderView.isAsOf(m.2)
+                let high = (m.1 ?? 0) >= 90 && !old
                 if let p = m.1 {
                     let f = CGFloat(min(max(p, 0), 100) / 100)
-                    Theme.ink.setFill()
-                    NSBezierPath(roundedRect: NSRect(x: bx, y: track.minY, width: max(4, barW * f), height: 4), xRadius: 2, yRadius: 2).fill()
+                    (old ? Theme.muted : Theme.ink).setFill()
+                    NSBezierPath(roundedRect: NSRect(x: bx, y: track.minY, width: max(4, fit.bar * f), height: 4), xRadius: 2, yRadius: 2).fill()
                 }
-                let t = (m.1.map { "\(Int($0.rounded()))%" } ?? "–") + (m.2.isEmpty ? "" : "  " + m.2)
-                let font = high ? Theme.mono(11, .bold) : pf
+                let t = value(m, fit.when)
+                let font = high ? bf : pf
                 let ts = t.size(font)
-                (t as NSString).draw(at: NSPoint(x: bx + barW + 8, y: cy - ts.height / 2),
+                (t as NSString).draw(at: NSPoint(x: bx + fit.bar + 8, y: cy - ts.height / 2),
                                      withAttributes: [.font: font, .foregroundColor: high ? Theme.ink : Theme.muted])
-                maxW = max(maxW, lw + 8 + barW + 8 + ts.width)
+                maxW = max(maxW, markW + lw + fit.bar + 8 + ts.width)
             }
             x += maxW + 18
         }
-        if !shownColumns.isEmpty { x += 4 }
+        setMetersTip(fit.columns.isEmpty ? nil : NSRect(x: meterStart, y: 4, width: x - 18 - meterStart, height: bounds.height - 9))
+        if !fit.columns.isEmpty { x += 4 }
         var liveRect: NSRect?
-        for text in [usageHint, liveText] where !text.isEmpty {
+        for text in [usageHint, live.isEmpty ? liveText : live] where !text.isEmpty {
             let s = text.size(small)
-            guard x + s.width < limit else { break }
+            guard x + s.width <= limit + 1 || text == live else { break }
             let warn = text.hasPrefix("⚠︎")
             (text as NSString).draw(at: NSPoint(x: x, y: mid - s.height / 2), withAttributes: [.font: small, .foregroundColor: warn ? Theme.ink : Theme.muted])
-            if text == liveText { liveRect = NSRect(x: x, y: mid - s.height / 2, width: s.width, height: s.height) }
+            if text == liveText || text == live { liveRect = NSRect(x: x, y: mid - s.height / 2, width: s.width, height: s.height) }
             x += s.width + 16
         }
         setLiveTip(liveRect)
+    }
+
+    static func isAsOf(_ s: String) -> Bool { s.hasPrefix("as of ") || s.hasSuffix(" 时的数据") }
+
+    /// "resets Tue 23:59" → "Tue 23:59" (an "as of" stays as it is: it says the numbers are old).
+    static func shortWhen(_ s: String) -> String {
+        if s.hasPrefix("resets ") { return String(s.dropFirst(7)) }
+        if s.hasSuffix(" 重置") { return String(s.dropLast(3)) }
+        return s
+    }
+
+    /// Every meter in full, by service: what a narrow window leaves out, and whose each row is.
+    private var metersHelp: String {
+        func lines(_ name: String, _ ms: [(String, Double?, String)]) -> [String] {
+            ms.isEmpty ? [] : [name] + ms.map { "  " + $0.0 + "  " + ($0.1.map { "\(Int($0.rounded()))%" } ?? "–") + ($0.2.isEmpty ? "" : " · " + $0.2) }
+        }
+        return (lines("Claude", meters) + lines("ChatGPT", gptMeters)).joined(separator: "\n")
+    }
+    private var metersTip: (rect: NSRect, help: NSString, tag: NSView.ToolTipTag)?
+    private func setMetersTip(_ r: NSRect?) {
+        let help = metersHelp
+        if let t = metersTip, t.rect == r, t.help as String == help { return }
+        if let t = metersTip { removeToolTip(t.tag) }
+        metersTip = nil
+        guard let r = r, !help.isEmpty else { return }
+        let s = help as NSString
+        metersTip = (r, s, addToolTip(r, owner: s, userData: nil))
     }
 
     private func setLiveTip(_ r: NSRect?) {
@@ -294,7 +383,22 @@ final class SidebarView: NSView, NSDraggingSource {
     var onOpen: ((String) -> Void)?
     var onArchive: ((String) -> Void)?
     var onOpenRoutines: (() -> Void)?
+    /// Read Claude and ChatGPT again now (the button by the heading, ⌘R).
+    var onRefresh: (() -> Void)?
     private var rows: [Chat] = []
+    /// How many there are in all (`rows` is narrowed to what the search field holds).
+    private var allCount = 0
+    private var query = ""
+    private lazy var search: NSSearchField = {
+        let f = NSSearchField()
+        f.controlSize = .small
+        f.font = Theme.ui(12)
+        f.sendsSearchStringImmediately = true
+        f.target = self
+        f.action = #selector(searched(_:))
+        return f
+    }()
+    private lazy var refresh = IconButton("arrow.clockwise", tip: "") { [weak self] in self?.onRefresh?() }
     private var sched: [(Routine, Date)] = []
     private var placed = Set<String>()
     private let schedRowH: CGFloat = 42
@@ -306,7 +410,7 @@ final class SidebarView: NSView, NSDraggingSource {
     private var pressed: (id: String, at: NSPoint)?
     private var dropOn = false
     private let rowH: CGFloat = 34
-    private let top: CGFloat = 62
+    private let top: CGFloat = 94
     /// Spinner phase for running chats (0…1), driven by the map's animation timer.
     var phase: CGFloat = 0
     /// What's being read, when it was and when it will be next (a heading and a line per app): shown in full
@@ -326,17 +430,24 @@ final class SidebarView: NSView, NSDraggingSource {
     override var acceptsFirstResponder: Bool { true }
 
     func reload() {
-        rows = store.pinnedList()
+        let all = store.pinnedList()
+        allCount = all.count
+        rows = query.isEmpty ? all : all.filter { c in
+            [store.name(c.id), c.title].contains { $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) != nil }
+        }
         // while the list is empty its status counts down to the next read, so it redraws every second
-        if rows.isEmpty, statusTick == nil {
+        if all.isEmpty, statusTick == nil {
             statusTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { if self?.window?.isVisible == true { self?.needsDisplay = true } }
             }
-        } else if !rows.isEmpty {
+        } else if !all.isEmpty {
             statusTick?.invalidate(); statusTick = nil
         }
+        if search.superview == nil { addSubview(search); addSubview(refresh) }
+        search.placeholderString = tr("搜索置顶对话", "Search pinned chats")
+        refresh.toolTip = tr("同步：马上重新读 Claude 和 ChatGPT  ⌘R", "Sync: read Claude and ChatGPT again now  ⌘R")
         removeAllToolTips()
-        addToolTip(NSRect(x: 0, y: 0, width: bounds.width, height: top - 6), owner: self, userData: nil)
+        addToolTip(NSRect(x: 0, y: 0, width: bounds.width - 44, height: 54), owner: self, userData: nil)
         picked.formIntersection(rows.map(\.id))
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
@@ -346,16 +457,34 @@ final class SidebarView: NSView, NSDraggingSource {
         needsDisplay = true
     }
 
+    override func layout() {
+        super.layout()
+        refresh.frame = NSRect(x: bounds.width - 40, y: 9, width: 28, height: 26)
+        search.frame = NSRect(x: 12, y: 60, width: bounds.width - 24, height: 22)
+    }
+
+    @objc private func searched(_ f: NSSearchField) {
+        let q = f.stringValue.trimmingCharacters(in: .whitespaces)
+        guard q != query else { return }
+        query = q
+        reload()
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         (dropOn ? Theme.faint : Theme.paper).setFill()
         bounds.fill()
         let hf = Theme.ui(14, .semibold)
         let head = tr("置顶对话", "Pinned")
         (head as NSString).draw(at: NSPoint(x: 16, y: 14), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
-        let n = String(rows.count)
+        let n = query.isEmpty ? String(rows.count) : "\(rows.count)/\(allCount)"
         (n as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 15), withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
         (tr("置顶对话 + 编辑器里的会话 · 拖到画布上", "Pins + editor sessions · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
-        if rows.isEmpty, let st = status?() {
+        if allCount > 0 && rows.isEmpty {
+            let a: [NSAttributedString.Key: Any] = [.font: Theme.ui(12), .foregroundColor: Theme.muted]
+            let q = query.count > 14 ? String(query.prefix(14)) + "…" : query
+            let line = tr("没有名字里带「\(q)」的置顶对话", "No pinned chat has “\(q)” in its name")
+            (line as NSString).draw(with: NSRect(x: 18, y: top + 6, width: bounds.width - 36, height: 54), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: a)
+        } else if rows.isEmpty, let st = status?() {
             var y = top + 6
             let w = bounds.width - 36
             for (i, line) in ([st.title] + st.lines).enumerated() {
@@ -534,7 +663,8 @@ final class SidebarView: NSView, NSDraggingSource {
     }
 
     override func keyDown(with e: NSEvent) {
-        if e.keyCode == 49, let s = sel { onOpen?(s) }
+        // space, or ⌘↓ as in Finder: open it
+        if e.keyCode == 49 || (e.keyCode == 125 && e.modifierFlags.contains(.command)), let s = sel { onOpen?(s) }
         else if e.keyCode == 53, !picked.isEmpty { picked = []; needsDisplay = true }
         else { super.keyDown(with: e) }
     }
@@ -754,14 +884,15 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
             ("⏎ / ⌥⏎ / ⇧⏎", tr("下方同级 / 上方同级 / 新一级主题", "Sibling below / above / new main topic")),
             (tr("双击空白处", "Double-click empty space"), tr("新主题", "New topic")),
             (tr("⌘⏎、双击", "⌘⏎, double-click"), tr("改名（对话名只在本机）", "Rename (chat names stay on this Mac)")),
-            ("⌫", tr("删除；对话回到左栏", "Delete; chats go back to the left column")),
+            ("⌫", tr("删除；置顶的对话回到左栏", "Delete; pinned chats go back to the left column")),
             ("⌥.", tr("折叠 / 展开", "Fold / unfold")),
-            ("⌘↑ ⌘↓", tr("在同级之间移动", "Move among siblings")),
+            ("⌥↑ ⌥↓", tr("在同级之间移动", "Move among siblings")),
+            ("⌘↑", tr("回到所在的主题", "Up to the topic it's in")),
             ("⌘A", tr("全选", "Select all")),
             ("⌘Z / ⇧⌘Z", tr("撤销 / 重做", "Undo / redo")),
             ("⌘F", tr("搜索；⏎ 下一个", "Search; ⏎ for the next match")),
             (tr("右键", "Right-click"), tr("分支颜色、图形、标签", "Branch colour, shape, tags")),
-            (tr("悬停对话 → ↗、轻按空格", "Hover a chat → ↗, tap space"), tr("在 Claude 里打开", "Open it in Claude")),
+            (tr("⌘↓、轻按空格、悬停对话 → ↗", "⌘↓, tap space, hover a chat → ↗"), tr("在它的 App 里打开", "Open it in its app")),
             (tr("⇧⌘U、悬停对话 → ✉", "⇧⌘U, hover a chat → ✉"), tr("标为未读 / 已读", "Mark unread / read")),
             ("⌃⌘S / ⌃⌘T", tr("显示或隐藏左栏 / 时间线", "Show or hide the left column / timeline")),
             ("⌘+ / ⌘-", tr("整个窗口放大 / 缩小", "Everything in the window bigger / smaller")),

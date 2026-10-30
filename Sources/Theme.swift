@@ -157,10 +157,34 @@ enum Prefs {
 
 /// Neutral, low-saturation interface. Colour is kept for what *you* mark: branches and tags.
 enum Theme {
-    static func dyn(_ light: UInt32, _ dark: UInt32) -> NSColor {
+    /// System Settings → Accessibility → Display, as set now: Increase Contrast draws grey text and lines stronger,
+    /// Reduce Motion moves things on the map without sliding them. Kept up to date by `followDisplayOptions`.
+    nonisolated(unsafe) static var moreContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    nonisolated(unsafe) static var lessMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    private nonisolated(unsafe) static var following = false
+
+    /// Once, at launch: when those settings change, every window draws itself again.
+    @MainActor
+    static func followDisplayOptions() {
+        guard !following else { return }
+        following = true
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+                                                          object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                moreContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+                lessMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                func redraw(_ v: NSView) { v.needsDisplay = true; v.subviews.forEach(redraw) }
+                for w in NSApp.windows { w.contentView.map(redraw) }
+            }
+        }
+    }
+
+    /// `more`: the light and dark hexes for Increase Contrast (otherwise it looks the same).
+    static func dyn(_ light: UInt32, _ dark: UInt32, more: (UInt32, UInt32)? = nil) -> NSColor {
         NSColor(name: nil) { ap in
-            let hex = ap.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return rgb(hex)
+            let isDark = ap.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if let m = more, moreContrast { return rgb(isDark ? m.1 : m.0) }
+            return rgb(isDark ? dark : light)
         }
     }
 
@@ -173,11 +197,12 @@ enum Theme {
     static let bg = dyn(0xF4F4F3, 0x161617)
     static let paper = dyn(0xFFFFFF, 0x1F1F21)
     static let ink = dyn(0x1C1C1E, 0xE9E9EA)
-    static let muted = dyn(0x86868B, 0x8E8E93)
+    /// Increase Contrast: at least 5.6:1 on every background here (4.5:1 is the bar for text).
+    static let muted = dyn(0x86868B, 0x8E8E93, more: (0x56565B, 0xB8B8BD))
     static let faint = dyn(0xE3E3E1, 0x2E2E31)
     static let hover = dyn(0xECECEA, 0x262628)
-    /// Connectors and underlines of branches that have no colour.
-    static let line = dyn(0xBDBDC0, 0x4A4A4F)
+    /// Connectors and underlines of branches that have no colour (Increase Contrast: 3:1 or more, as for lines).
+    static let line = dyn(0xBDBDC0, 0x4A4A4F, more: (0x7C7C82, 0x85858B))
 
     /// Highlight colours you can give to branches and tags. Same hue order in both modes.
     struct Highlight { let key: String; let zh: String; let en: String; let color: NSColor }
@@ -266,7 +291,33 @@ enum Clock {
     }()
 
     static func iso(_ d: Date = Date()) -> String { isoFormatter.string(from: d) }
-    static func parse(_ s: String) -> Date? { s.isEmpty ? nil : isoFormatter.date(from: s) }
+    static func parse(_ s: String) -> Date? { s.isEmpty ? nil : (fast(s) ?? isoFormatter.date(from: s)) }
+
+    private static let monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+    /// "yyyy-MM-ddTHH:mm:ssZ", the one shape `iso` writes, read without a DateFormatter: statistics and the timeline
+    /// read thousands of these on every redraw. Anything else goes to the formatter.
+    private static func fast(_ s: String) -> Date? {
+        func read(_ p: UnsafeBufferPointer<UInt8>) -> Date? {
+            guard p.count == 20, p[4] == 45, p[7] == 45, p[10] == 84, p[13] == 58, p[16] == 58, p[19] == 90 else { return nil }
+            func n(_ a: Int, _ k: Int) -> Int? {
+                var v = 0
+                for i in a..<(a + k) { let c = Int(p[i]) - 48; guard (0...9).contains(c) else { return nil }; v = v * 10 + c }
+                return v
+            }
+            guard let y = n(0, 4), let mo = n(5, 2), let d = n(8, 2), let h = n(11, 2), let mi = n(14, 2), let se = n(17, 2),
+                  (1...12).contains(mo), h < 24, mi < 60, se < 60 else { return nil }
+            let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)
+            guard d >= 1, d <= (mo == 2 && leap ? 29 : monthDays[mo - 1]) else { return nil }
+            // days since 1970-01-01 (Howard Hinnant's days_from_civil)
+            let yy = mo <= 2 ? y - 1 : y
+            let era = (yy >= 0 ? yy : yy - 399) / 400, yoe = yy - era * 400
+            let doy = (153 * ((mo + 9) % 12) + 2) / 5 + d - 1
+            let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468
+            return Date(timeIntervalSince1970: TimeInterval(days * 86400 + h * 3600 + mi * 60 + se))
+        }
+        return s.utf8.withContiguousStorageIfAvailable(read) ?? Array(s.utf8).withUnsafeBufferPointer(read)
+    }
 
     /// Any ISO-8601 timestamp ("…T17:41:26.072910Z", "…+00:00").
     static func parseAny(_ s: String?) -> Date? {
@@ -303,23 +354,32 @@ enum Clock {
         return tr("\(days)天\(h)小时后", "in \(days)d \(h)h")
     }
 
+    /// Calendar days from `a` to `b`, as the wall calendar counts them (noon to noon: a day 23 or 25 hours long, or
+    /// one whose midnight is skipped, is one day).
+    static func days(from a: Date, to b: Date, _ cal: Calendar = .current) -> Int {
+        func noon(_ d: Date) -> Date { cal.date(bySettingHour: 12, minute: 0, second: 0, of: d) ?? d }
+        return cal.dateComponents([.day], from: noon(a), to: noon(b)).day ?? 0
+    }
+
     /// "3分钟前", "昨天", "10/21"
     static func ago(_ s: String) -> String {
         guard let d = parse(s) else { return "" }
         let sec = Date().timeIntervalSince(d)
         if sec < 60 { return tr("刚刚", "just now") }
         if sec < 3600 { return tr("\(Int(sec / 60))分钟前", "\(Int(sec / 60))m ago") }
-        if sec < 86400 { return tr("\(Int(sec / 3600))小时前", "\(Int(sec / 3600))h ago") }
-        let days = Int(sec / 86400)
+        // older: calendar days (two days ago at a later hour is not "yesterday"), as the other date texts count them
+        let days = Clock.days(from: d, to: Date())
+        if sec < 86400 || days < 1 { return tr("\(Int(sec / 3600))小时前", "\(Int(sec / 3600))h ago") }
         if days == 1 { return tr("昨天", "yesterday") }
         if days < 7 { return tr("\(days)天前", "\(days)d ago") }
-        let c = Calendar.current.dateComponents([.month, .day], from: d)
-        return "\(c.month ?? 0)/\(c.day ?? 0)"
+        // (another year: with it, or a chat from last October reads as this one)
+        if Calendar.current.component(.year, from: d) != Calendar.current.component(.year, from: Date()) { return format(d, "yyyy/M/d", "M/d/yy") }
+        return format(d, "M/d", "M/d")
     }
 
     /// "今天 18:40 重置" / "resets today 18:40"
     static func resets(_ d: Date?) -> String {
-        guard let d = d else { return "" }
+        guard let d = d, d > Date() else { return "" }      // a reset that has passed says nothing about the next one
         let cal = Calendar.current
         let t = format(d, "HH:mm", "HH:mm")
         if cal.isDateInToday(d) { return tr("今天 \(t) 重置", "resets today \(t)") }

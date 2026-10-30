@@ -21,11 +21,13 @@ struct KikumapProvider: TimelineProvider {
     }
 
     /// Now, then each of the next six hours (the chart moves along with the clock even if nothing new
-    /// is written); Kikumap asks for a fresh timeline whenever it writes the file.
+    /// is written); Kikumap asks for a fresh timeline whenever it writes the file. Also the moment a usage number
+    /// from an earlier read turns a quarter of an hour old, when the small widget stops showing it.
     func getTimeline(in context: Context, completion: @escaping (Timeline<KikumapEntry>) -> Void) {
         let now = Date(), state = WidgetState.load()
         let hour = WidgetTime.hourStart(now)
-        let later = (1...6).map { KikumapEntry(date: hour.addingTimeInterval(Double($0) * 3600), state: state) }
+        let aged = Set((state?.meters ?? []).compactMap { WidgetTime.parse($0.asOf)?.addingTimeInterval(901) }).filter { $0 > now }
+        let later = ((1...6).map { hour.addingTimeInterval(Double($0) * 3600) } + aged).sorted().map { KikumapEntry(date: $0, state: state) }
         completion(Timeline(entries: [KikumapEntry(date: now, state: state)] + later, policy: .atEnd))
     }
 }

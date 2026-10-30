@@ -30,6 +30,8 @@ final class VNode {
     var shift = CGVector.zero
     var isCode = false
     var isGPT = false
+    /// Filed here but no longer pinned (or deleted): drawn quietly, still yours to move or take off the map.
+    var dim = false
     var dir: CGFloat = 1
     var sh: CGFloat = 0
     var labelW: CGFloat = 0
@@ -145,6 +147,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         super.init(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
         registerForDraggedTypes([dragType])
         minuteTimer = Timer.scheduledTimer(timeInterval: 60, target: self, selector: #selector(minute), userInfo: nil, repeats: true)
+        Theme.followDisplayOptions()
     }
 
     /// The spinner timer only runs while the map is on screen; hidden, the map costs nothing.
@@ -296,8 +299,9 @@ final class MapView: NSView, NSTextFieldDelegate {
         var run = 0, unr = 0, cnt = 0
         func tally(_ n: MapNode) {
             store.map.walkChats(n) { id in
-                guard let c = self.store.chat(id), self.store.isShown(c) || self.showAll else { return }
+                guard self.onMap(id) || self.showAll else { return }
                 cnt += 1
+                guard let c = self.store.chat(id), self.store.isShown(c) else { return }
                 if self.store.isRunning(id) { run += 1 } else if self.store.isUnread(c) { unr += 1 }
             }
         }
@@ -310,14 +314,23 @@ final class MapView: NSView, NSTextFieldDelegate {
         for ch in n.children {
             switch ch {
             case .chat(let id):
-                guard let c = store.chat(id), store.isShown(c) || showAll else { continue }
+                guard onMap(id) || showAll else { continue }
+                let c = store.chat(id)
+                let live = c.map(store.isShown) ?? false
                 let k = VNode(key: "c:" + id, kind: .chat, title: store.mapLabel(id), color: color)
                 k.colored = colored
-                k.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
-                k.time = store.timeLabel(c)
-                k.done = c.title.contains("🟢")
-                k.isCode = c.isCode
-                k.isGPT = c.isGPT
+                if let c = c, live {
+                    k.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
+                    k.time = store.timeLabel(c)
+                } else {
+                    // unpinned (or deleted) since it was filed: it keeps its place, quietly. A filed Claude Code session
+                    // is hidden only while it's linked to the Claude app, whose pinned chat stands for it.
+                    k.dim = true
+                    k.time = c.map { $0.isCode && $0.linked == true ? tr("在 Claude App 里", "in the Claude app") : tr("未置顶", "not pinned") } ?? ""
+                }
+                k.done = c?.title.contains("🟢") ?? false
+                k.isCode = c?.isCode ?? false
+                k.isGPT = c?.isGPT ?? id.hasPrefix("gpt-")
                 k.parent = v
                 register(k)
                 v.kids.append(k)
@@ -333,6 +346,21 @@ final class MapView: NSView, NSTextFieldDelegate {
                 v.kids.append(k)
             }
         }
+    }
+
+    /// A filed chat is drawn whatever its pin (ChatGPT's only while ChatGPT is read); one with no record left is
+    /// drawn as "(deleted chat)", so it can still be taken off the map.
+    private func onMap(_ id: String) -> Bool {
+        guard let c = store.chat(id) else { return !(id.hasPrefix("gpt-") && !Store.gptOn) }
+        return !(c.isGPT && !Store.gptOn)
+    }
+
+    /// ⌫ and its menu item on a chat: a pinned one goes back to the left column; any other just leaves the map (an
+    /// unpinned Claude Code session is listed there only for a while, an unpinned or deleted chat not at all).
+    private func removeTitle(_ v: VNode) -> String {
+        guard let id = v.chatId else { return tr("删除", "Delete") }
+        let pinned = !v.dim && store.chat(id).map { !($0.isCode || $0.isCodexSession) || $0.pinned == true } == true
+        return pinned ? tr("从导图移回左栏", "Back to the left column") : tr("从导图上拿掉", "Remove from the map")
     }
 
     private func textH(_ f: NSFont) -> CGFloat { ceil(f.ascender - f.descender + f.leading) }
@@ -452,12 +480,12 @@ final class MapView: NSView, NSTextFieldDelegate {
         return m
     }
 
-    /// After a re-layout, items slide from where they were instead of jumping.
+    /// After a re-layout, items slide from where they were instead of jumping (with Reduce Motion on, they just move).
     private func glide(from prev: [String: NSPoint]) {
         guard let r = rootV else { return }
         var moving = false
         for v in all {
-            guard let p = prev[v.key] else { v.offset = .zero; continue }
+            guard let p = prev[v.key], !Theme.lessMotion else { v.offset = .zero; continue }
             let dx = p.x - (v.origin.x + v.shift.dx - r.origin.x), dy = p.y - (v.origin.y + v.shift.dy - r.origin.y)
             v.offset = abs(dx) < 0.5 && abs(dy) < 0.5 ? .zero : CGVector(dx: dx, dy: dy)
             if v.offset != .zero { moving = true }
@@ -684,7 +712,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             } else {
                 v.color.setFill()
                 NSRect(x: r.minX, y: r.maxY - 2, width: r.width, height: 2).fill()
-                if v.done { textC = Theme.muted }
+                if v.done || v.dim { textC = Theme.muted }
             }
             let pad: CGFloat = v.state == 0 ? 4 : (v.colored ? 18 : 10)
             let midY = v.state == 0 ? r.minY + 3 + textH(f) / 2 : r.midY
@@ -855,10 +883,11 @@ final class MapView: NSView, NSTextFieldDelegate {
         return c.isCode ? tr("打开", "Open") : tr("在 Claude 里打开", "Open in Claude")
     }
 
-    /// Open in Claude, and unread / read (not while it's running), just outside the chat's outer edge.
+    /// Open in Claude, and unread / read (not while it's running), just outside the chat's outer edge. A chat with
+    /// no record left has nothing to mark, and a Claude Code session or ChatGPT thread then nowhere to open.
     private func chatButtons(_ v: VNode) -> [(NSRect, ChatAction)] {
-        guard let id = v.chatId else { return [] }
-        let acts: [ChatAction] = store.isRunning(id) ? [.open] : [.open, .unread]
+        guard let id = v.chatId, store.canOpen(id) else { return [] }
+        let acts: [ChatAction] = store.isRunning(id) || store.chat(id) == nil ? [.open] : [.open, .unread]
         let w: CGFloat = 24, h: CGFloat = 20, gap: CGFloat = 4
         let midY = v.frame.midY
         // a chat is wider as a pill (unread, running): measure that, so the buttons don't move when it changes
@@ -991,6 +1020,18 @@ final class MapView: NSView, NSTextFieldDelegate {
         return all.filter { keys.contains($0.key) && $0.kind != .root && !covered($0) }.map(\.key)
     }
 
+    /// ⌘↓, as Finder opens what's selected: a chat in its app, a folded topic unfolded.
+    private func openSelected() {
+        guard let k = sel, let v = byKey[k] else { return }
+        if let id = v.chatId { onOpen?(id) }
+        else if v.collapsed { store.map.toggleFold(k); changed(select: k) }
+    }
+
+    /// ⌘↑, as Finder goes to the enclosing folder: the topic it's in.
+    private func selectParent() {
+        if let k = sel, let p = byKey[k]?.parent { select(p.key) }
+    }
+
     private func nav(_ d: String) {
         guard let k = sel, let v = byKey[k] else { select(rootV?.key); return }
         if v.kind == .root {
@@ -1068,8 +1109,9 @@ final class MapView: NSView, NSTextFieldDelegate {
             else { changed(select: map.addSibling(k, above: opt), edit: true) }
         case 51, 117: changed(select: map.remove(k, keepChildren: opt))                  // delete
         case 120: startEdit(k)                                                           // F2
-        case 126: if cmd { map.reorder(k, by: -1); changed(select: k) } else { nav("up") }
-        case 125: if cmd { map.reorder(k, by: 1); changed(select: k) } else { nav("down") }
+        // ⌥↑ ⌥↓ move it among its siblings; ⌘↓ opens it, ⌘↑ goes up to its topic (as in Finder)
+        case 126: if opt { map.reorder(k, by: -1); changed(select: k) } else if cmd { selectParent() } else { nav("up") }
+        case 125: if opt { map.reorder(k, by: 1); changed(select: k) } else if cmd { openSelected() } else { nav("down") }
         case 123: nav("left")
         case 124: nav("right")
         case 47 where opt: map.toggleFold(k); changed(select: k)                         // ⌥.
@@ -1080,7 +1122,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     override func keyUp(with e: NSEvent) {
         guard e.keyCode == 49, let h = endSpace() else { super.keyUp(with: e); return }
         // a quick tap: open the chat in Claude
-        if !h.moved && Date().timeIntervalSince(h.at) < 0.35, let k = sel, let id = byKey[k]?.chatId { onOpen?(id) }
+        if !h.moved && Date().timeIntervalSince(h.at) < 0.35, let k = sel, let id = byKey[k]?.chatId, store.canOpen(id) { onOpen?(id) }
     }
 
     @discardableResult
@@ -1144,9 +1186,8 @@ final class MapView: NSView, NSTextFieldDelegate {
         case ("-", _): onScale?(-1); return true
         case ("0", _): fit(); return true
         case (_, 36), (_, 76): if let k = sel { startEdit(k) }; return true
-        case (_, 126), (_, 125):
-            if let k = sel { store.map.reorder(k, by: e.keyCode == 126 ? -1 : 1); changed(select: k) }
-            return true
+        case (_, 126): selectParent(); return true
+        case (_, 125): openSelected(); return true
         default: return super.performKeyEquivalent(with: e)
         }
     }
@@ -1364,8 +1405,8 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         m.addItem(.separator())
         if let id = v.chatId {
-            add(openLabel(id)) { [weak self] in self?.onOpen?(id) }
-            if !store.isRunning(id) {
+            if store.canOpen(id) { add(openLabel(id)) { [weak self] in self?.onOpen?(id) } }
+            if !store.isRunning(id) && store.chat(id) != nil {
                 let unread = store.isUnread(id: id)
                 add(unread ? tr("标为已读", "Mark as read") : tr("标为未读", "Mark as unread"), "u", [.shift, .command]) { [weak self] in
                     self?.store.setUnread([id], !unread)
@@ -1418,7 +1459,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         if v.kind != .root {
             m.addItem(.separator())
-            add(v.kind == .chat ? tr("从导图移回左边", "Back to the inbox") : tr("删除", "Delete"), "\u{8}") { [weak self] in self?.changed(select: map.remove(k, keepChildren: false)) }
+            add(removeTitle(v), "\u{8}") { [weak self] in self?.changed(select: map.remove(k, keepChildren: false)) }
             if v.kind != .chat && v.hasKids {
                 add(tr("只删这个主题（保留下面的）", "Delete topic, keep its items"), "\u{8}", [.option]) { [weak self] in self?.changed(select: map.remove(k, keepChildren: true)) }
             }
@@ -1746,6 +1787,12 @@ final class MapView: NSView, NSTextFieldDelegate {
         if d.keys.count > 1 { setSelection(Set(d.keys), lead: d.key) }
         return true
     }
+}
+
+extension Store {
+    /// Somewhere to open it: a chat Kikumap still knows, or a Claude chat by its address. A Claude Code session or a
+    /// ChatGPT thread with no record left (only filed, or only in the statistics) has none.
+    func canOpen(_ id: String) -> Bool { chat(id) != nil || !(id.hasPrefix("cc-") || id.hasPrefix("gpt-")) }
 }
 
 /// A menu item that runs a closure (the shortcut is shown for reference; the map handles the keys).

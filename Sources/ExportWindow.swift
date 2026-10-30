@@ -80,12 +80,19 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             }
         }
         add(map.root, 0)
+        // chats dropped right on the map, not in a topic: a box of their own
+        let onMap = map.root.children.compactMap { $0.chatId }.filter { store.chat($0) != nil }.count
+        if onMap > 0 {
+            let b = check(tr("直接放在导图上的对话（不在主题里）", "Chats right on the map (not in a topic)") + "  ·  \(onMap)", chosen == nil || chosen!.contains(map.root.id))
+            list.addArrangedSubview(b)
+            checks.append((b, map.root.id))
+        }
         let placed = map.placedChats()
         let loose = store.pinnedList().filter { !placed.contains($0.id) }.count
         let un = check(tr("没放进导图的置顶对话", "Pinned chats not on the map") + "  ·  \(loose)", Archive.withUnplaced)
         unplaced = un
         list.addArrangedSubview(un)
-        if checks.isEmpty {
+        if !map.root.children.contains(where: { $0.node != nil }) {
             list.addArrangedSubview(label(tr("导图上还没有主题。", "No topics on the map yet."), small: true))
         }
         let doc = FlippedStack(frame: .zero)
@@ -234,9 +241,10 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         Archive.withUnplaced = unplaced?.state == .on
         Archive.withMemory = memory?.state == .on
         Archive.withFiles = files?.state == .on
-        let items = archive.items(topics: Archive.topics ?? (checks.isEmpty ? [] : nil), unplaced: Archive.withUnplaced)
+        // the same choice the scheduled export uses (nothing ticked: only what's ticked, i.e. nothing on the map)
+        let items = archive.items(topics: checks.isEmpty ? nil : Archive.topics, unplaced: Archive.withUnplaced)
         guard !items.isEmpty else {
-            Permissions.alert(tr("没有要导出的对话", "Nothing to export"), tr("勾选的主题下面还没有对话。", "The topics you picked have no chats yet."))
+            Permissions.alert(tr("没有要导出的对话", "Nothing to export"), tr("勾选的部分里还没有对话。", "What you ticked has no chats yet."))
             return
         }
         let withFiles = Archive.withFiles && zip != nil

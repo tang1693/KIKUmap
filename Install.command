@@ -14,6 +14,15 @@ if ! xcrun --find swiftc >/dev/null 2>&1; then
   echo "STATUS=NEED_CLT"; exit 1
 fi
 
+# the sources need Swift 5.10 or later (Xcode 15.3 / its Command Line Tools)
+read -r SMAJ SMIN <<<"$(xcrun swiftc --version 2>&1 | sed -n 's/.*Swift version \([0-9]*\)\.\([0-9]*\).*/\1 \2/p' | head -1)"
+if [ -n "$SMAJ" ] && { [ "$SMAJ" -lt 5 ] || { [ "$SMAJ" -eq 5 ] && [ "${SMIN:-0}" -lt 10 ]; }; }; then
+  echo "This Mac's Swift ($SMAJ.$SMIN) is too old to build Kikumap (it needs 5.10 or later)."
+  echo "Update the Command Line Tools (System Settings → General → Software Update, or: xcode-select --install),"
+  echo "or install the ready-made disk image instead: https://github.com/tang1693/KIKUmap/releases/latest"
+  echo "STATUS=OLD_SWIFT"; exit 1
+fi
+
 APP="$HOME/Applications/Kikumap.app"
 OLD="$HOME/Applications/Claude中控台.app"       # its earlier names
 OLD2="$HOME/Applications/Kiku.app"
@@ -110,6 +119,7 @@ else
 fi
 if [ "$ANS" = "y" ] || [ "$ANS" = "Y" ]; then
 mkdir -p "$HOME/Library/LaunchAgents"
+# opens Kikumap by its bundle id (not its path), so it still starts after the app is moved or renamed; the app writes the same
 cat > "$PL" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -117,8 +127,9 @@ cat > "$PL" <<PLIST
 <dict>
   <key>Label</key><string>ninja.tang.claudeconsole</string>
   <key>ProgramArguments</key>
-  <array><string>/usr/bin/open</string><string>-a</string><string>$APP</string><string>--args</string><string>--background</string></array>
+  <array><string>/usr/bin/open</string><string>-b</string><string>ninja.tang.claudeconsole</string><string>--args</string><string>--background</string></array>
   <key>RunAtLoad</key><true/>
+  <key>AssociatedBundleIdentifiers</key><array><string>ninja.tang.claudeconsole</string></array>
 </dict>
 </plist>
 PLIST
@@ -127,6 +138,8 @@ else
 rm -f "$PL"
 echo "Not starting at login."
 fi
+# answered here: the intro shows this answer instead of asking again
+defaults write ninja.tang.claudeconsole LoginOffered -bool true
 
 open "$APP"
 echo "STATUS=OK"

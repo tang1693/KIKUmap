@@ -252,7 +252,7 @@
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · beta</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 测试版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0 版</span></p>
       <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
   </section>
@@ -281,8 +281,8 @@
           <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
           <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。</p>
           <p lang="zh"><b>听声音就知道：</b>对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“定价方案做完了”），声音、语速、念的内容都能自己改，也可以换成自己的声音文件。</p>
-          <p lang="en">Works with the Claude desktop app, with Claude Code (Terminal, VS Code, the app's Code mode) and, <b>new in 0.9.5</b>, with the ChatGPT desktop app: everything you pin there shows next to Claude's chats, marked <b>GPT</b>, in ChatGPT's order. Nothing to set up for ChatGPT.</p>
-          <p lang="zh">支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 <b>0.9.5 新增的</b> ChatGPT 桌面 App：你在 ChatGPT 里置顶的东西都会和 Claude 的对话放在一起，前面标着 <b>GPT</b>，顺序和 ChatGPT 一样。ChatGPT 这边不用任何设置。</p>
+          <p lang="en">Works with the Claude desktop app, with Claude Code (Terminal, VS Code, the app's Code mode) and with the ChatGPT desktop app: the <b>Codex</b> chats you pin there show next to Claude's chats, marked <b>GPT</b>, in ChatGPT's order. (Ordinary ChatGPT chats are kept online, not on your Mac, so they can't show.) Nothing to set up for ChatGPT.</p>
+          <p lang="zh">支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 ChatGPT 桌面 App：你在 ChatGPT 里置顶的 <b>Codex</b> 对话会和 Claude 的对话放在一起，前面标着 <b>GPT</b>，顺序和 ChatGPT 一样。（普通 ChatGPT 聊天存在云端、不在你的 Mac 上，显示不了。）ChatGPT 这边不用任何设置。</p>
         </div>
         <figure class="shot"><img src="demo/menubar.gif" width="1440" height="495" loading="lazy" alt="The menu-bar icon spinning while Claude works, then showing a red unread badge, then an exclamation mark when a chat needs approval"></figure>
       </div>
@@ -291,8 +291,8 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Mind map</span><span lang="zh">导图</span></p>
           <h3><span lang="en">Your chats, as a map</span><span lang="zh">对话变成一张导图</span></h3>
-          <p lang="en">The left column mirrors the chats you pinned in Claude and ChatGPT, <b>in each app's order</b>, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
-          <p lang="zh">左栏是你在 Claude 和 ChatGPT 里置顶的对话，<b>顺序和各自的 App 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
+          <p lang="en">The left column mirrors the chats you pinned in Claude and the Codex chats you pinned in ChatGPT, <b>in each app's order</b>, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics: the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.</p>
+          <p lang="zh">左栏是你在 Claude 里置顶的对话和在 ChatGPT 里置顶的 Codex 对话，<b>顺序和各自的 App 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
           <p lang="en"><b>Several at once:</b> drag a box on empty space (or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click), or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click in the left column, then drag any one of them. They all come along, in order. Hold <kbd>space</kbd> and move the mouse, or swipe with two fingers, to move around. Hide or resize the left column and the timeline (<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>, <kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>), and make everything bigger with <kbd>⌘</kbd><kbd>+</kbd>.</p>
           <p lang="zh"><b>一次拖好几个：</b>在导图空白处拖出选框（或 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击），或在左栏 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住<kbd>空格</kbd>移动鼠标、或双指滑动，就能移动导图。左栏和时间线可以隐藏（<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>、<kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>）或拖边缘调宽，<kbd>⌘</kbd><kbd>+</kbd> 让整个窗口变大。</p>
           <p lang="en">Real conversations carry a small orange mark. Hover one for two buttons: open it in Claude or ChatGPT, or mark it unread again (<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>) so it waits for you until you've opened it.</p>
@@ -327,12 +327,12 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Keyboard</span><span lang="zh">键盘</span></p>
           <h3><span lang="en">Keyboard-first</span><span lang="zh">键盘就能搞定</span></h3>
-          <p lang="en">Like a real mind-map app: <kbd>⇥</kbd> new subtopic, <kbd>⏎</kbd> sibling, <kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> reorder, <kbd>⌘</kbd><kbd>Z</kbd> undo.</p>
-          <p lang="zh">和专业导图软件一样：<kbd>⇥</kbd> 新建子主题，<kbd>⏎</kbd> 同级主题，<kbd>⌘</kbd><kbd>↑</kbd><kbd>↓</kbd> 调整顺序，<kbd>⌘</kbd><kbd>Z</kbd> 撤销。</p>
+          <p lang="en">Like a real mind-map app: <kbd>⇥</kbd> new subtopic, <kbd>⏎</kbd> sibling, <kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd> reorder, <kbd>⌘</kbd><kbd>↓</kbd> open, <kbd>⌘</kbd><kbd>Z</kbd> undo.</p>
+          <p lang="zh">和专业导图软件一样：<kbd>⇥</kbd> 新建子主题，<kbd>⏎</kbd> 同级主题，<kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd> 调整顺序，<kbd>⌘</kbd><kbd>↓</kbd> 打开，<kbd>⌘</kbd><kbd>Z</kbd> 撤销。</p>
           <p lang="en">Also <kbd>⌫</kbd> delete, <kbd>⌥</kbd><kbd>.</kbd> fold, <kbd>⌘</kbd><kbd>F</kbd> search, and a tap on <kbd>space</kbd> to open a chat in its app.</p>
           <p lang="zh">还有 <kbd>⌫</kbd> 删除，<kbd>⌥</kbd><kbd>.</kbd> 折叠，<kbd>⌘</kbd><kbd>F</kbd> 搜索，轻按<kbd>空格</kbd> 在对应的 App 里打开对话。</p>
         </div>
-        <figure class="shot"><img src="demo/keys.gif" width="1440" height="840" loading="lazy" alt="Pressing Tab adds a subtopic under Home and typing names it, Return adds a sibling, Command-Up moves it, Command-Z undoes"></figure>
+        <figure class="shot"><img src="demo/keys.gif" width="1440" height="840" loading="lazy" alt="Pressing Tab adds a subtopic under Home and typing names it, Return adds a sibling, Option-Up moves it, Command-Z undoes"></figure>
       </div>
 
       <div class="feature flip">
@@ -411,7 +411,7 @@
         <div class="stat"><b>2.5 MB</b><span lang="en">The whole download; about 4.5 MB installed, for Apple silicon and Intel.</span><span lang="zh">整个安装包 2.5 MB，装好约 4.5 MB，Apple 芯片和 Intel 通用。</span></div>
         <div class="stat"><b>Swift</b><span lang="en">Written with AppKit. No Electron, no web view, no helper processes.</span><span lang="zh">用 AppKit 原生开发。没有 Electron，没有网页套壳，没有后台助手进程。</span></div>
         <div class="stat"><b>0</b><span lang="en">Third-party dependencies. Build it from source in one step.</span><span lang="zh">第三方依赖。一步就能从源码编译。</span></div>
-        <div class="stat"><b lang="en">Idle</b><b lang="zh">安静</b><span lang="en">It waits for changes instead of polling, and stops drawing entirely when the map is hidden.</span><span lang="zh">靠系统通知等变化，不频繁轮询；导图窗口一隐藏，绘制就完全停下。</span></div>
+        <div class="stat"><b lang="en">Idle</b><b lang="zh">安静</b><span lang="en">It mostly waits for changes, with a light check every half minute, and stops drawing entirely when the map is hidden.</span><span lang="zh">主要靠系统通知等变化，每半分钟轻量检查一次；导图窗口一隐藏，绘制就完全停下。</span></div>
       </div>
     </div>
   </section>
@@ -423,9 +423,9 @@
       <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量，而且只在你开启用量功能之后；ChatGPT 的用量从它自己的文件里读。不用注册，没有统计追踪。也不会突然弹窗：每个系统授权弹窗，都会先告诉你要做什么，你点了同意才出现。</p>
       <div class="perms">
         <div class="perm">
-          <b lang="en">Finished with Claude's window closed, needs your approval</b><b lang="zh">窗口关着也知道做完了、等你批准</b>
-          <p lang="en">Optional. Read from the Claude app's notifications in Notification Center, read-only.</p>
-          <p lang="zh">可选。只读通知中心里 Claude 的通知。</p>
+          <b lang="en">Needs your approval, Cowork tasks finished, with Claude's window closed</b><b lang="zh">窗口关着也知道要你批准、Cowork 任务做完了</b>
+          <p lang="en">Optional. Read from the Claude app's notifications in Notification Center, read-only (they must be allowed for Claude in macOS).</p>
+          <p lang="zh">可选。只读通知中心里 Claude 的通知（要在 macOS 里允许 Claude 发通知）。</p>
           <span class="tag"><span lang="en">Full Disk Access (optional)</span><span lang="zh">完全磁盘访问（可选）</span></span>
         </div>
         <div class="perm">
@@ -441,7 +441,7 @@
           <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
         </div>
         <div class="perm">
-          <b lang="en">ChatGPT threads</b><b lang="zh">ChatGPT 对话</b>
+          <b lang="en">ChatGPT's Codex chats</b><b lang="zh">ChatGPT 的 Codex 对话</b>
           <p lang="en">What the ChatGPT desktop app keeps in <code>~/.codex</code> (its thread list and pins, which are unread, its plan usage), read-only. Nothing there is changed. Turn it off in Settings → Access.</p>
           <p lang="zh">ChatGPT 桌面 App 存在 <code>~/.codex</code> 里的内容（对话列表和置顶、哪些未读、套餐用量），只读，不改任何东西。可在 设置 → 授权 里关掉。</p>
           <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
@@ -472,8 +472,13 @@
         </li>
         <li>
           <b lang="en">Allow the first launch</b><b lang="zh">允许第一次打开</b>
-          <p lang="en">The app isn't notarized, so macOS blocks it once. Go to System Settings → Privacy &amp; Security, scroll down and click <b>Open Anyway</b>.</p>
-          <p lang="zh">没有付费的苹果开发者签名，第一次会被拦住：去「系统设置 → 隐私与安全性」，往下滑，点<b>「仍要打开」</b>。</p>
+          <p lang="en">The app isn't notarized, so macOS blocks it once: click <b>Done</b> (not Move to Trash), then go to System Settings → Privacy &amp; Security, scroll down and click <b>Open Anyway</b>. A short intro follows; on its last page you can have Kikumap open when you log in.</p>
+          <p lang="zh">没有付费的苹果开发者签名，第一次会被拦住：在提示里点<b>「完成」</b>（不要点「移到废纸篓」），再去「系统设置 → 隐私与安全性」，往下滑，点<b>「仍要打开」</b>。接着是简短的引导，最后一页可以选登录 Mac 时自动打开 Kikumap。</p>
+        </li>
+        <li>
+          <b lang="en">Pin the chats to follow</b><b lang="zh">把要盯的对话置顶</b>
+          <p lang="en">Kikumap follows pinned chats (and Claude Code and Codex sessions): pin a chat in Claude, or a Codex chat in ChatGPT, and it shows in the menu, the map's left column and the widget.</p>
+          <p lang="zh">Kikumap 盯的是置顶的对话（以及 Claude Code、Codex 会话）：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单、导图左栏和小组件里。</p>
         </li>
       </ol>
       <p class="note" lang="en">Prefer to build it yourself? Clone the repository and open <code>Install.command</code>. It compiles and signs on your Mac, so permissions survive reinstalls.</p>
@@ -494,14 +499,19 @@
           <p lang="zh">不是。Kikumap 是个人独立开发的开源项目，与 Anthropic、OpenAI 都无关。</p>
         </details>
         <details>
-          <summary><span lang="en">Why is it a beta?</span><span lang="zh">为什么是测试版？</span></summary>
+          <summary><span lang="en">Can a Claude or ChatGPT update break it?</span><span lang="zh">Claude 或 ChatGPT 更新后会失灵吗？</span></summary>
           <p lang="en">The Claude app has no public API, so Kikumap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of Kikumap may stop working until it's updated.</p>
           <p lang="zh">Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 Kikumap 更新才能恢复。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with ChatGPT?</span><span lang="zh">支持 ChatGPT 吗？</span></summary>
-          <p lang="en">Yes, from 0.9.5: the current ChatGPT desktop app (the one built on Codex). Everything you pin in ChatGPT (threads, and the threads in pinned projects) shows next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them; Codex sessions in VS Code show like Claude Code sessions, while they run and for 12 hours after; they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Kikumap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
-          <p lang="zh">支持，0.9.5 起：新版 ChatGPT 桌面 App（Codex 内核）。你在 ChatGPT 里置顶的东西（对话、置顶项目里的对话）都会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致；VS Code 里的 Codex 会话和 Claude Code 会话一样，运行中和做完后 12 小时内显示；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。Kikumap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
+          <p lang="en">Yes, with the current ChatGPT desktop app (the one built on Codex), for the chats it keeps on your Mac: the Codex chats you pin in ChatGPT (threads, and the threads in pinned projects) show next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them; Codex sessions in VS Code or the terminal show like Claude Code sessions, while they run and for 12 hours after; they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Ordinary ChatGPT chats are kept online, so they can't show. Kikumap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
+          <p lang="zh">支持新版 ChatGPT 桌面 App（Codex 内核）存在你 Mac 上的对话：你在 ChatGPT 里置顶的 Codex 对话（对话、置顶项目里的对话）会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致；VS Code、终端里的 Codex 会话和 Claude Code 会话一样，运行中和做完后 12 小时内显示；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。普通 ChatGPT 聊天存在云端，显示不了。Kikumap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
+        </details>
+        <details>
+          <summary><span lang="en">What can't it see?</span><span lang="zh">哪些它看不到？</span></summary>
+          <p lang="en">Kikumap reads what the apps keep on this Mac, so anything running elsewhere is out of its sight: Claude Code or Codex on another computer or a server (over SSH, in VS Code Remote or a dev container, or in the cloud), ordinary ChatGPT chats (kept online), Codex cloud tasks, and Claude chats you haven't pinned. Pinned Claude chats show wherever you started them, as long as the Claude desktop app runs on this Mac. Claude's usage meters need Claude Code signed in here with a Claude subscription (an API key billed per use has none); ChatGPT's come from its own files.</p>
+          <p lang="zh">Kikumap 读的是各个 App 存在这台 Mac 上的东西，所以在别处跑的都看不到：别的电脑或服务器上（SSH、VS Code 远程、开发容器、云端）的 Claude Code 或 Codex、普通 ChatGPT 聊天（存在云端）、Codex 云端任务，以及没置顶的 Claude 对话。置顶的 Claude 对话不管在哪儿开的都能看到，前提是这台 Mac 上开着 Claude 桌面 App。Claude 的用量要在这台 Mac 上用 Claude 订阅登录 Claude Code（按量计费的 API Key 没有用量条）；ChatGPT 的用量读它自己的文件。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>
@@ -510,8 +520,13 @@
         </details>
         <details>
           <summary><span lang="en">What if I close Claude's window with ⌘W?</span><span lang="zh">用 ⌘W 关了 Claude 的窗口怎么办？</span></summary>
-          <p lang="en">That only hides it: Claude keeps running and still sends its "finished" notifications, so Kikumap still marks chats as done and plays its sound. The live "running" spinner reads Claude's sidebar, so it waits until the window is back. Claude Code sessions aren't affected.</p>
-          <p lang="zh">Claude 的 ⌘W 其实只是把窗口藏起来，App 还在运行，做完的通知照常发出，所以 Kikumap 照样标记做完、照样响提示音。只有「进行中」的转圈要读 Claude 的侧边栏，要等窗口回来再更新。Claude Code 会话完全不受影响。</p>
+          <p lang="en">That only hides the window: Claude keeps running, but Kikumap reads Claude's chats from its sidebar, so it can't see them until the window is back (click Claude in the Dock). The same goes for a window on another desktop, full screen included. Behind other windows or minimized, it keeps reading. Meanwhile chats that were running show "running?", and the time Kikumap can't see is estimated and marked ≈ (your typical run's length, never past when the chat is seen finished). With Full Disk Access on (optional), Claude's notifications still say when it needs your approval or an answer, and when a Cowork task finishes. An ordinary chat's finish shows when the window is back: Claude sends no notification for it. Claude Code in Terminal or VS Code and ChatGPT's Codex aren't affected.</p>
+          <p lang="zh">Claude 的 ⌘W 只是把窗口藏起来，App 还在运行；但 Kikumap 是从 Claude 的侧边栏读对话的，所以要等窗口回来（点程序坞里的 Claude）才看得到。窗口在别的桌面上（包括全屏）也一样。被别的窗口挡住或最小化时，照样能读。这期间，在跑的对话显示「在跑？」，看不到的这段时长是估算的，标 ≈（按你一次运行的常见时长算，不超过它被看到做完的时候）。开了「完全磁盘访问」（可选）的话，Claude 要你批准或回答、Cowork 任务做完时，通知照样能收到。普通对话回复完，Claude 不发通知，要等窗口回来才知道。终端或 VS Code 里的 Claude Code、ChatGPT 的 Codex 完全不受影响。</p>
+        </details>
+        <details>
+          <summary><span lang="en">Why is there no usage?</span><span lang="zh">为什么没有用量？</span></summary>
+          <p lang="en">Usage is off until you turn it on (Settings → Access → Usage). It's read through Claude Code's sign-in, so it needs Claude Code on your Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): run <code>claude</code> in Terminal and type <code>/login</code>. The Free plan and API keys have no usage to show. ChatGPT's usage comes from its own files, with nothing to turn on.</p>
+          <p lang="zh">用量默认关闭（设置 → 授权 → 用量）。它借用 Claude Code 的登录读取，所以 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：在终端运行 <code>claude</code>，输入 <code>/login</code>。免费套餐和 API key 没有用量可看。ChatGPT 的用量来自它自己的文件，不用开。</p>
         </details>
         <details>
           <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span></summary>

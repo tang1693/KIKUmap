@@ -20,7 +20,7 @@ final class Sounds {
         if Prefs.quietWhenClaudeFront && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == claudeBundleID { return }
         let needsInput = events.contains { if case .needsInput = $0 { return true }; return false }
         var rang = false
-        if Date().timeIntervalSince(last) > 3 {
+        if !(0...3).contains(Date().timeIntervalSince(last)) {           // (a clock set back doesn't silence it)
             let s = needsInput ? Prefs.soundInput : Prefs.soundDone
             preview(s)
             rang = s != "off"
@@ -31,7 +31,7 @@ final class Sounds {
             switch e { case .finished(let i): (id, waiting) = (i, false); case .needsInput(let i): (id, waiting) = (i, true) }
             // the same news about the same chat is said once
             let key = id + (waiting ? "?" : ".")
-            if let t = said[key], Date().timeIntervalSince(t) < 30 { continue }
+            if let t = said[key], (0..<30).contains(Date().timeIntervalSince(t)) { continue }
             said[key] = Date()
             say((waiting ? Prefs.speakInput : Prefs.speakDone).replacingOccurrences(of: "{name}", with: nameOf(id)),
                 after: rang ? 0.7 : 0)
@@ -104,7 +104,11 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var openStats: (() -> Void)?
     var refreshAll: (() -> Void)?
     /// ChatGPT's usage windows, shown under Claude's.
-    var gptUsage: (() -> [(label: String, window: UsageMonitor.Window)])?
+    var gptUsage: (() -> [(label: String, window: UsageMonitor.Window?, note: String?)])?
+    /// What's off with reading Claude right now (nil: nothing).
+    var claudeNote: (() -> String?)?
+    /// What `claudeNote` says is about Claude's unread marks alone (what's running is read as usual).
+    var claudeUnreadOnly: (() -> Bool)?
     /// What's left to do (the menu lists the ones not ignored); `todosChanged` after one is ignored.
     var todos: (() -> [Todo])?
     var todosChanged: (() -> Void)?
@@ -129,16 +133,17 @@ final class StatusBar: NSObject, NSMenuDelegate {
         update()
     }
 
-    private var counts: (run: Int, unread: Int, needs: Int) {
+    /// `sure`: of those running, the ones Kikumap can see run now (the burst turns only for them; the others are "?").
+    private var counts: (run: Int, sure: Int, unread: Int, needs: Int) {
         let unread = store.unreadChats
-        return (store.runningChats.count, unread.count, unread.filter(store.needsInput).count)
+        return (store.runningChats.count, store.seenRunningChats.count, unread.count, unread.filter(store.needsInput).count)
     }
 
     func update() {
         let c = counts
         draw()
-        // the burst turns while something runs
-        if c.run > 0, spin == nil {
+        // the burst turns while something runs (as far as Kikumap can see)
+        if c.sure > 0, spin == nil {
             spin = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self = self else { return }
@@ -146,38 +151,79 @@ final class StatusBar: NSObject, NSMenuDelegate {
                     self.draw()
                 }
             }
-        } else if c.run == 0 {
+        } else if c.sure == 0 {
             spin?.invalidate(); spin = nil
         }
         var tip = tr("进行中 \(c.run) · 未读 \(c.unread)", "Running \(c.run) · Unread \(c.unread)")
+        if c.run > c.sure {
+            tip += tr("（其中 \(c.run - c.sure) 个现在看不到，不知道还在不在跑：带 ?）", " (\(c.run - c.sure) out of Kikumap's sight, not known if still running: marked ?)")
+        }
+        let note = claudeNote?()
+        if let n = note {
+            tip += "\n? " + n + (claudeUnreadOnly?() == true
+                ? tr("：Claude 里哪些看过了，这里可能没跟上，打开 Kikumap 看怎么恢复", ": which chats you've read in Claude may not show here; open Kikumap to see how to fix it")
+                : tr("：Claude 里在跑和未读的可能不止这些，打开 Kikumap 看怎么恢复", ": there may be more running or unread in Claude than shown; open Kikumap to see how to fix it"))
+        }
         if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你批准）", " (\(c.needs) need your approval)") }
         tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你批准 · 小菊花在转 = 还在跑", "\nRed = unread (finished, not yet seen) · ! = needs your approval · turning burst = still running")
-        if let s = usage.session { tip += tr("\n当前会话 已用 ", "\nSession ") + "\(Int(s.percent.rounded()))%  \(Clock.resets(s.resets))" }
-        if let w = usage.weekly { tip += tr("\n本周 已用 ", "\nWeek ") + "\(Int(w.percent.rounded()))%  \(Clock.resets(w.resets))" }
-        item.button?.toolTip = tip
+        item.button?.toolTip = tip + StatusBar.usageTip(usage)
+        // VoiceOver: the app's name and what it's showing (the icon alone says nothing)
+        var said = tr("Kikumap，进行中 \(c.run) 个，未读 \(c.unread) 个", "Kikumap, \(c.run) running, \(c.unread) unread")
+        if c.run > c.sure { said += tr("，其中 \(c.run - c.sure) 个不确定", ", \(c.run - c.sure) of them not confirmed") }
+        if let n = note { said += "，" + n }
+        if c.needs > 0 { said += tr("，\(c.needs) 个要你批准", ", \(c.needs) need your approval") }
+        item.button?.setAccessibilityLabel(said)
+    }
+
+    /// The tooltip's usage lines: Claude's session and week, and the Sonnet-only week while it's what holds you back;
+    /// numbers from an earlier read say when they're from, and whose they are.
+    static func usageTip(_ usage: UsageMonitor) -> String {
+        var tip = ""
+        let asOf = usage.asOfText.map { tr("（\($0)）", " (\($0))") } ?? ""
+        // (a window that has reset since an earlier read: "–", what's used since isn't known)
+        func used(_ w: UsageMonitor.Window?) -> String { w.map { tr("已用 ", "") + "\(Int($0.percent.rounded()))%  \(Clock.resets($0.resets))" } ?? "–" }
+        if usage.session != nil { tip += tr("\n当前会话 ", "\nSession ") + used(usage.shownSession) + asOf }
+        if usage.weekly != nil { tip += tr("\n本周 ", "\nWeek ") + used(usage.shownWeekly) + asOf }
+        if let o = usage.bindingSonnet { tip += tr("\n本周（仅 Sonnet）已用 ", "\nWeek (Sonnet only) ") + "\(Int(o.percent.rounded()))%  \(Clock.resets(o.resets))" + asOf }
+        if let a = usage.account, !tip.isEmpty { tip += tr("\nClaude Code 的账号：", "\nClaude Code's account: ") + a }
+        return tip
+    }
+
+    /// The Today submenu's last line when it lists only the first `shown` chats: how many more, and their time.
+    static func moreLine(_ day: [(id: String, secs: Double)], after shown: Int) -> String? {
+        guard day.count > shown else { return nil }
+        let rest = day.dropFirst(shown)
+        return tr("　还有 \(rest.count) 个 · ", "　\(rest.count) more · ") + Clock.duration(rest.reduce(0) { $0 + $1.secs })
     }
 
     private func draw() {
         guard let button = item.button else { return }
         let c = counts
         let dark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        button.image = StatusBar.image(run: c.run, unread: c.unread, needs: c.needs, phase: phase,
-                                       ink: dark ? .white : .black)
+        button.image = StatusBar.image(run: c.run, unread: c.unread, needs: c.needs, phase: c.sure > 0 ? phase : 0,
+                                       ink: dark ? .white : .black, unsure: c.run > c.sure, unknown: claudeNote?() != nil)
         button.imagePosition = .imageOnly
     }
 
     /// Waiting for you: a red badge with the count ("!" first when one needs your approval).
     /// Running: the orange burst turning — with the count when nothing is waiting. Nothing at all: the burst.
-    static func image(run: Int, unread: Int, needs: Int = 0, phase: CGFloat = 0, ink: NSColor = .black) -> NSImage {
+    /// `unknown`: Claude can't be read now, so what the icon shows may not be all there is: a "?" at its end.
+    static func image(run: Int, unread: Int, needs: Int = 0, phase: CGFloat = 0, ink: NSColor = .black, unsure: Bool = false, unknown: Bool = false) -> NSImage {
         let H: CGFloat = 18, pillH: CGFloat = 16, ringD: CGFloat = 15
         let f = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
         let badgeText = (needs > 0 ? "!" : "") + (unread > 99 ? "99+" : "\(unread)")
         let badge = NSAttributedString(string: badgeText, attributes: [.font: f, .foregroundColor: NSColor.white])
-        let runText = NSAttributedString(string: run > 99 ? "99+" : "\(run)", attributes: [.font: f, .foregroundColor: ink])
+        let runText = NSAttributedString(string: (run > 99 ? "99+" : "\(run)") + (unsure ? "?" : ""), attributes: [.font: f, .foregroundColor: ink])
         let pillW = unread > 0 ? max(pillH, ceil(badge.size().width) + 9) : 0
         let ringW: CGFloat = run > 0 ? ringD + (unread > 0 ? 3 : 3 + ceil(runText.size().width)) : 0
-        let width = run == 0 && unread == 0 ? 18 : ringW + pillW
+        let q = NSAttributedString(string: "?", attributes: [.font: f, .foregroundColor: ink])
+        let qW: CGFloat = unknown ? ceil(q.size().width) + 3 : 0
+        let width = (run == 0 && unread == 0 ? 18 : ringW + pillW) + qW
         let img = NSImage(size: NSSize(width: width, height: H), flipped: true) { _ in
+            if unknown {
+                let ts = q.size()
+                q.draw(at: NSPoint(x: width - ts.width, y: (H - ts.height) / 2))
+            }
             if run == 0 && unread == 0 {
                 Logo.draw(in: NSRect(x: 1, y: 1, width: 16, height: 16))
                 return true
@@ -220,19 +266,29 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        func header(_ t: String) {
+        @discardableResult func header(_ t: String) -> NSMenuItem {
             let h = menu.addItem(withTitle: t, action: nil, keyEquivalent: "")
             h.isEnabled = false
+            return h
         }
         func chatItems(_ list: [Chat], _ state: Int) {
             for c in list.prefix(15) {
                 var t = store.name(c.id)
                 if t.count > 46 { t = String(t.prefix(46)) + "…" }
-                let it = menu.addItem(withTitle: t, action: #selector(openItem(_:)), keyEquivalent: "")
+                let unseen = state == 2 && store.outOfSight(c.id)
+                let it = menu.addItem(withTitle: t + (unseen ? "  ?" : ""), action: #selector(openItem(_:)), keyEquivalent: "")
                 it.target = self
                 it.representedObject = c.id
                 it.image = StatusBar.mark(state, store.branchColor(c.id))
                 it.toolTip = store.timeLabel(c)
+                if unseen {
+                    let at = store.lastSeenRunning(c.id).map { UsageMonitor.stamp($0) } ?? "?"
+                    it.toolTip = c.isGPT
+                        ? tr("它的任务记录 \(at) 起没再动：可能在等你批准、一步做得久，或者 ChatGPT 停了。从那时起的时长是估算的（≈）。在 ChatGPT 里打开它看看。",
+                             "Its task log hasn't moved since \(at): it may be waiting for your approval, a long step may be running, or ChatGPT stopped. Its time from then is estimated (≈). Open it in ChatGPT to see.")
+                        : tr("Kikumap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。看看窗口顶部的同步状态怎么恢复。",
+                             "Kikumap can't see Claude's chat list right now (window closed or on another desktop, sidebar hidden or folded, Code mode, Claude quit, or Accessibility off): it was running at \(at); whether it has finished isn't known yet, and its time from then is estimated (≈). The sync status at the top of the window says how to fix it.")
+                }
             }
             if list.count > 15 { header(tr("　还有 \(list.count - 15) 个…", "　\(list.count - 15) more…")) }
         }
@@ -270,34 +326,59 @@ final class StatusBar: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
         }
         let run = store.runningChats, unread = store.unreadChats
-        header(tr("进行中 · ", "Running · ") + "\(run.count)")
+        // Claude can't be read now: what's listed may not be all there is (for unread alone, when only its marks can't be)
+        let blind = claudeNote?(), unreadOnly = claudeUnreadOnly?() ?? false
+        let runBlind = blind != nil && !unreadOnly
+        if let n = blind { header("? " + n) }
+        header(tr("进行中 · ", "Running · ") + "\(run.count)" + (runBlind || run.contains { store.outOfSight($0.id) } ? "?" : ""))
+        if run.isEmpty && runBlind { header(tr("　不知道", "　Not known")) }
         chatItems(run, 2)
         menu.addItem(.separator())
-        header(tr("未读 · ", "Unread · ") + "\(unread.count)")
+        header(tr("未读 · ", "Unread · ") + "\(unread.count)" + (blind != nil ? "?" : ""))
+        if unread.isEmpty && blind != nil { header(tr("　不知道", "　Not known")) }
         chatItems(unread, 1)
         menu.addItem(.separator())
 
         // today so far, in a submenu
         let day = store.today()
         let total = day.reduce(0) { $0 + $1.secs }
+        // (time Kikumap didn't see is estimated: said, with how much)
+        let guessed = store.todayEstimated()
+        let est = guessed >= 60 ? tr("（含估算 ≈\(Clock.duration(guessed))）", " (≈ \(Clock.duration(guessed)) estimated)") : ""
         let todayItem = menu.addItem(withTitle: day.isEmpty ? tr("今日回顾 · 还没有", "Today · nothing yet")
-                                                             : tr("今日回顾 · \(day.count) 个对话 · \(Clock.duration(total))",
-                                                                  "Today · \(day.count) chats · \(Clock.duration(total))"),
+                                                             : tr("今日回顾 · \(day.count) 个对话 · \(Clock.duration(total))", "Today · \(day.count) chats · \(Clock.duration(total))") + est,
                                      action: nil, keyEquivalent: "")
+        if guessed >= 60 {
+            todayItem.toolTip = tr("Claude 的窗口看不到时（关了、在别的桌面、Claude 退出了），或 Codex 任务没动静时，Kikumap 看不到它们在不在跑。这段时间按你一次运行的常见时长估算，不超过它被看到做完的时候。",
+                                   "While Claude's window can't be seen (closed, on another desktop, Claude quit), or a Codex task is quiet, Kikumap can't see whether it's still running. That time is estimated at your typical run, never past when it was seen finished.")
+        }
         if !day.isEmpty {
             let sub = NSMenu()
-            let done = day.filter { !store.isRunning($0.id) }.count
-            let h = sub.addItem(withTitle: tr("今天 \(GPTWatcher.who) 干活 \(Clock.duration(total)) · 做完 \(done) 个", "\(GPTWatcher.who) worked \(Clock.duration(total)) today · \(done) done"),
+            // (not one waiting for you)
+            let done = day.filter { !store.isRunning($0.id) && !store.isQuiet($0.id) && store.chat($0.id).map(store.needsInput) != true }.count
+            // (a time with estimated minutes in it says "≈")
+            let estToday = store.estimated([Calendar.current.startOfDay(for: Date()), Date()])[0]
+            func dur(_ secs: Double, _ est: Double) -> String { (est >= 60 ? "≈" : "") + Clock.duration(secs) }
+            let h = sub.addItem(withTitle: tr("今天 \(GPTWatcher.who) 干活 \(dur(total, guessed)) · 做完 \(done) 个", "\(GPTWatcher.who) worked \(dur(total, guessed)) today · \(done) done"),
                                 action: nil, keyEquivalent: "")
             h.isEnabled = false
             sub.addItem(.separator())
-            for (id, secs) in day.prefix(20) {
+            func add(_ m: NSMenu, _ id: String, _ secs: Double) {
                 var t = store.name(id)
                 if t.count > 40 { t = String(t.prefix(40)) + "…" }
-                let it = sub.addItem(withTitle: t + "  ·  " + Clock.duration(secs), action: #selector(openItem(_:)), keyEquivalent: "")
+                let it = m.addItem(withTitle: t + "  ·  " + dur(secs, estToday[id] ?? 0), action: #selector(openItem(_:)), keyEquivalent: "")
                 it.target = self
                 it.representedObject = id
                 it.image = StatusBar.mark(store.state(id), store.branchColor(id))
+            }
+            for (id, secs) in day.prefix(20) { add(sub, id, secs) }
+            // the rest in one line, so the rows add up to the total above; it opens onto them
+            if let t = StatusBar.moreLine(day, after: 20) {
+                let more = sub.addItem(withTitle: t, action: nil, keyEquivalent: "")
+                let rest = NSMenu(), tail = Array(day.dropFirst(20))
+                for (id, secs) in tail.prefix(200) { add(rest, id, secs) }
+                if let t = StatusBar.moreLine(tail, after: 200) { rest.addItem(withTitle: t, action: nil, keyEquivalent: "").isEnabled = false }
+                more.submenu = rest
             }
             todayItem.submenu = sub
         } else {
@@ -323,26 +404,39 @@ final class StatusBar: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
         }
 
-        header(tr("用量", "Usage"))
-        // Claude's, then ChatGPT's, in one list
-        var rows: [(String, UsageMonitor.Window?)] = []
+        let usageHead = header(tr("用量", "Usage"))
+        // Claude's, then ChatGPT's, in one list; numbers from an earlier read say when they're from
+        var rows: [(String, UsageMonitor.Window?, String?)] = []
+        let asOf = usage.asOfText
+        var who: String?
         if UsageMonitor.enabled && (usage.session != nil || usage.weekly != nil) {
-            rows += [(tr("当前会话", "Current session"), usage.session), (tr("本周", "This week"), usage.weekly)]
+            rows += [(tr("当前会话", "Current session"), usage.shownSession, asOf),
+                     (usage.sonnet != nil ? tr("本周（所有模型）", "This week (all models)") : tr("本周", "This week"), usage.shownWeekly, asOf)]
+            if usage.sonnet != nil { rows.append((tr("本周（仅 Sonnet）", "This week (Sonnet only)"), usage.shownSonnet, asOf)) }
+            // whose it is: the account Claude Code is signed in with, which may not be the Claude app's
+            who = usage.account.map { tr("Claude 的用量来自 Claude Code 登录的账号：", "Claude's usage is for the account Claude Code is signed in with: ") + $0 }
         }
-        rows += (gptUsage?() ?? []).map { ("ChatGPT · " + $0.label, $0.window) }
+        usageHead.toolTip = who
+        rows += (gptUsage?() ?? []).map { ("ChatGPT · " + $0.label, $0.window, $0.note) }
         if !rows.isEmpty {
             let it = NSMenuItem()
             it.view = UsageMenuView(rows: rows)
+            it.view?.toolTip = who
             menu.addItem(it)
         }
         if !UsageMonitor.enabled {
-            let on = menu.addItem(withTitle: tr("显示 Claude 的用量和计划任务（Pro / Max）…", "Show Claude's usage and scheduled tasks (Pro / Max)…"), action: #selector(turnOnUsage), keyEquivalent: "")
+            let on = menu.addItem(withTitle: tr("显示 Claude 的用量和计划任务（付费套餐）…", "Show Claude's usage and scheduled tasks (paid plans)…"), action: #selector(turnOnUsage), keyEquivalent: "")
             on.target = self
-        }
-        if usage.status != .ok && usage.status != .unknown {
-            header(tr("　没有用量数据（见「待办」）", "　No usage to show (see To-do)"))
-        } else if usage.status == .unknown && UsageMonitor.enabled {
-            header(tr("　读取中…", "　Reading…"))
+        } else {
+            // say what's wrong; point to To-do only when it actually lists it (an ignored one isn't pointed to)
+            let listed = todo.contains { $0.id.hasPrefix("usage-") }
+            switch usage.status {
+            case .unknown: header(tr("　读取中…", "　Reading…"))
+            case .ok where usage.session == nil && usage.weekly == nil:
+                header(tr("　这个套餐没有 5 小时 / 每周额度可看", "　No 5-hour or weekly limit on this plan"))
+            case .ok: break
+            default: header("　" + usage.hint + (listed ? tr("（见「待办」）", " (see To-do)") : ""))
+            }
         }
         menu.addItem(.separator())
 
@@ -386,33 +480,42 @@ final class StatusBar: NSObject, NSMenuDelegate {
     func relabel() { update() }
 }
 
-/// The usage panel inside the drop-down, laid out like claude.ai → Settings → Usage.
+/// The usage panel inside the drop-down, laid out like claude.ai → Settings → Usage. The bars start after the
+/// longest title, so a long one ("ChatGPT · Session") never runs into them.
 final class UsageMenuView: NSView {
-    private let rows: [(String, UsageMonitor.Window?)]
+    private let rows: [(String, UsageMonitor.Window?, String?)]
+    private static let titleF = NSFont.systemFont(ofSize: 13, weight: .medium)
+    private let bx: CGFloat
 
-    init(rows: [(String, UsageMonitor.Window?)]) {
+    /// Each row: its title, its window (nil: unknown, "—"), and a line under it instead of the reset time.
+    init(rows: [(String, UsageMonitor.Window?, String?)]) {
         self.rows = rows
-        super.init(frame: NSRect(x: 0, y: 0, width: 330, height: CGFloat(rows.count) * 46 + 8))
+        let lw = ceil(rows.map { $0.0.size(UsageMenuView.titleF).width }.max() ?? 0)
+        bx = max(124, 20 + lw + 12)
+        super.init(frame: NSRect(x: 0, y: 0, width: max(330, bx + 100 + 70 + 18), height: CGFloat(rows.count) * 46 + 8))
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel(rows.map { "\($0.0): " + ($0.1.map { "\(Int($0.percent.rounded()))%" } ?? "—") }.joined(separator: ", "))
     }
     required init?(coder: NSCoder) { fatalError() }
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        let titleF = NSFont.systemFont(ofSize: 13, weight: .medium)
+        let titleF = UsageMenuView.titleF
         let subF = NSFont.systemFont(ofSize: 11)
         let pctF = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .regular)
         for (i, row) in rows.enumerated() {
             let y = 4 + CGFloat(i) * 46
             (row.0 as NSString).draw(at: NSPoint(x: 20, y: y + 4),
                                      withAttributes: [.font: titleF, .foregroundColor: NSColor.labelColor])
-            let sub = Clock.resets(row.1?.resets)
+            let sub = row.2 ?? Clock.resets(row.1?.resets)
             (sub as NSString).draw(at: NSPoint(x: 20, y: y + 22),
                                    withAttributes: [.font: subF, .foregroundColor: NSColor.secondaryLabelColor])
             let pct = row.1.map { "\(Int($0.percent.rounded()))%" + tr(" 已用", " used") } ?? "—"
             let ps = pct.size(pctF)
             (pct as NSString).draw(at: NSPoint(x: bounds.width - 18 - ps.width, y: y + 15 - ps.height / 2 + 3),
                                    withAttributes: [.font: pctF, .foregroundColor: NSColor.secondaryLabelColor])
-            let bx: CGFloat = 124, bw = bounds.width - 18 - 70 - bx
+            let bw = bounds.width - 18 - 70 - bx
             let track = NSRect(x: bx, y: y + 16, width: bw, height: 5)
             NSColor.labelColor.withAlphaComponent(0.13).setFill()
             NSBezierPath(roundedRect: track, xRadius: 2.5, yRadius: 2.5).fill()

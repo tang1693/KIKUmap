@@ -6,7 +6,8 @@ cd "$(dirname "$0")/.."
 VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
 OUT=dist
 APP="$OUT/Kikumap.app"
-rm -rf "$OUT"
+# only what this script makes: anything else kept in dist/ (release notes, say) stays
+rm -rf "$APP" "$OUT/Kikumap" "$OUT/raw.dmg" "$OUT/Kikumap.dmg" "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules" "$OUT/dmg-background"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 for arch in arm64 x86_64; do
   echo "Building $arch…"
