@@ -59,7 +59,8 @@ final class WidgetFeed {
     func closing() { write(closed: true, force: true) }
 
     private func write(closed: Bool, force: Bool) {
-        let run = closed ? [] : store.runningChats, unread = closed ? [] : store.unreadChats
+        // (quitting too: the widget keeps showing them, as of now)
+        let run = store.runningChats, unread = store.unreadChats
         var meters: [State.Meter] = []
         // whole percents and minutes, so small wobbles don't cost a redraw
         func meter(_ label: String, _ percent: Double, _ resets: Date?, _ group: String, minutes: Int, asOf: Date? = nil) -> State.Meter {
@@ -85,7 +86,7 @@ final class WidgetFeed {
                 meters.append(meter(GPTWatcher.windowLabel(w.minutes), w.percent, w.resets, "gpt", minutes: w.minutes, asOf: old ? u.at : nil))
             }
         }
-        let note = closed ? nil : claudeNote?()
+        let note = claudeNote?()      // (quitting too: what wasn't known then stays "not known" under its "as of")
         // (a run going out of sight, or Claude no longer read, changes what the widget says: a redraw)
         let key = [run.map { $0.id + (store.outOfSight($0.id) ? "?" : "") }.joined(separator: ","), unread.map(\.id).joined(separator: ","), note?.text ?? "",
                    meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")\($0.asOf ?? "")" }.joined(separator: ","),

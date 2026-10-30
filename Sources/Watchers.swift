@@ -284,7 +284,7 @@ enum SyncIssue: Sendable {
         case .accessOff: return tr("辅助功能授权失效，请在系统设置里删掉再加回来", "Accessibility is off for this build — remove and re-add it in System Settings")
         case .noWindow:
             return SyncIssue.alerts
-                ? tr("看不到 Claude 的窗口（关了，或在别的桌面）：要你批准的提醒照常，对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): approval alerts still come; chats update when it's back")
+                ? tr("看不到 Claude 的窗口（关了，或在别的桌面）：要你批准的提醒照常（Claude 的通知开着的话），对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): approval alerts still come (with Claude's notifications on); chats update when it's back")
                 : tr("看不到 Claude 的窗口（关了，或在别的桌面）：对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): chats update when it's back")
         case .codeMode: return tr("Claude 在 Code 模式，切回 Chat 才能同步置顶对话", "Claude is in Code mode — switch back to Chat to sync pinned chats")
         case .pinsCollapsed: return tr("Claude 的 Pinned 区折叠了，展开才能同步", "Claude's Pinned section is collapsed — expand it to sync")
@@ -554,7 +554,9 @@ enum AXScan {
                 let cur = str(button, "AXARIACurrent"); if !cur.isEmpty && cur != "0" && cur != "false" { flags.append("cur=\(cur)") }
                 let title = texts.count == 1 ? texts[0].trimmingCharacters(in: .whitespacesAndNewlines) : ""
                 let label = str(menu, "AXDescription"), english = label.hasPrefix("More options for")
-                if !title.isEmpty, english || (title.count >= 2 && label.count > title.count && label.contains(title)) {
+                // (a one-character title: only where the menu reads exactly as Claude words it, or any row would pass)
+                if !title.isEmpty, english || (title.count >= 2 && label.count > title.count && label.contains(title))
+                    || (title.count == 1 && knownMenus.contains { $0.replacingOccurrences(of: "{label}", with: title) == label }) {
                     let at = label.range(of: title, options: [.anchored, .backwards]) ?? label.range(of: title, options: .anchored)
                     out.append(Row(button: button, title: title, flags: flags.joined(separator: " ; "), section: section,
                                    menu: at.map { label.replacingCharacters(in: $0, with: "{label}") } ?? ""))

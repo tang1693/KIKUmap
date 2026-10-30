@@ -14,7 +14,7 @@ final class VNode {
     var done = false
     var color: NSColor
     var colored = false
-    var tagColors: [NSColor] = []
+    var tagMarks: [(color: NSColor, icon: String?)] = []
     var count = 0
     var runN = 0, unrN = 0
     var collapsed = false
@@ -289,7 +289,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     private func register(_ v: VNode) {
         all.append(v)
         byKey[v.key] = v
-        v.tagColors = store.map.tags(of: v.key).compactMap { Theme.highlight($0.color) }
+        v.tagMarks = store.map.tags(of: v.key).map { (Theme.highlight($0.color) ?? Theme.muted, $0.icon) }
         if editing?.key == v.key, let t = editingText { v.title = t }
         measure(v)
     }
@@ -368,7 +368,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// Room the topic's shape takes before its name.
     private func glyphW(_ v: VNode) -> CGFloat { v.glyph == nil ? 0 : (v.kind == .main ? 20 : 14) }
 
-    private func tagW(_ v: VNode) -> CGFloat { v.tagColors.isEmpty ? 0 : 6 + CGFloat(v.tagColors.count) * 10 }
+    private func tagW(_ v: VNode) -> CGFloat { v.tagMarks.isEmpty ? 0 : 6 + v.tagMarks.reduce(0) { $0 + ($1.icon == nil ? 10 : 15) } }
 
     private func measure(_ v: VNode) {
         defer { if v.kind != .root { v.size.width += tagW(v) } }
@@ -778,9 +778,16 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     private func drawTags(_ v: VNode, x: CGFloat, midY: CGFloat) {
-        for (i, c) in v.tagColors.enumerated() {
-            c.setFill()
-            NSBezierPath(ovalIn: NSRect(x: x + CGFloat(i) * 10, y: midY - 3.5, width: 7, height: 7)).fill()
+        var at = x
+        for m in v.tagMarks {
+            if let i = m.icon {
+                Icons.draw(i, in: NSRect(x: at, y: midY - 6, width: 12, height: 12), color: m.color, weight: 2.2)
+                at += 15
+            } else {
+                m.color.setFill()
+                NSBezierPath(ovalIn: NSRect(x: at, y: midY - 3.5, width: 7, height: 7)).fill()
+                at += 10
+            }
         }
     }
 
@@ -790,6 +797,8 @@ final class MapView: NSView, NSTextFieldDelegate {
     ]
 
     static func drawShape(_ name: String, in r: NSRect, color c: NSColor) {
+        // a line icon ("i:rocket") wants a little more room than a filled shape
+        if name.hasPrefix("i:") { Icons.draw(String(name.dropFirst(2)), in: r.insetBy(dx: -2, dy: -2), color: c, weight: 2.2); return }
         let flipped = NSGraphicsContext.current?.isFlipped ?? false
         func pt(_ x: CGFloat, _ y: CGFloat) -> NSPoint { NSPoint(x: r.minX + x * r.width, y: flipped ? r.minY + y * r.height : r.maxY - y * r.height) }
         c.setFill(); c.setStroke()
@@ -1047,11 +1056,14 @@ final class MapView: NSView, NSTextFieldDelegate {
             select(best?.key)
         } else if inward, let p = v.parent {
             select(p.key)
-        } else if d == "up" || d == "down", let p = v.parent {
-            let sibs = p.kids.filter { $0.dir == v.dir }
-            if let i = sibs.firstIndex(where: { $0 === v }) {
-                let j = i + (d == "up" ? -1 : 1)
-                if j >= 0 && j < sibs.count { select(sibs[j].key) }
+        } else if d == "up" || d == "down" {
+            // on through everything at this level on this side, not only its own siblings
+            func depth(_ n: VNode) -> Int { var c = 0, p = n.parent; while let q = p { c += 1; p = q.parent }; return c }
+            let level = depth(v)
+            let peers = all.filter { $0.kind != .root && $0.dir == v.dir && depth($0) == level }.sorted { $0.frame.midY < $1.frame.midY }
+            if let i = peers.firstIndex(where: { $0 === v }) {
+                let j = i + ((d == "up") == isFlipped ? -1 : 1)
+                if j >= 0 && j < peers.count { select(peers[j].key) }
             }
         }
     }
@@ -1434,7 +1446,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             }
             colors.submenu = sub
             m.addItem(colors)
-            let shapes = NSMenuItem(title: tr("图形", "Shape"), action: nil, keyEquivalent: "")
+            let shapes = NSMenuItem(title: tr("图标", "Icon"), action: nil, keyEquivalent: "")
             let sm = NSMenu()
             let own = map.locate(k)?.item.node?.shape
             for s in MapView.shapes {
@@ -1444,7 +1456,11 @@ final class MapView: NSView, NSTextFieldDelegate {
                 sm.addItem(it)
             }
             sm.addItem(.separator())
-            let noShape = MenuAction(title: tr("不要图形", "No shape")) { [weak self] in map.setShape(k, "none"); self?.changed(select: k) }
+            let more = MenuAction(title: tr("更多图标…", "More icons…")) { [weak self] in self?.pickIcon(k) }
+            more.state = v.glyph?.hasPrefix("i:") == true ? .on : .off
+            sm.addItem(more)
+            sm.addItem(.separator())
+            let noShape = MenuAction(title: tr("不要图标", "No icon")) { [weak self] in map.setShape(k, "none"); self?.changed(select: k) }
             noShape.state = v.glyph == nil ? .on : .off
             sm.addItem(noShape)
             if own != nil {
@@ -1467,21 +1483,37 @@ final class MapView: NSView, NSTextFieldDelegate {
         return m
     }
 
+    /// The icon picker, beside the topic.
+    private func pickIcon(_ k: String) {
+        guard let v = byKey[k] else { return }
+        let current = v.glyph?.hasPrefix("i:") == true ? String(v.glyph!.dropFirst(2)) : nil
+        IconPicker.show(relativeTo: v.frame, of: self, selected: current, tint: v.colored ? v.color : Theme.ink) { [weak self] name in
+            self?.store.map.setShape(k, "i:" + name)
+            self?.changed(select: k)
+        }
+    }
+
     /// "Tags" submenu: tick any number of tags, or make a new one.
     func tagMenu(_ key: String) -> NSMenuItem {
         let top = NSMenuItem(title: tr("标签", "Tags"), action: nil, keyEquivalent: "")
         let sub = NSMenu()
         let map = store.map
-        for t in map.tags {
-            let it = MenuAction(title: t.name) { [weak self] in map.toggleTag(key, t.id); self?.changed(select: key) }
-            it.image = Theme.swatch(Theme.highlight(t.color))
-            it.state = map.hasTag(key, t.id) ? .on : .off
-            sub.addItem(it)
+        for g in Tag.groups {
+            let list = map.tags.filter { $0.category == g.key }
+            guard !list.isEmpty else { continue }
+            let head = sub.addItem(withTitle: tr(g.zh, g.en), action: nil, keyEquivalent: "")
+            head.isEnabled = false
+            for t in list {
+                let it = MenuAction(title: t.name) { [weak self] in map.toggleTag(key, t.id); self?.changed(select: key) }
+                it.image = t.icon.map { Icons.image($0, size: 14, color: Theme.highlight(t.color) ?? Theme.muted) } ?? Theme.swatch(Theme.highlight(t.color))
+                it.state = map.hasTag(key, t.id) ? .on : .off
+                sub.addItem(it)
+            }
+            sub.addItem(.separator())
         }
-        if !map.tags.isEmpty { sub.addItem(.separator()) }
         sub.addItem(MenuAction(title: tr("新标签…", "New tag…")) { [weak self] in
-            guard let self = self, let (name, color) = TagPrompt.ask(color: map.nextTagColor(), window: self.window) else { return }
-            map.addTag(name, color: color, to: key)
+            guard let self = self, let n = TagPrompt.ask(color: map.nextTagColor(), window: self.window) else { return }
+            map.addTag(n.name, color: n.color, icon: n.icon, group: n.group, to: key)
             self.changed(select: key)
         })
         sub.addItem(MenuAction(title: tr("管理标签…", "Manage tags…")) { [weak self] in self?.onManageTags?() })

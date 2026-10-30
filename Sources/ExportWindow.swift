@@ -68,15 +68,18 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             map.walkChats(n) { if self.store.chat($0) != nil { c += 1 } }
             return c
         }
-        func add(_ n: MapNode, _ depth: Int) {
+        let known = Archive.knownTopics
+        func add(_ n: MapNode, _ depth: Int, parentOn: Bool = false) {
             for ch in n.children {
                 guard let s = ch.node else { continue }
-                let b = check((s.title.isEmpty ? tr("新主题", "New topic") : s.title) + "  ·  \(count(s))", chosen == nil || chosen!.contains(s.id))
+                // (a topic added since the choice was saved follows its parent, as the export does)
+                let on = chosen == nil || chosen!.contains(s.id) || (known?.contains(s.id) != true && parentOn)
+                let b = check((s.title.isEmpty ? tr("新主题", "New topic") : s.title) + "  ·  \(count(s))", on)
                 let wrap = NSStackView(views: [b])
                 wrap.edgeInsets = NSEdgeInsets(top: 0, left: CGFloat(depth) * 20, bottom: 0, right: 0)
                 list.addArrangedSubview(wrap)
                 checks.append((b, s.id))
-                add(s, depth + 1)
+                add(s, depth + 1, parentOn: on)
             }
         }
         add(map.root, 0)
@@ -238,6 +241,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         let topics = Set(checks.filter { $0.0.state == .on }.map { $0.1 })
         // everything ticked = "all", so topics added later come along too
         Archive.topics = topics.count == checks.count ? nil : topics
+        Archive.knownTopics = Set(checks.map { $0.1 })
         Archive.withUnplaced = unplaced?.state == .on
         Archive.withMemory = memory?.state == .on
         Archive.withFiles = files?.state == .on

@@ -264,6 +264,8 @@ final class Store {
     func isUnread(_ c: Chat) -> Bool {
         if running.contains(c.id) { return false }
         if axUnread.contains(c.id) { return true }
+        // Claude's row shows it waiting for you: it stays listed while it does, whatever was marked read here
+        if let n = c.last_note, SidebarWatcher.waitingStatuses.contains(n) { return true }
         if c.isGPT {
             if seen[c.id] == "" { return !c.updated_at.isEmpty }          // marked unread here
             // an app thread: ChatGPT's dot, unless read here since its last change (a session: like Claude Code)
@@ -401,7 +403,7 @@ final class Store {
         let now = Date()
         for (id, s) in runStart { run(id, Clock.parse(s), liveEnd(id, now: now)) }
         for u in unseenStretches(now: now) { run(u.id, u.a, u.b, estimated: true) }
-        Store.share(runs) { key, a, b, part in
+        Store.shareSeenFirst(runs) { key, a, b, part in
             let guess = key.hasPrefix("≈"), id = guess ? String(key.dropFirst()) : key
             var i = slot(a) ?? 0
             while i < out.count && bounds[i] < b {
@@ -462,6 +464,27 @@ final class Store {
             if first < 1 { add(hours[1], 1 - first) }
         }
         return out
+    }
+
+    /// Seen runs share their time among themselves; an estimated stretch ("≈" + its chat) only has the time no seen run
+    /// covers, so a guess never takes time from a chat that was seen working.
+    static func shareSeenFirst(_ runs: [(id: String, a: Date, b: Date)], _ take: (String, Date, Date, Double) -> Void) {
+        let seen = runs.filter { !$0.id.hasPrefix("≈") && $0.b > $0.a }.sorted { $0.a < $1.a }
+        share(seen, take)
+        var cover: [(a: Date, b: Date)] = []
+        for r in seen {
+            if let l = cover.last, r.a <= l.b { cover[cover.count - 1].b = max(l.b, r.b) } else { cover.append((r.a, r.b)) }
+        }
+        var rest: [(id: String, a: Date, b: Date)] = []
+        for r in runs where r.id.hasPrefix("≈") {
+            var a = r.a
+            for c in cover where c.b > a && c.a < r.b {
+                if c.a > a { rest.append((r.id, a, c.a)) }
+                a = max(a, c.b)
+            }
+            if a < r.b { rest.append((r.id, a, r.b)) }
+        }
+        share(rest, take)
     }
 
     /// Runs that overlap share their time: while k chats run at once, each gets 1/k of it. `take` gets each
@@ -545,10 +568,35 @@ final class Store {
     /// Waiting on you to approve something, not just finished.
     func needsInput(_ c: Chat) -> Bool {
         guard let n = c.last_note else { return false }
-        // Claude's row shows it waiting (mirrored on every read), or it stopped on an error: so whether or not it was
-        // marked read here; a request from a notification, until it's read
-        if SidebarWatcher.waitingStatuses.contains(n) || n.hasPrefix(Store.stopMark) { return true }
-        return isUnread(c) && Store.isInputNote(n)
+        // Claude's row shows it waiting (mirrored on every read): so whether or not it was marked read here; a request
+        // from a notification, or a stop on an error, until it's read
+        if SidebarWatcher.waitingStatuses.contains(n) { return true }
+        if c.isCode && maybeAnswered[c.id] != nil { return false }
+        return isUnread(c) && (Store.isInputNote(n) || n.hasPrefix(Store.stopMark))
+    }
+
+    /// Claude Code sessions asking for your approval whose app has come to the front since (when): you may have answered
+    /// there, and no hook says so until the approved step ends. Shown as "needs you?", without the "!".
+    private var maybeAnswered: [String: Date] = [:]
+    /// The app in front now (its bundle id).
+    var frontApp: (() -> String?)?
+
+    /// No other session has worked in that app this past hour: with several, its coming to the front says nothing about
+    /// this one, which keeps its "!".
+    private func onlySession(_ c: Chat) -> Bool {
+        !chats.contains { $0.isCode && $0.id != c.id && $0.app == c.app && (lastCodeEvent[$0.id].map { Date().timeIntervalSince($0) < 3600 } ?? false) }
+    }
+    /// A session shown "needs you?": you may have answered in its app.
+    func maybeWaiting(_ id: String) -> Bool { maybeAnswered[id] != nil }
+
+    /// An app came to the front: a Claude Code session in it that asks for your approval may be answered from now on.
+    func appCameToFront(_ bundle: String) {
+        var changed = false
+        for c in chats where c.isCode && c.app == bundle && maybeAnswered[c.id] == nil && needsInput(c)
+            && c.last_note.map({ Store.isInputNote($0) && !$0.hasPrefix(Store.stopMark) }) == true && onlySession(c) {
+            maybeAnswered[c.id] = Date(); changed = true
+        }
+        if changed { notify() }
     }
     /// Put before a chat's note when its run stopped on an error (Claude Code's StopFailure, a status on Claude's row
     /// Kikumap doesn't know): its words are shown, and it wants you, not "done". Invisible.
@@ -666,6 +714,7 @@ final class Store {
         // stopped on an error: Claude's own words
         if let n = c.last_note, n.hasPrefix(Store.stopMark) { let t = String(n.dropFirst()); return t.count > 34 ? String(t.prefix(33)) + "…" : t }
         if needsInput(c) { return tr("需要你操作", "needs you") }
+        if maybeAnswered[c.id] != nil, let n = c.last_note, Store.isInputNote(n) { return tr("需要你操作？", "needs you?") }
         return Clock.ago(c.updated_at)
     }
 
@@ -715,6 +764,7 @@ final class Store {
     // MARK: read state
 
     func markSeen(_ ids: [String]) {
+        for id in ids { maybeAnswered.removeValue(forKey: id) }
         for id in ids {
             let u = chat(id)?.updated_at ?? ""
             // a ChatGPT thread: read as of now, and in any case just after its last change ("+" sorts after it), since
@@ -783,7 +833,7 @@ final class Store {
             guard let a = Clock.parse(iv.start), let b = Clock.parse(iv.end) else { return nil }
             return ((iv.est == true ? "≈" : "") + iv.id, a, b)
         }
-        Store.share(runs) { id, from, b, part in
+        Store.shareSeenFirst(runs) { id, from, b, part in
             var a = from
             while a < b {
                 let e = min(b, cal.dateInterval(of: .hour, for: a)?.end ?? b)
@@ -1075,6 +1125,12 @@ final class Store {
             let loud = e.time.addingTimeInterval(1) > quietBefore
             let prev = lastCodeEvent[id]
             lastCodeEvent[id] = max(prev ?? e.time, e.time)
+            // a word from the session after it may have been answered: that's settled (the approved step ran till now)
+            if let asked = maybeAnswered[id], e.time >= asked {
+                maybeAnswered.removeValue(forKey: id)
+                // (a typical run's length at most: the wait for your answer isn't work)
+                if e.name == "PostToolUse" { estimate(id, from: max(asked, e.time.addingTimeInterval(-typicalRun(id))), to: e.time); if let n = chats[i].last_note, Store.isInputNote(n) { chats[i].last_note = nil; changed = true } }
+            }
             /// The turn is over: its time ends at `end`.
             func stop(at end: String) {
                 running.remove(id)
@@ -1107,6 +1163,8 @@ final class Store {
                     chats[i].updated_at = when
                     chats[i].last_note = e.message
                     changed = true
+                    // its app is in front: you can answer right there, and no hook will say you did
+                    if chats[i].app != nil, frontApp?() == chats[i].app, onlySession(chats[i]) { maybeAnswered[id] = e.time }
                     if loud && !quiet { events.append(.needsInput(id)) }
                 } else if e.kind == "idle_prompt" || e.message.range(of: "waiting for your input", options: .caseInsensitive) != nil {
                     // idle a minute after the turn ended: one ended without a Stop (Esc) isn't running any more
@@ -1494,6 +1552,7 @@ final class Store {
             if paused.contains(id), let seen = seenRunningAt[id] { estimate(id, from: seen, to: estimatedEnd(id, seen: seen, by: Date())) }
             paused.remove(id); missingSince.removeValue(forKey: id)
             if claudeFront && current == id {
+                chats[i].updated_at = now; changed = true           // it changed (Export goes by this), and you saw it
                 seen[id] = now; seenChanged = true
             } else if rules.markFinishedUnread || waits != nil {
                 chats[i].updated_at = now; changed = true
@@ -1507,14 +1566,21 @@ final class Store {
                 events.append(waits != nil || err != nil ? .needsInput(id) : .finished(id))
             }
         }
+        // a chat that's left the list (unpinned, deleted): its row can't say it still waits
+        if whole {
+            for i in chats.indices where !chats[i].outsideClaude && !listed.contains(chats[i].id) {
+                if let n = chats[i].last_note, SidebarWatcher.waitingStatuses.contains(n) { chats[i].last_note = nil; changed = true }
+            }
+        }
         // Claude's "waiting for you" on a row, mirrored on every read (not only when Kikumap saw it start): shown while
         // Claude shows it, and gone once it doesn't (answered here or elsewhere, or cancelled)
         for l in links where !nowRunning.contains(l.id) {
             guard let i = index[l.id], !chats[i].outsideClaude else { continue }
             if let w = SidebarWatcher.waiting(l.flags) {
                 guard chats[i].last_note != w, !(claudeFront && current == l.id) else { continue }
+                let wasUnread = isUnread(chats[i])
                 chats[i].last_note = w
-                if !isUnread(chats[i]) { chats[i].updated_at = now }
+                if !wasUnread { chats[i].updated_at = now }
                 changed = true
             } else if let n = chats[i].last_note, n.hasPrefix(Store.stopMark) {
                 // the error status it stopped with: shown while Claude's row shows it

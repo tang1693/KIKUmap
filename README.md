@@ -36,7 +36,7 @@
 
 You pinned a dozen chats in Claude, and a few Codex chats in ChatGPT. One is planning your trip, one is fixing a test, one finished ten minutes ago and you haven't looked. **Kikumap** sits in your menu bar and keeps track of both: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style. A desktop widget shows the same at a glance, with your Claude and ChatGPT usage.
 
-**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code. A small download that mostly waits for changes (with a light check every half minute), and stops drawing entirely when its window is hidden.
+**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code (its line icons are from [Lucide](https://lucide.dev), ISC). A small download that mostly waits for changes (with a light check every half minute), and stops drawing entirely when its window is hidden.
 
 https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
 
@@ -246,7 +246,7 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ⌘⏎, double-click | rename (chat names are local) |
 | ⌫ | delete; pinned chats go back to the left column |
 | ⌥. | fold / unfold |
-| ⌥↑ ⌥↓ | move among siblings |
+| ⌥↑ ⌥↓ | move up or down, on into the next topic at the same level |
 | ⌘↓ / ⌘↑ | open the chat in its app / up to the topic it's in (as in Finder) |
 | drag on empty space, ⇧/⌘-click | select several; drag any one to move them all |
 | hold space, two-finger swipe | move around the map (a quick tap on space opens the chat) |

@@ -164,14 +164,14 @@ final class StatusBar: NSObject, NSMenuDelegate {
                 ? tr("：Claude 里哪些看过了，这里可能没跟上，打开 Kikumap 看怎么恢复", ": which chats you've read in Claude may not show here; open Kikumap to see how to fix it")
                 : tr("：Claude 里在跑和未读的可能不止这些，打开 Kikumap 看怎么恢复", ": there may be more running or unread in Claude than shown; open Kikumap to see how to fix it"))
         }
-        if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你批准）", " (\(c.needs) need your approval)") }
-        tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你批准 · 小菊花在转 = 还在跑", "\nRed = unread (finished, not yet seen) · ! = needs your approval · turning burst = still running")
+        if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你处理）", " (\(c.needs) need you)") }
+        tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你处理（批准、回答，或出错停下了） · 小菊花在转 = 还在跑", "\nRed = unread (finished, not yet seen) · ! = needs you (an approval, an answer, or it stopped on an error) · turning burst = still running")
         item.button?.toolTip = tip + StatusBar.usageTip(usage)
         // VoiceOver: the app's name and what it's showing (the icon alone says nothing)
         var said = tr("Kikumap，进行中 \(c.run) 个，未读 \(c.unread) 个", "Kikumap, \(c.run) running, \(c.unread) unread")
         if c.run > c.sure { said += tr("，其中 \(c.run - c.sure) 个不确定", ", \(c.run - c.sure) of them not confirmed") }
         if let n = note { said += "，" + n }
-        if c.needs > 0 { said += tr("，\(c.needs) 个要你批准", ", \(c.needs) need your approval") }
+        if c.needs > 0 { said += tr("，\(c.needs) 个要你处理", ", \(c.needs) need you") }
         item.button?.setAccessibilityLabel(said)
     }
 
@@ -355,7 +355,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         if !day.isEmpty {
             let sub = NSMenu()
             // (not one waiting for you)
-            let done = day.filter { !store.isRunning($0.id) && !store.isQuiet($0.id) && store.chat($0.id).map(store.needsInput) != true }.count
+            let done = day.filter { !store.isRunning($0.id) && !store.isQuiet($0.id) && !store.maybeWaiting($0.id) && store.chat($0.id).map(store.needsInput) != true }.count
             // (a time with estimated minutes in it says "≈")
             let estToday = store.estimated([Calendar.current.startOfDay(for: Date()), Date()])[0]
             func dur(_ secs: Double, _ est: Double) -> String { (est >= 60 ? "≈" : "") + Clock.duration(secs) }

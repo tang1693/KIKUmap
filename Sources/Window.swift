@@ -16,11 +16,14 @@ final class ColorView: NSView {
 /// Flat button: hairline outline, or a solid "do this" variant.
 final class FlatButton: NSButton {
     var warn = false { didSet { needsDisplay = true } }
+    /// A Lucide icon before the title.
+    var iconName: String?
 
-    convenience init(_ title: String, warn: Bool = false, target: AnyObject?, action: Selector) {
+    convenience init(_ title: String, warn: Bool = false, icon: String? = nil, target: AnyObject?, action: Selector) {
         self.init(frame: .zero)
         self.title = title
         self.warn = warn
+        self.iconName = icon
         self.target = target
         self.action = action
         isBordered = false
@@ -29,7 +32,7 @@ final class FlatButton: NSButton {
 
     override var intrinsicContentSize: NSSize {
         let s = title.size(Theme.ui(12, .medium))
-        return NSSize(width: ceil(s.width) + 22, height: 26)
+        return NSSize(width: ceil(s.width) + 22 + (iconName == nil ? 0 : 19), height: 26)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -45,7 +48,10 @@ final class FlatButton: NSButton {
         let f = Theme.ui(12, .medium)
         let c: NSColor = warn ? Theme.bg : Theme.ink
         let s = title.size(f)
-        (title as NSString).draw(at: NSPoint(x: bounds.midX - s.width / 2, y: bounds.midY - s.height / 2),
+        let iconW: CGFloat = iconName == nil ? 0 : 19
+        let x = bounds.midX - (s.width + iconW) / 2
+        if let i = iconName { Icons.draw(i, in: NSRect(x: x, y: bounds.midY - 7, width: 14, height: 14), color: c, weight: 2) }
+        (title as NSString).draw(at: NSPoint(x: x + iconW, y: bounds.midY - s.height / 2),
                                  withAttributes: [.font: f, .foregroundColor: c])
     }
 }
@@ -73,6 +79,38 @@ final class IconButton: NSButton {
         contentTintColor = Theme.ink
     }
     @objc private func fire() { run() }
+
+    private var spinner: Timer?
+    /// Turns its picture round once or twice, slowing down: something happened. (With Reduce Motion, a tick for a moment.)
+    func spin(_ symbol: String, seconds: Double = 0.9) {
+        spinner?.invalidate()
+        guard let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: 14, weight: .regular)) else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            setSymbol("checkmark")
+            spinner = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.setSymbol(symbol) } }
+            return
+        }
+        let began = Date()
+        spinner = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] t in
+            MainActor.assumeIsolated {
+                guard let self else { t.invalidate(); return }
+                let f = min(1, Date().timeIntervalSince(began) / seconds)
+                if f >= 1 { t.invalidate(); self.setSymbol(symbol); return }
+                let eased = 1 - pow(1 - f, 3)
+                let box = max(base.size.width, base.size.height) + 2
+                let turned = NSImage(size: NSSize(width: box, height: box), flipped: false) { r in
+                    var a = AffineTransform(translationByX: r.midX, byY: r.midY)
+                    a.rotate(byDegrees: -720 * eased)
+                    a.translate(x: -r.midX, y: -r.midY)
+                    (a as NSAffineTransform).concat()
+                    base.draw(in: NSRect(x: r.midX - base.size.width / 2, y: r.midY - base.size.height / 2, width: base.size.width, height: base.size.height))
+                    Theme.ink.set(); r.fill(using: .sourceAtop)
+                    return true
+                }
+                self.image = turned
+            }
+        }
+    }
 }
 
 /// Top bar: mark, the two counts, usage, permission fixes, buttons.
@@ -98,7 +136,7 @@ final class HeaderView: NSView {
     var liveHelp = ""
     private var liveTip: (rect: NSRect, help: NSString, tag: NSView.ToolTipTag)?   // the string is kept: tool tips don't retain it
     private var buttons: [FlatButton] = []
-    var actions: [(String, Bool, () -> Void)] = [] { didSet { rebuildButtons() } }
+    var actions: [(String, Bool, () -> Void, String?)] = [] { didSet { rebuildButtons() } }
     var onSettings: (() -> Void)?
     var onLights: (() -> Void)?
     var onToggleSide: (() -> Void)?
@@ -148,7 +186,7 @@ final class HeaderView: NSView {
     private func rebuildButtons() {
         buttons.forEach { $0.removeFromSuperview() }
         buttons = actions.enumerated().map { i, a in
-            let b = FlatButton(a.0, warn: a.1, target: self, action: #selector(tap(_:)))
+            let b = FlatButton(a.0, warn: a.1, icon: a.3, target: self, action: #selector(tap(_:)))
             b.tag = i
             addSubview(b)
             return b
@@ -463,6 +501,9 @@ final class SidebarView: NSView, NSDraggingSource {
         search.frame = NSRect(x: 12, y: 60, width: bounds.width - 24, height: 22)
     }
 
+    /// Reading again now: the button says so.
+    func spinRefresh() { refresh.spin("arrow.clockwise") }
+
     @objc private func searched(_ f: NSSearchField) {
         let q = f.stringValue.trimmingCharacters(in: .whitespaces)
         guard q != query else { return }
@@ -705,6 +746,12 @@ final class TagShelfView: NSView, NSDraggingSource {
     var onManage: (() -> Void)?
     private(set) var selected: String?
     private var chips: [(NSRect, String?)] = []       // nil id = the "＋" chip
+    private var heads: [(NSRect, String)] = []        // each category's heading (click to fold)
+    private static let foldedKey = "TagShelfFolded"
+    private var folded: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: Self.foldedKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: Self.foldedKey) }
+    }
     private var pressed: (id: String?, at: NSPoint)?
     private let top: CGFloat = 38, chipH: CGFloat = 20, gap: CGFloat = 4
     private let chipF = Theme.ui(11.5, .medium)
@@ -717,24 +764,30 @@ final class TagShelfView: NSView, NSDraggingSource {
 
     override var isFlipped: Bool { true }
 
-    private func chipW(_ t: Tag) -> CGFloat { ceil(t.name.size(chipF).width) + 24 }
+    private func chipW(_ t: Tag) -> CGFloat { ceil(t.name.size(chipF).width) + (t.icon == nil ? 24 : 30) }
 
-    /// Lays the chips out in one flow for `width` — status first, then what a chat makes, then
-    /// your own, then "＋"; returns the height needed.
+    /// Lays out each category (a heading you can fold, then its chips) for `width`, then "＋"; returns the height needed.
     @discardableResult
     func layout(width: CGFloat) -> CGFloat {
         chips = []
-        let order = ["status": 0, "output": 1]
-        let tags = store.map.tags.enumerated().sorted {
-            (order[$0.element.group ?? ""] ?? 2, $0.offset) < (order[$1.element.group ?? ""] ?? 2, $1.offset)
-        }.map { $0.element }
+        heads = []
         var x: CGFloat = 16, y = top
         func place(_ w: CGFloat, _ id: String?) {
             if x + w > width - 14 && x > 16 { x = 16; y += chipH + gap }
             chips.append((NSRect(x: x, y: y, width: w, height: chipH), id))
             x += w + gap
         }
-        for t in tags { place(min(chipW(t), width - 30), t.id) }
+        let hidden = folded
+        for g in Tag.groups {
+            let list = store.map.tags.filter { $0.category == g.key }
+            guard !list.isEmpty else { continue }
+            if x > 16 { x = 16; y += chipH + gap + 2 }
+            heads.append((NSRect(x: 12, y: y, width: width - 24, height: 18), g.key))
+            y += 20
+            if hidden.contains(g.key) { continue }
+            for t in list { place(min(chipW(t), width - 30), t.id) }
+        }
+        if x > 16 { x = 16; y += chipH + gap + 2 }
         place(26, nil)
         return y + chipH + 12
     }
@@ -757,6 +810,16 @@ final class TagShelfView: NSView, NSDraggingSource {
                                 withAttributes: [.font: Theme.ui(11), .foregroundColor: Theme.muted])
         let tags = store.map.tags
         let f = chipF
+        let hidden = folded
+        for (r, key) in heads {
+            guard let g = Tag.groups.first(where: { $0.key == key }) else { continue }
+            let closed = hidden.contains(key)
+            Icons.draw(closed ? "chevron-right" : "chevron-down", in: NSRect(x: r.minX + 3, y: r.midY - 5.5, width: 11, height: 11), color: Theme.muted, weight: 2.4)
+            let n = tags.filter { $0.category == key }.count
+            let s = tr(g.zh, g.en) + (closed ? " · \(n)" : "")
+            let hf = Theme.ui(11, .semibold)
+            (s as NSString).draw(at: NSPoint(x: r.minX + 18, y: r.midY - s.size(hf).height / 2), withAttributes: [.font: hf, .foregroundColor: Theme.muted])
+        }
         for (r, id) in chips {
             let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: r.height / 2, yRadius: r.height / 2)
             guard let id = id, let t = tags.first(where: { $0.id == id }) else {
@@ -769,10 +832,17 @@ final class TagShelfView: NSView, NSDraggingSource {
             let c = Theme.highlight(t.color) ?? Theme.muted
             let on = selected == id
             if on { Theme.ink.setFill(); p.fill() } else { Theme.line.setStroke(); p.lineWidth = 1; p.stroke() }
-            c.setFill(); NSBezierPath(ovalIn: NSRect(x: r.minX + 8, y: r.midY - 3.5, width: 7, height: 7)).fill()
+            let textX: CGFloat
+            if let i = t.icon {
+                Icons.draw(i, in: NSRect(x: r.minX + 7, y: r.midY - 6.5, width: 13, height: 13), color: c, weight: 2.1)
+                textX = r.minX + 24
+            } else {
+                c.setFill(); NSBezierPath(ovalIn: NSRect(x: r.minX + 8, y: r.midY - 3.5, width: 7, height: 7)).fill()
+                textX = r.minX + 18
+            }
             let para = NSMutableParagraphStyle(); para.lineBreakMode = .byTruncatingTail
             let th = ceil(f.ascender - f.descender + f.leading)
-            (t.name as NSString).draw(with: NSRect(x: r.minX + 18, y: r.midY - th / 2, width: r.width - 24, height: th),
+            (t.name as NSString).draw(with: NSRect(x: textX, y: r.midY - th / 2, width: r.maxX - textX - 6, height: th),
                                       options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
                                       attributes: [.font: f, .foregroundColor: on ? Theme.paper : Theme.ink, .paragraphStyle: para])
         }
@@ -782,6 +852,13 @@ final class TagShelfView: NSView, NSDraggingSource {
 
     override func mouseDown(with e: NSEvent) {
         let p = convert(e.locationInWindow, from: nil)
+        if let h = heads.first(where: { $0.0.contains(p) }) {
+            var f = folded
+            if f.remove(h.1) == nil { f.insert(h.1) }
+            folded = f
+            store.notify()                                  // (the shelf's height changes)
+            return
+        }
         guard let c = chip(at: p) else { return }
         pressed = (c.1, p)
     }
@@ -804,8 +881,8 @@ final class TagShelfView: NSView, NSDraggingSource {
         guard let pr = pressed else { return }
         guard let id = pr.id else {
             // "＋": a new tag
-            if let (name, color) = TagPrompt.ask(color: store.map.nextTagColor(), window: window) {
-                _ = store.map.addTag(name, color: color)
+            if let n = TagPrompt.ask(color: store.map.nextTagColor(), window: window) {
+                _ = store.map.addTag(n.name, color: n.color, icon: n.icon, group: n.group)
                 store.notify()
             }
             return
@@ -1146,7 +1223,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     /// The tag shelf grows with its tags; the pinned list takes the rest of the column.
     private func layoutLeft() {
         let sideW = sideScroll.frame.width, bottom = timeline.frame.maxY, s = Prefs.uiScale
-        let h = min(tags.layout(width: sideW / s), 300) * s
+        let h = min(tags.layout(width: sideW / s), max(320, (header.frame.minY - bottom) / s * 0.55)) * s
         tags.frame = NSRect(x: 0, y: bottom, width: sideW, height: h)
         tags.bounds = NSRect(x: 0, y: 0, width: sideW / s, height: h / s)
         let top = header.frame.minY

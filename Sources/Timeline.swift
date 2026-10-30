@@ -114,8 +114,14 @@ final class TimelineView: NSView {
     var preferredHeight: CGFloat { 130 + runLaneH - laneH }
     var onHeightChange: (() -> Void)?
     private var ranges: [(String, Double)] {
-        [(tr("3小时", "3h"), 3), (tr("6小时", "6h"), 6), (tr("12小时", "12h"), 12), (tr("2天", "2d"), 48), (tr("7天", "7d"), 168)]
+        [(tr("3小时", "3h"), 3), (tr("6小时", "6h"), 6), (tr("12小时", "12h"), 12), (tr("24小时", "24h"), 24), (tr("2天", "2d"), 48), (tr("7天", "7d"), 168)]
     }
+    /// The range chosen (it stays highlighted, and fits the strip whatever its width); nil once you've zoomed freely.
+    private var rangeHours: Double? = {
+        let h = UserDefaults.standard.double(forKey: "TimelineHours")
+        return h > 0 ? h : 24
+    }()
+    private func applyRange() { if let h = rangeHours { spp = h * 3600 / Double(max(100, plotW)) } }
 
     init(store: Store, usage: UsageMonitor) {
         self.store = store
@@ -209,6 +215,7 @@ final class TimelineView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         // the runs changed under it (a wake): read again just after this frame (a reload may resize the strip)
         if stale { DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { if self?.stale == true { self?.reload() } } } }
+        applyRange()
         keepNow()
         hits = []
         Theme.paper.setFill(); bounds.fill()
@@ -240,7 +247,7 @@ final class TimelineView: NSView {
         var sx = group.minX
         for (i, (label, hours)) in ranges.enumerated() {
             let r = NSRect(x: sx, y: group.minY, width: segW[i], height: group.height)
-            let on = abs(Double(plotW) * spp / 3600 - hours) < hours * 0.08
+            let on = rangeHours == hours
             if on {
                 Theme.ink.setFill()
                 NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 2), xRadius: 4, yRadius: 4).fill()
@@ -491,7 +498,9 @@ final class TimelineView: NSView {
     // MARK: interaction
 
     private func setRange(_ hours: Double) {
-        spp = hours * 3600 / Double(max(100, plotW))
+        rangeHours = hours
+        UserDefaults.standard.set(hours, forKey: "TimelineHours")
+        applyRange()
         follow = true
         needsDisplay = true
     }
@@ -547,6 +556,7 @@ final class TimelineView: NSView {
 
     private func zoom(by f: Double, at px: CGFloat) {
         let anchor = time(px)
+        rangeHours = nil
         spp = min(3600, max(15, spp * f))
         start = anchor.addingTimeInterval(-Double(px - labelW) * spp)
         if follow {

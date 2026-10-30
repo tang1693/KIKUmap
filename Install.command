@@ -60,6 +60,7 @@ fi
 rm -rf "$TMP"
 [ -d "/Applications/Kikumap.app" ] && echo "Note: there's also a Kikumap in /Applications (from the disk image). Delete one of them, so only one runs."
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/LICENSE-lucide.txt "$APP/Contents/Resources/"
 # the icon is drawn in code (Sources/Logo.swift)
 "$APP/Contents/MacOS/ClaudeConsole" --make-icns "$APP/Contents/Resources/AppIcon.icns" || echo "(icon skipped)"
 # Sign with a certificate that stays the same across rebuilds, so macOS keeps the permissions you

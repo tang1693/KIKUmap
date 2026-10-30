@@ -66,10 +66,14 @@ struct Tag: Codable, Equatable {
     var id: String
     var name: String
     var color: String
-    /// "output" (what the chat makes), "status", or nil for your own.
+    /// "status" (where the work stands), "output" (what the chat makes), or nil / "other" for the rest.
     var group: String?
+    /// A Lucide icon's name (nil: a plain dot in its colour).
+    var icon: String?
 
-    static let groups: [(key: String?, zh: String, en: String)] = [("output", "产出", "Output"), ("status", "状态", "Status"), (nil, "我的", "Mine")]
+    /// Which of `groups` it's in.
+    var category: String { group == "status" || group == "output" ? group! : "other" }
+    static let groups: [(key: String, zh: String, en: String)] = [("status", "任务进度", "Progress"), ("output", "产出", "Output"), ("other", "其他", "Other")]
 }
 
 struct MapDoc: Codable {
@@ -84,6 +88,8 @@ struct MapDoc: Codable {
     var sides: [String: Int]?
     /// The starter tags were added once (delete or rename them freely; they don't come back).
     var presets: Bool?
+    /// Which set of starter tags has been added (2: with categories and icons).
+    var presetsV: Int?
 }
 
 /// The user's map: tree operations (MindNode-style) with undo, saved as JSON.
@@ -166,24 +172,45 @@ final class MapModel {
         else { try? d.write(to: logs) }
     }
 
-    /// Starter tags: what a chat produces (like Claude's artifact kinds) and where it stands.
-    private static let presetTags: [(String, String, String, String)] = [
-            ("视频", "Video", "red", "output"), ("网页", "Web page", "blue", "output"), ("文档", "Document", "teal", "output"),
-            ("幻灯片", "Slides", "violet", "output"), ("图片", "Image", "pink", "output"), ("代码", "Code", "indigo", "output"),
-            ("进行中", "In progress", "orange", "status"), ("已完成", "Done", "green", "status"),
-            ("等别人", "Waiting on others", "yellow", "status"), ("搁置", "On hold", "brown", "status"),
-        ]
+    /// Starter tags by category: where the work stands, what the chat makes (like Claude's artifact kinds), the rest.
+    /// `since`: the set they came with (one you deleted from an earlier set doesn't come back).
+    private static let presetTags: [(zh: String, en: String, color: String, group: String, icon: String, since: Int)] = [
+        ("未开始", "Not started", "brown", "status", "circle-dashed", 2),
+        ("进行中", "In progress", "orange", "status", "loader-circle", 1),
+        ("等别人", "Waiting on others", "yellow", "status", "hourglass", 1),
+        ("搁置", "On hold", "brown", "status", "circle-pause", 1),
+        ("已完成", "Done", "green", "status", "circle-check", 1),
+        ("文档", "Document", "teal", "output", "file-text", 1),
+        ("网页", "Web page", "blue", "output", "globe", 1),
+        ("幻灯片", "Slides", "violet", "output", "presentation", 1),
+        ("图片", "Image", "pink", "output", "image", 1),
+        ("视频", "Video", "red", "output", "video", 1),
+        ("代码", "Code", "indigo", "output", "code-xml", 1),
+        ("表格", "Spreadsheet", "green", "output", "sheet", 2),
+        ("图表", "Chart", "orange", "output", "chart-column", 2),
+        ("重要", "Important", "yellow", "other", "star", 2),
+        ("紧急", "Urgent", "red", "other", "flame", 2),
+        ("想法", "Idea", "orange", "other", "lightbulb", 2),
+        ("调研", "Research", "blue", "other", "microscope", 2),
+        ("个人", "Personal", "pink", "other", "user", 2),
+    ]
 
     private func addPresetTags() {
-        guard doc.presets != true, !readOnly else { return }
-        let presets = MapModel.presetTags
+        let done = doc.presetsV ?? (doc.presets == true ? 1 : 0)
+        guard done < 2, !readOnly else { return }
         var list = doc.tags ?? []
-        let have = Set(list.map { $0.name })
-        for (zh, en, color, group) in presets where !have.contains(zh) && !have.contains(en) {
-            list.append(Tag(id: MapNode.newId() + group, name: tr(zh, en), color: color, group: group))
+        for p in MapModel.presetTags {
+            if let i = list.firstIndex(where: { $0.name == p.zh || $0.name == p.en }) {
+                if list[i].icon == nil { list[i].icon = p.icon }         // one already there gets its icon
+            } else if p.since > done {
+                list.append(Tag(id: MapNode.newId() + p.group, name: tr(p.zh, p.en), color: p.color, group: p.group, icon: p.icon))
+            }
         }
-        doc.tags = list
+        // the starter tags in their order within each category; your own after them
+        func rank(_ t: Tag) -> Int { MapModel.presetTags.firstIndex { $0.zh == t.name || $0.en == t.name } ?? 999 }
+        doc.tags = list.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
         doc.presets = true
+        doc.presetsV = 2
         save()
     }
 
@@ -192,8 +219,8 @@ final class MapModel {
         guard var list = doc.tags else { return }
         var changed = false
         for i in list.indices where list[i].group != nil {
-            if let p = MapModel.presetTags.first(where: { $0.0 == list[i].name || $0.1 == list[i].name }), list[i].name != tr(p.0, p.1) {
-                list[i].name = tr(p.0, p.1); changed = true
+            if let p = MapModel.presetTags.first(where: { $0.zh == list[i].name || $0.en == list[i].name }), list[i].name != tr(p.zh, p.en) {
+                list[i].name = tr(p.zh, p.en); changed = true
             }
         }
         if changed { doc.tags = list; save() }
@@ -472,8 +499,8 @@ final class MapModel {
     }
 
     @discardableResult
-    func addTag(_ name: String, color: String, to key: String? = nil) -> String {
-        let t = Tag(id: MapNode.newId(), name: name, color: color)
+    func addTag(_ name: String, color: String, icon: String? = nil, group: String? = nil, to key: String? = nil) -> String {
+        let t = Tag(id: MapNode.newId(), name: name, color: color, group: group, icon: icon)
         commit {
             doc.tags = tags + [t]
             if let k = key { doc.itemTags = doc.itemTags ?? [:]; doc.itemTags?[k, default: []].append(t.id) }
@@ -481,11 +508,13 @@ final class MapModel {
         return t.id
     }
 
-    func updateTag(_ id: String, name: String? = nil, color: String? = nil) {
+    func updateTag(_ id: String, name: String? = nil, color: String? = nil, icon: String?? = nil, group: String? = nil) {
         guard let i = tags.firstIndex(where: { $0.id == id }) else { return }
         commit {
             if let n = name, !n.isEmpty { doc.tags?[i].name = n }
             if let c = color { doc.tags?[i].color = c }
+            if let ic = icon { doc.tags?[i].icon = ic }
+            if let g = group { doc.tags?[i].group = g }
         }
     }
 
@@ -652,8 +681,21 @@ final class MapModel {
         if p === doc.root, let mine = side(of: key) {
             while j >= 0 && j < p.children.count && side(of: p.children[j].key) != mine { j += d }
         }
-        guard j >= 0, j < p.children.count else { return }
-        commit { p.children.swapAt(loc.index, j) }
+        if j >= 0, j < p.children.count { commit { p.children.swapAt(loc.index, j) }; return }
+        // at the end of its siblings: on into the next topic at its parent's level (the side stays the same)
+        guard p !== doc.root, let up = locate(p.id), let gp = up.parent else { return }
+        var i = up.index + d
+        while i >= 0, i < gp.children.count {
+            if let next = gp.children[i].node, gp !== doc.root || side(of: next.id) == side(of: p.id) {
+                commit {
+                    p.children.remove(at: loc.index)
+                    next.collapsed = nil
+                    if d > 0 { next.children.insert(loc.item, at: 0) } else { next.children.append(loc.item) }
+                }
+                return
+            }
+            i += d
+        }
     }
 
     func setColor(_ key: String, _ name: String?) {

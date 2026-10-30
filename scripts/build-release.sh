@@ -28,6 +28,7 @@ done
 lipo -create -output "$WX/Contents/MacOS/KikumapWidget" "$OUT/wx-arm64" "$OUT/wx-x86_64"
 rm -rf "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/LICENSE-lucide.txt "$APP/Contents/Resources/"
 cp Widget/Info.plist "$WX/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $VER" \
   -c "Set CFBundleVersion $(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Resources/Info.plist)" "$WX/Contents/Info.plist"

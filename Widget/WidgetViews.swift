@@ -291,12 +291,14 @@ struct KikumapWidgetView: View {
 
     // MARK: pieces
 
-    /// What the widget knows, and as of when: Kikumap said it quit then, or nothing has come from it since then
-    /// (never "isn't running": macOS may not have let the widget hear of it starting again yet).
+    /// What the widget shows is as of when Kikumap last wrote: it said it quit then, or nothing has come from it since
+    /// (never "isn't running": macOS may not have let the widget hear of it starting again yet). The counts and lists
+    /// from then stay, dimmed.
     private var staleMark: some View {
         let u = state.flatMap { WidgetTime.parse($0.updated) }
         let at = u.map { WidgetText.when($0, now: date, en) } ?? "?"
-        let text = state?.closed == true ? t("Kikumap \(at) 退出了", "Kikumap quit at \(at)") : t("\(at) 起没有 Kikumap 的消息", "No word from Kikumap since \(at)")
+        let text = state?.closed == true ? t("\(at) 时的数据 · Kikumap 已退出", "As of \(at) · Kikumap quit")
+                                         : t("\(at) 时的数据 · 之后没有 Kikumap 的消息", "As of \(at) · no word from Kikumap since")
         // (the small widget's line is too short for it: two lines, so the time isn't cut off)
         return Text(text).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
             .lineLimit(size == .large ? 1 : 2).minimumScaleFactor(0.8)
@@ -316,14 +318,16 @@ struct KikumapWidgetView: View {
     private func count(_ n: Int, running: Bool) -> some View {
         HStack(spacing: 4) {
             mark(running: running)
-            Text(number(n, running)).font(.system(size: 17, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
+            Text(number(n, running)).font(.system(size: 17, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
         }
     }
 
-    /// A count as known: "–" with no word from Kikumap, "2?" when some of those running are out of its sight or
-    /// Claude can't be read.
+    /// Text that says what's current; dimmed while the widget only has what Kikumap last wrote.
+    private var ink: Color { stale ? Color.secondary : Color.primary }
+
+    /// A count as known: "2?" when some of those running are out of its sight or Claude can't be read (with no word
+    /// from Kikumap: the count it last wrote, dimmed, under "as of").
     private func number(_ n: Int, _ running: Bool) -> String {
-        if stale { return "–" }
         let unsure = blind(running) || (running && (state?.running.contains { $0.unsure == true } ?? false))
         return "\(n)" + (unsure ? "?" : "")
     }
@@ -340,8 +344,7 @@ struct KikumapWidgetView: View {
 
     /// With no word from Kikumap, or Claude not read, what's running or unread isn't known: it isn't shown as "nothing".
     private func none(_ running: Bool, capital: Bool) -> String {
-        // (with no word from Kikumap the lists aren't shown at all, see `list`)
-        if stale || blind(running) { return t("不知道", capital ? "Not known" : "not known") }
+        if blind(running) { return t("不知道", capital ? "Not known" : "not known") }
         return running ? t("没有在跑的", capital ? "Nothing running" : "nothing running") : t("都看过了", capital ? "All read" : "all read")
     }
 
@@ -359,13 +362,13 @@ struct KikumapWidgetView: View {
     private func summaryRow(_ n: Int, _ first: WidgetState.Item?, running: Bool) -> some View {
         let row = HStack(spacing: 5) {
             mark(running: running)
-            Text(number(n, running)).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
-            Text(stale ? none(running, capital: false) : first.map(titled) ?? none(running, capital: false))
-                .font(.system(size: 11)).foregroundStyle(first == nil ? Color.secondary : Color.primary)
+            Text(number(n, running)).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
+            Text(first.map(titled) ?? none(running, capital: false))
+                .font(.system(size: 11)).foregroundStyle(first == nil ? Color.secondary : ink)
                 .lineLimit(1)
         }
         return Group {
-            if let f = first, !stale { link(f.id) { row } } else { row }
+            if let f = first { link(f.id) { row } } else { row }
         }
     }
 
@@ -373,19 +376,19 @@ struct KikumapWidgetView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
                 mark(running: running)
-                Text(title + " · " + number(n, running)).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
+                Text(title + " · " + number(n, running)).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
             }
-            if items.isEmpty || stale {
+            if items.isEmpty {
                 Text(none(running, capital: true))
                     .font(.system(size: 11)).foregroundStyle(Color.secondary).padding(.leading, 16)
             }
-            ForEach(stale ? [] : Array(items.prefix(3)), id: \.self) { it in
+            ForEach(Array(items.prefix(3)), id: \.self) { it in
                 link(it.id) {
-                    Text(titled(it)).font(.system(size: 11)).foregroundStyle(Color.primary).lineLimit(1)
+                    Text(titled(it)).font(.system(size: 11)).foregroundStyle(ink).lineLimit(1)
                         .padding(.leading, 16)
                 }
             }
-            if n > 3 && !stale {
+            if n > 3 {
                 Text(t("还有 \(n - 3) 个", "+\(n - 3) more")).font(.system(size: 10)).foregroundStyle(Color.secondary)
                     .padding(.leading, 16)
             }

@@ -314,7 +314,7 @@ enum LoginItem {
 /// Asks for a tag name and colour.
 @MainActor
 enum TagPrompt {
-    static func ask(name: String = "", color: String, window: NSWindow?) -> (String, String)? {
+    static func ask(name: String = "", color: String, window: NSWindow?) -> (name: String, color: String, icon: String?, group: String?)? {
         let a = NSAlert()
         a.messageText = tr("新标签", "New tag")
         a.informativeText = tr("一个对话或主题可以有多个标签。", "A chat or topic can have several tags.")
@@ -323,18 +323,29 @@ enum TagPrompt {
         let field = NSTextField(string: name)
         field.placeholderString = tr("标签名，比如「等客户」", "Tag name, e.g. \"waiting on client\"")
         let pop = ColorPopUp(selected: color)
-        let stack = NSStackView(views: [field, pop])
+        let group = NSPopUpButton(frame: .zero, pullsDown: false)
+        for g in Tag.groups { group.addItem(withTitle: tr(g.zh, g.en)); group.lastItem?.representedObject = g.key }
+        group.selectItem(at: Tag.groups.count - 1)
+        let grid = IconGridView()
+        grid.tint = Theme.highlight(color) ?? Theme.ink
+        pop.onPick = { grid.tint = Theme.highlight($0) ?? Theme.ink }
+        let scroll = grid.scrolled(height: 190)
+        scroll.widthAnchor.constraint(equalToConstant: scroll.frame.width).isActive = true
+        scroll.heightAnchor.constraint(equalToConstant: 190).isActive = true
+        let row = NSStackView(views: [pop, group])
+        row.spacing = 8
+        let stack = NSStackView(views: [field, row, scroll])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
-        stack.frame = NSRect(x: 0, y: 0, width: 260, height: 58)
-        field.widthAnchor.constraint(equalToConstant: 260).isActive = true
+        stack.frame = NSRect(x: 0, y: 0, width: scroll.frame.width, height: 258)
+        field.widthAnchor.constraint(equalToConstant: scroll.frame.width).isActive = true
         a.accessoryView = stack
         a.window.initialFirstResponder = field
         NSApp.activate(ignoringOtherApps: true)
         guard a.runModal() == .alertFirstButtonReturn else { return nil }
         let n = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        return n.isEmpty ? nil : (n, pop.selectedKey)
+        return n.isEmpty ? nil : (n, pop.selectedKey, grid.selected, group.selectedItem?.representedObject as? String)
     }
 }
 
@@ -936,8 +947,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let add = button(tr("＋ 新标签", "＋ New tag")) { [weak self] in
             guard let self = self else { return }
             let map = self.store.map
-            if let (name, color) = TagPrompt.ask(color: map.nextTagColor(), window: self.window) {
-                map.addTag(name, color: color)
+            if let n = TagPrompt.ask(color: map.nextTagColor(), window: self.window) {
+                map.addTag(n.name, color: n.color, icon: n.icon, group: n.group)
                 self.store.notify()
                 self.fillTags()
             }
@@ -959,16 +970,42 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             stack.addArrangedSubview(label(tr("还没有标签。", "No tags yet."), small: true))
             return
         }
-        for t in map.tags {
+        for t in map.tags.sorted(by: { a, b in
+            let order = Tag.groups.map(\.key)
+            return (order.firstIndex(of: a.category) ?? 2) < (order.firstIndex(of: b.category) ?? 2)
+        }) {
             let pop = ColorPopUp(selected: t.color)
-            pop.onPick = { [weak self] c in map.updateTag(t.id, color: c); self?.store.notify() }
+            pop.onPick = { [weak self] c in map.updateTag(t.id, color: c); self?.store.notify(); self?.fillTags() }
             let name = ClosureField(string: t.name) { [weak self] s in map.updateTag(t.id, name: s); self?.store.notify() }
-            name.widthAnchor.constraint(equalToConstant: 220).isActive = true
+            name.widthAnchor.constraint(equalToConstant: 150).isActive = true
+            let group = NSPopUpButton(frame: .zero, pullsDown: false)
+            for g in Tag.groups { group.addItem(withTitle: tr(g.zh, g.en)); group.lastItem?.representedObject = g.key }
+            group.selectItem(at: Tag.groups.firstIndex { $0.key == t.category } ?? 2)
+            let pickGroup = ClosureTarget { [weak self, weak group] in
+                guard let g = group?.selectedItem?.representedObject as? String else { return }
+                map.updateTag(t.id, group: g); self?.store.notify(); self?.fillTags()
+            }
+            group.target = pickGroup
+            group.action = #selector(ClosureTarget.fire)
+            objc_setAssociatedObject(group, "target", pickGroup, .OBJC_ASSOCIATION_RETAIN)
+            let tint = Theme.highlight(t.color) ?? Theme.muted
+            var iconButton: ClosureButton!
+            iconButton = ClosureButton(title: "") { [weak self] in
+                guard let b = iconButton else { return }
+                IconPicker.show(relativeTo: b.bounds, of: b, selected: t.icon, tint: tint,
+                                clear: t.icon == nil ? nil : (tr("不要图标", "No icon"), { map.updateTag(t.id, icon: .some(nil)); self?.store.notify(); self?.fillTags() })) { name in
+                    map.updateTag(t.id, icon: .some(name)); self?.store.notify(); self?.fillTags()
+                }
+            }
+            iconButton.image = t.icon.map { Icons.image($0, size: 16, color: tint) } ?? Theme.swatch(tint)
+            iconButton.imagePosition = .imageOnly
+            iconButton.toolTip = tr("换图标", "Change the icon")
+            iconButton.widthAnchor.constraint(equalToConstant: 34).isActive = true
             let del = button(tr("删除", "Delete")) { [weak self] in
                 map.deleteTag(t.id); self?.store.notify(); self?.fillTags()
             }
-            let row = NSStackView(views: [pop, name, del])
-            row.spacing = 10
+            let row = NSStackView(views: [iconButton, pop, name, group, del])
+            row.spacing = 8
             stack.addArrangedSubview(row)
         }
     }

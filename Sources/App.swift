@@ -143,6 +143,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         archive.pid = { [weak self] in self?.sidebar.claudePID ?? 0 }
         archive.onChange = { [weak self] in self?.refreshUI(); self?.settings.refreshArchive() }
         store.onIDMove = { [weak self] old, new in self?.archive.moved(old, to: new) }
+        store.frontApp = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
+            guard let b = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier else { return }
+            MainActor.assumeIsolated { self?.store.appCameToFront(b) }
+        }
         intro.onLanguage = { [weak self] in self?.relabelAll() }
         intro.onFinish = { [weak self] in
             guard let self = self else { return }
@@ -472,13 +477,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                : tr("Kikumap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
                     "Kikumap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\"."))
             : syncHelp()
-        var actions: [(String, Bool, () -> Void)] = []
+        var actions: [(String, Bool, () -> Void, String?)] = []
         if archive.busy {
-            actions.append((tr("停止", "Stop"), true, { [weak self] in self?.archive.cancel() }))
+            actions.append((tr("停止", "Stop"), true, { [weak self] in self?.archive.cancel() }, "square"))
         }
-        actions.append((tr("导出…", "Export…"), false, { [weak self] in self?.exportWin.show() }))
-        actions.append((tr("＋ 主题", "＋ Topic"), false, { [weak self] in self?.main.map.addTopicUnderRoot() }))
-        actions.append((tr("全部已读", "Mark all read"), false, { [weak self] in self?.store.markAllSeen() }))
+        actions.append((tr("导出", "Export"), false, { [weak self] in self?.exportWin.show() }, "upload"))
+        actions.append((tr("主题", "Topic"), false, { [weak self] in self?.main.map.addTopicUnderRoot() }, "plus"))
+        actions.append((tr("全部已读", "Mark all read"), false, { [weak self] in self?.store.markAllSeen() }, "check-check"))
         let sig = actions.map { $0.0 }
         if sig != h.actions.map({ $0.0 }) { h.actions = actions }
         h.needsDisplay = true
@@ -751,8 +756,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (title, lines)
     }
 
-    /// Reads everything again now (⟳ in the top bar, ⌘R): Claude's sidebar and notifications, ChatGPT, usage.
+    /// Reads everything again now (⟳ in the left column, ⌘R): Claude's sidebar and notifications, ChatGPT, usage.
     func refreshAll() {
+        main.sidebar.spinRefresh()
         factsCache = nil
         notifications.check()
         sidebar.attach()

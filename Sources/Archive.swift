@@ -159,6 +159,11 @@ final class Archive {
         get { (d.array(forKey: "ExportTopics") as? [String]).map(Set.init) }
         set { d.set(newValue.map(Array.init), forKey: "ExportTopics") }
     }
+    /// Every topic the export window showed when the choice was saved (a newer one wasn't asked about).
+    static var knownTopics: Set<String>? {
+        get { (d.array(forKey: "ExportKnownTopics") as? [String]).map(Set.init) }
+        set { d.set(newValue.map(Array.init), forKey: "ExportKnownTopics") }
+    }
     static var withUnplaced: Bool {
         get { d.object(forKey: "ExportUnplaced") == nil ? true : d.bool(forKey: "ExportUnplaced") }
         set { d.set(newValue, forKey: "ExportUnplaced") }
@@ -196,13 +201,21 @@ final class Archive {
         // (one started from that one again: "(continued 2)", and so on)
         let continues = Dictionary(state.imported.map { ($0.value, $0.key) }, uniquingKeysWith: { a, _ in a })
         func depth(_ id: String) -> Int { var d = 0, x = id; while let o = continues[x], d < 9 { d += 1; x = o }; return d }
+        // a folder another chat left, one that isn't listed any more (unpinned, deleted): it stays that chat's
+        let onMap = map.placedChats()
+        func leftBy(_ dir: URL, _ c: Chat) -> Bool {
+            let path = dir.path.lowercased()
+            let holder = Archive.summaryID(dir.appendingPathComponent("memory.md")) ?? state.files.first { $0.key != c.id && $0.value.lowercased() == path }?.key
+            guard let h = holder, h != c.id, !(h == "n-" + Store.fnv(c.title) && store.chat(h) == nil) else { return false }
+            return !onMap.contains(h) && store.chat(h)?.pinned != true
+        }
         func add(_ id: String, _ path: [String]) {
             guard !seen.contains(id), let c = store.chat(id) else { return }
             seen.insert(id)
             var dir = path.reduce(Archive.folder) { $0.appendingPathComponent(ClaudeExport.safeName($1)) }
                 .appendingPathComponent(ClaudeExport.safeName(store.name(id) + { d in d == 0 ? "" : tr("（续\(d > 1 ? "\(d)" : "")）", " (continued\(d > 1 ? " \(d)" : ""))") }(depth(id))))
             // the Mac's disk ignores case ("Plan" and "plan" are one folder): two chats never share a folder
-            if usedDirs.contains(dir.path.lowercased()) { dir = dir.deletingLastPathComponent().appendingPathComponent(dir.lastPathComponent + " " + String(id.suffix(6))) }
+            if usedDirs.contains(dir.path.lowercased()) || leftBy(dir, c) { dir = dir.deletingLastPathComponent().appendingPathComponent(dir.lastPathComponent + " " + String(id.suffix(6))) }
             usedDirs.insert(dir.path.lowercased())
             out.append(Item(id: id, title: c.title, dir: dir, outsideClaude: c.outsideClaude))
         }
@@ -214,7 +227,10 @@ final class Archive {
                     // chats right on the map have a box of their own: it doesn't take the topics along
                     let inherited = n === map.root ? false : on
                     let parent = path.reduce(Archive.folder) { $0.appendingPathComponent(ClaudeExport.safeName($1)) }
-                    walk(s, path + [s.title.isEmpty ? Archive.named("新主题", "New topic", in: parent) : s.title], inherited || topics?.contains(s.id) ?? true)
+                    // a box unticked counts, whatever its parent's; a topic added since the choice was saved follows its parent
+                    let ticked = topics?.contains(s.id) ?? true
+                    let decided = topics != nil && Archive.knownTopics?.contains(s.id) == true
+                    walk(s, path + [s.title.isEmpty ? Archive.named("新主题", "New topic", in: parent) : s.title], decided ? ticked : inherited || ticked)
                 }
             }
         }
@@ -231,7 +247,10 @@ final class Archive {
 
     /// Export with the settings saved in the export window.
     func exportSaved(scheduled: Bool, memory: Bool? = nil) {
-        let zip = Archive.withFiles ? ClaudeExport.newestZip() : nil
+        // (not one older than the newest read: that's never put over it by itself)
+        let zip = Archive.withFiles ? ClaudeExport.newestZip().flatMap { z in
+            ClaudeExport.modified(z).timeIntervalSince1970 >= (state.zipDoneAt ?? 0) ? z : nil
+        } : nil
         export(items(topics: Archive.topics, unplaced: Archive.withUnplaced), memory: memory ?? Archive.withMemory,
                zip: zip, force: false, scheduled: scheduled)
     }
@@ -346,7 +365,7 @@ final class Archive {
                     if stop.isSet || (scheduled && Archive.idleSeconds() < 3 && n > 0) { r.cutShort = scheduled && !stop.isSet; break }
                     if skip.contains(it.id) { r.skipped += 1; continue }
                     // its folder still holds another chat's things: a summary couldn't be saved there, so none is asked
-                    if blocked.contains(it.id) { r.skipped += 1; log(tr("  文件夹里还有另一个同名对话的东西，这次跳过", "  its folder still holds another chat's things (same name): skipped this time")); continue }
+                    if blocked.contains(it.id) { r.blocked += 1; log(tr("  文件夹里还有另一个同名对话的东西，这次跳过", "  its folder still holds another chat's things (same name): skipped this time")); continue }
                     // nothing new since the last summary (the app saw no activity)
                     if !force, let when = done[it.id], let u = updated[it.id], !u.isEmpty, u <= when {
                         DispatchQueue.main.sync { MainActor.assumeIsolated { self?.bringSummary(it) } }
@@ -378,7 +397,7 @@ final class Archive {
     }
 
     private struct Report {
-        var files = 0, artifacts = 0, notInZip = 0, memory = 0, skipped = 0, failed = 0
+        var files = 0, artifacts = 0, notInZip = 0, memory = 0, skipped = 0, failed = 0, blocked = 0
         var zipFailed = false, unreadable = false, summariesRan = false
         /// A scheduled run that stopped because you came back: it carries on when the Mac is idle again.
         var cutShort = false
@@ -414,8 +433,9 @@ final class Archive {
 
     /// The item as it stands now (its chat may have got its address since the run began).
     private func current(_ it: Item) -> Item {
+        // (not once a new chat has that id again: a new chat known by the same title alone)
         var id = it.id, hops = 0
-        while let n = movedIDs[id], hops < 8 { id = n; hops += 1 }
+        while let n = movedIDs[id], store.chat(id) == nil, hops < 8 { id = n; hops += 1 }
         return id == it.id ? it : Item(id: id, title: it.title, dir: it.dir, outsideClaude: it.outsideClaude)
     }
 
@@ -451,6 +471,9 @@ final class Archive {
     /// false, it waits.
     private func follow(_ it: Item) -> Bool {
         let fm = FileManager.default, root = Archive.folder
+        // its own summary from when it had only a title-only id (with no record of it, a folder copied here, say)
+        let own = "n-" + Store.fnv(it.title), here = it.dir.appendingPathComponent("memory.md")
+        if Archive.isAddress(it.id), Archive.summaryID(here) == own, store.chat(own) == nil { Archive.retag(here, from: own, to: it.id) }
         func same(_ a: URL, _ b: URL) -> Bool { a.standardizedFileURL.path.lowercased() == b.standardizedFileURL.path.lowercased() }
         // where its things are: its summary (a copy with its id in it), and the files Claude's export put there
         var from: [URL] = []
@@ -458,8 +481,8 @@ final class Archive {
             .first(where: { Archive.summaryID($0) == it.id }) { from.append(f.deletingLastPathComponent()) }
         if let f = state.files[it.id] { from.append(URL(fileURLWithPath: f)) }
         let away = from.filter { !same($0, it.dir) && fm.fileExists(atPath: $0.path) }
-        guard !away.isEmpty else { return true }
         if taken(it.dir, by: it.id) { return false }
+        guard !away.isEmpty else { return true }
         let mine = it.dir.appendingPathComponent("memory.md")
         for src in away {
             let inside = src.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/")
@@ -500,6 +523,7 @@ final class Archive {
         if r.files > 0 { parts.append(tr("\(r.files) 个对话的提示词和全文，\(r.artifacts) 个 artifact", "\(r.files) chats' prompts and text, \(r.artifacts) artifacts")) }
         if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", "\(r.memory) summaries")) }
         if r.skipped > 0 { parts.append(tr("\(r.skipped) 个跳过（没变化、未读或在跑）", "\(r.skipped) skipped (unchanged, unread or running)")) }
+        if r.blocked > 0 { parts.append(tr("\(r.blocked) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked) not written (their folder still holds another chat's things)")) }
         if r.notInZip > 0 { parts.append(tr("\(r.notInZip) 个不在导出包里（导出包比对话旧？）", "\(r.notInZip) not in the export zip (older than the chat?)")) }
         if r.failed > 0 { parts.append(tr("\(r.failed) 个失败（看 logs/archive.log）", "\(r.failed) failed (see logs/archive.log)")) }
         if r.zipFailed { parts.append(tr("导出包读不了", "couldn't read the export zip")) }
@@ -728,7 +752,7 @@ final class Archive {
             if url.lastPathComponent == "memory.md" {
                 // Claude takes 20 files with a message: the summary and 19 of the chat's (under 5 MB); the rest are said
                 let arts = url.deletingLastPathComponent().appendingPathComponent("artifacts")
-                let all = (try? fm.contentsOfDirectory(at: arts, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+                let all = (try? fm.contentsOfDirectory(at: arts, includingPropertiesForKeys: [.fileSizeKey], options: .skipsHiddenFiles)) ?? []
                 files = all.filter { ((try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) < 5_000_000 }
                     .sorted { $0.lastPathComponent < $1.lastPathComponent }
                 files = Array(files.prefix(19))
