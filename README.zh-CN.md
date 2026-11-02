@@ -316,10 +316,6 @@ Claude App 没有“哪些对话在跑”的接口，所以 Kikumap 像你一样
 
 代码是纯 Swift + AppKit，没有 Xcode 工程，也没有依赖。各文件的作用见[英文 README](README.md#contributing)。
 
-<a href="https://star-history.com/#tang1693/kikumap&Date">
-  <img src="https://api.star-history.com/svg?repos=tang1693/kikumap&type=Date" width="600" alt="Star 历史">
-</a>
-
 ## 支持
 
 Kikumap 是免费的，以后也会一直免费。如果它每天帮你省下一点翻找标签页的时间，请我喝杯咖啡，它就能一直做下去 ❤️

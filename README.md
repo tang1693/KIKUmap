@@ -333,10 +333,6 @@ The code is plain Swift and AppKit, no Xcode project and no dependencies.
 | `Settings.swift` / `Onboarding.swift` | settings, permissions, first-launch intro |
 | `Theme.swift` / `Logo.swift` | colours, language, the mark and app icon |
 
-<a href="https://star-history.com/#tang1693/kikumap&Date">
-  <img src="https://api.star-history.com/svg?repos=tang1693/kikumap&type=Date" width="600" alt="Star history">
-</a>
-
 ## Support
 
 Kikumap is free, and it always will be. If it saves you a little tab-hunting every day, a coffee keeps it going ❤️
