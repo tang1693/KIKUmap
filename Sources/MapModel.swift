@@ -674,30 +674,6 @@ final class MapModel {
         commit { _ = insert(.chat(id), at: target, drop, side: side) }
     }
 
-    func reorder(_ key: String, by d: Int) {
-        guard let loc = locate(key), let p = loc.parent else { return }
-        var j = loc.index + d
-        // top level: swap with the nearest item on the same side, so it visibly moves
-        if p === doc.root, let mine = side(of: key) {
-            while j >= 0 && j < p.children.count && side(of: p.children[j].key) != mine { j += d }
-        }
-        if j >= 0, j < p.children.count { commit { p.children.swapAt(loc.index, j) }; return }
-        // at the end of its siblings: on into the next topic at its parent's level (the side stays the same)
-        guard p !== doc.root, let up = locate(p.id), let gp = up.parent else { return }
-        var i = up.index + d
-        while i >= 0, i < gp.children.count {
-            if let next = gp.children[i].node, gp !== doc.root || side(of: next.id) == side(of: p.id) {
-                commit {
-                    p.children.remove(at: loc.index)
-                    next.collapsed = nil
-                    if d > 0 { next.children.insert(loc.item, at: 0) } else { next.children.append(loc.item) }
-                }
-                return
-            }
-            i += d
-        }
-    }
-
     func setColor(_ key: String, _ name: String?) {
         guard let n = locate(key)?.item.node else { return }
         commit { n.color = name }

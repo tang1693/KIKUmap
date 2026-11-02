@@ -1056,19 +1056,47 @@ final class MapView: NSView, NSTextFieldDelegate {
             select(best?.key)
         } else if inward, let p = v.parent {
             select(p.key)
-        } else if d == "up" || d == "down" {
-            // the nearest node above or below on this side, whatever its level (← → fix the level);
-            // of nodes in about the same row, the one closest sideways. Its own parents are skipped:
-            // a parent sits between its first and last child, and ← reaches it anyway
-            let smaller = (d == "up") == isFlipped, y = v.frame.midY
-            func gap(_ n: VNode) -> CGFloat { smaller ? y - n.frame.midY : n.frame.midY - y }
-            func dx(_ n: VNode) -> CGFloat { max(0, max(n.frame.minX, v.frame.minX) - min(n.frame.maxX, v.frame.maxX)) }
-            var above = Set<ObjectIdentifier>(), p = v.parent
-            while let q = p { above.insert(ObjectIdentifier(q)); p = q.parent }
-            let ahead = all.filter { $0.kind != .root && $0.dir == v.dir && gap($0) > 2 && !above.contains(ObjectIdentifier($0)) }
-            if let near = ahead.map(gap).min(),
-               let next = ahead.filter({ gap($0) < near + 4 }).min(by: { dx($0) < dx($1) }) { select(next.key) }
+        } else if d == "up" || d == "down", let next = neighbor(of: v, d) {
+            select(next.key)
         }
+    }
+
+    /// The nearest node above or below on this side, whatever its level (← → fix the level); of nodes in about the
+    /// same row, the one closest sideways. Its own parents are skipped (a parent sits between its first and last
+    /// child, and ← reaches it anyway), and for a move, what's under it (that moves with it).
+    private func neighbor(of v: VNode, _ d: String, moving: Bool = false) -> VNode? {
+        // where the layout puts them, not where they are mid-glide (a key pressed again before it settles)
+        let f = v.layoutFrame, smaller = (d == "up") == isFlipped, y = f.midY
+        func gap(_ n: VNode) -> CGFloat { smaller ? y - n.layoutFrame.midY : n.layoutFrame.midY - y }
+        func dx(_ n: VNode) -> CGFloat { max(0, max(n.layoutFrame.minX, f.minX) - min(n.layoutFrame.maxX, f.maxX)) }
+        var skip = Set<ObjectIdentifier>(), p = v.parent
+        while let q = p { skip.insert(ObjectIdentifier(q)); p = q.parent }
+        if moving { for k in subtreeKeys(v) { if let n = byKey[k] { skip.insert(ObjectIdentifier(n)) } } }
+        let ahead = all.filter { $0.kind != .root && $0.dir == v.dir && gap($0) > 2 && !skip.contains(ObjectIdentifier($0)) }
+        guard let near = ahead.map(gap).min() else { return nil }
+        return ahead.filter { gap($0) < near + 4 }.min { dx($0) < dx($1) }
+    }
+
+    /// ⌥↑ ⌥↓: past the node ↑ ↓ would go to, whatever its level. Past it when they're in the same topic,
+    /// otherwise into its topic, next to it (so an item can't skip a row).
+    private func moveAlong(_ k: String, _ d: String) {
+        guard let v = byKey[k], v.kind != .root, let t = neighbor(of: v, d, moving: true), let tp = t.parent else { return }
+        store.map.move(k, to: t.key, (tp === v.parent) == (d == "up") ? .before : .after, side: v.dir < 0 ? -1 : 1)
+        changed(select: k)
+    }
+
+    /// ⌥← ⌥→, as ← → change the level: outward into the topic just above it (at the end), inward out of its topic
+    /// (just after it).
+    private func moveLevel(_ k: String, _ d: String) {
+        guard let v = byKey[k], v.kind != .root, let p = v.parent, let i = p.kids.firstIndex(where: { $0 === v }) else { return }
+        if (v.dir > 0) == (d == "right") {
+            guard let t = p.kids[..<i].last(where: { $0.kind != .chat && $0.dir == v.dir }) else { return }
+            store.map.move(k, to: t.key, .into)
+        } else {
+            guard p.kind != .root else { return }
+            store.map.move(k, to: p.key, .after, side: v.dir < 0 ? -1 : 1)
+        }
+        changed(select: k)
     }
 
     // MARK: operations
@@ -1124,11 +1152,11 @@ final class MapView: NSView, NSTextFieldDelegate {
             else { changed(select: map.addSibling(k, above: opt), edit: true) }
         case 51, 117: changed(select: map.remove(k, keepChildren: opt))                  // delete
         case 120: startEdit(k)                                                           // F2
-        // ⌥↑ ⌥↓ move it among its siblings; ⌘↓ opens it, ⌘↑ goes up to its topic (as in Finder)
-        case 126: if opt { map.reorder(k, by: -1); changed(select: k) } else if cmd { selectParent() } else { nav("up") }
-        case 125: if opt { map.reorder(k, by: 1); changed(select: k) } else if cmd { openSelected() } else { nav("down") }
-        case 123: nav("left")
-        case 124: nav("right")
+        // ⌥ + an arrow moves it the way the arrow selects; ⌘↓ opens it, ⌘↑ goes up to its topic (as in Finder)
+        case 126: if opt { moveAlong(k, "up") } else if cmd { selectParent() } else { nav("up") }
+        case 125: if opt { moveAlong(k, "down") } else if cmd { openSelected() } else { nav("down") }
+        case 123: if opt { moveLevel(k, "left") } else { nav("left") }
+        case 124: if opt { moveLevel(k, "right") } else { nav("right") }
         case 47 where opt: map.toggleFold(k); changed(select: k)                         // ⌥.
         default: super.keyDown(with: e)
         }

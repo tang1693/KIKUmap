@@ -876,7 +876,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             ("⌘⏎ · F2 · 双击", "改名（对话名只在本地）", "rename (chat names stay local)"),
             ("⌫ / ⌥⌫", "删除（连同 / 不连同下面的）", "delete (with / without children)"),
             ("⌥.", "折叠 / 展开", "fold / unfold"),
-            ("⌥↑ ⌥↓", "调整顺序", "move among siblings"),
+            ("⌥↑ ⌥↓ ⌥← ⌥→", "往那个方向移动（↑↓ 移过上下的条目，←→ 换一级）", "move it that way (↑↓ past the item above or below, ←→ a level)"),
             ("⌘Z / ⇧⌘Z", "撤销 / 重做", "undo / redo"),
             ("⌘↓ · Space", "在它的 App 里打开对话", "open the chat in its app"),
             ("⌘= ⌘- ⌘0", "放大 / 缩小 / 适应窗口", "zoom in / out / fit"),

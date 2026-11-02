@@ -246,7 +246,9 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ⌘⏎, double-click | rename (chat names are local) |
 | ⌫ | delete; pinned chats go back to the left column |
 | ⌥. | fold / unfold |
-| ⌥↑ ⌥↓ | move up or down, on into the next topic at the same level |
+| ↑ ↓ ← → | select the nearest item that way, at any level |
+| ⌥↑ ⌥↓ | move it past the item above or below, into other topics too |
+| ⌥← ⌥→ | move it a level: away from the centre into the topic above it, toward the centre out of its topic |
 | ⌘↓ / ⌘↑ | open the chat in its app / up to the topic it's in (as in Finder) |
 | drag on empty space, ⇧/⌘-click | select several; drag any one to move them all |
 | hold space, two-finger swipe | move around the map (a quick tap on space opens the chat) |
