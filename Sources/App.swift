@@ -144,6 +144,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         archive.onChange = { [weak self] in self?.refreshUI(); self?.settings.refreshArchive() }
         store.onIDMove = { [weak self] old, new in self?.archive.moved(old, to: new) }
         store.frontApp = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+        store.frontWindowTitle = {
+            guard AXIsProcessTrusted(), let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+            let app = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(app, 1.0)
+            var w: CFTypeRef?, t: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &w) == .success,
+                  let win = w, CFGetTypeID(win) == AXUIElementGetTypeID(),
+                  AXUIElementCopyAttributeValue(win as! AXUIElement, kAXTitleAttribute as CFString, &t) == .success else { return nil }
+            return t as? String
+        }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             guard let b = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier else { return }
             MainActor.assumeIsolated { self?.store.appCameToFront(b) }
@@ -194,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             self.sounds.play(sounds)
+            self.store.readCodeInFront()          // finished while you're looking at it in its app
         }
         gpt.onThreads = { [weak self] threads, unread, pinsRead in
             guard let self = self else { return }
@@ -238,6 +249,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 UserDefaults.standard.set(Clock.iso(), forKey: "AliveAt")
                 // a Claude Code turn ended without a word (Esc, a closed terminal) stops counting
                 self.store.expireCode()
+                // a finished Claude Code session's window came to the front within its app (no app switch to hear)
+                self.store.readCodeInFront()
                 // Claude closed for hours: its runs last seen then are no longer said to run
                 self.store.forgetUnseenRuns()
                 // files that couldn't be saved (a full disk, a folder that can't be written) are tried again

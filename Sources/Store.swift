@@ -597,6 +597,38 @@ final class Store {
             maybeAnswered[c.id] = Date(); changed = true
         }
         if changed { notify() }
+        readCodeInFront(bundle)
+    }
+
+    /// The title of the front app's focused window (read with Accessibility), or nil.
+    var frontWindowTitle: (() -> String?)?
+
+    /// A finished Claude Code session whose app is in front on a window of its folder: you're looking at it there, so
+    /// it's read, as a Claude chat open in Claude's window in front is. Not while another session in that folder works
+    /// or has worked this past hour (which one you see can't be told), nor one waiting for you or stopped on an error.
+    func readCodeInFront(_ bundle: String? = nil) {
+        guard let b = bundle ?? frontApp?(), chats.contains(where: { $0.isCode && $0.app == b && isUnread($0) }),
+              let title = frontWindowTitle?() else { return }
+        let here = chats.filter { $0.isCode && $0.app == b && $0.cwd.map { Store.window(title, shows: $0) } == true }
+        let lately = here.filter {
+            running.contains($0.id) || isUnread($0) || (lastCodeEvent[$0.id].map { Date().timeIntervalSince($0) < 3600 } ?? false)
+        }
+        guard lately.count == 1, let c = lately.first, isUnread(c), c.last_note == nil else { return }
+        markSeen([c.id])
+    }
+
+    /// A window's title names this folder or one it's in: VS Code's "Store.swift — Claude", Terminal's
+    /// "Claude — zsh — 80×24" or "you@Mac: ~/Desktop/Claude".
+    static func window(_ title: String, shows cwd: String) -> Bool {
+        let parts = title.replacingOccurrences(of: " – ", with: " — ").replacingOccurrences(of: " - ", with: " — ")
+            .components(separatedBy: " — ").map { $0.trimmingCharacters(in: .whitespaces) }
+        let names = Set(parts + parts.map { ($0 as NSString).lastPathComponent })
+        var u = URL(fileURLWithPath: cwd).standardizedFileURL
+        while u.path != "/" && u.path != NSHomeDirectory() {
+            if names.contains(u.lastPathComponent) { return true }
+            u.deleteLastPathComponent()
+        }
+        return false
     }
     /// Put before a chat's note when its run stopped on an error (Claude Code's StopFailure, a status on Claude's row
     /// Kikumap doesn't know): its words are shown, and it wants you, not "done". Invisible.

@@ -1057,14 +1057,17 @@ final class MapView: NSView, NSTextFieldDelegate {
         } else if inward, let p = v.parent {
             select(p.key)
         } else if d == "up" || d == "down" {
-            // on through everything at this level on this side, not only its own siblings
-            func depth(_ n: VNode) -> Int { var c = 0, p = n.parent; while let q = p { c += 1; p = q.parent }; return c }
-            let level = depth(v)
-            let peers = all.filter { $0.kind != .root && $0.dir == v.dir && depth($0) == level }.sorted { $0.frame.midY < $1.frame.midY }
-            if let i = peers.firstIndex(where: { $0 === v }) {
-                let j = i + ((d == "up") == isFlipped ? -1 : 1)
-                if j >= 0 && j < peers.count { select(peers[j].key) }
-            }
+            // the nearest node above or below on this side, whatever its level (← → fix the level);
+            // of nodes in about the same row, the one closest sideways. Its own parents are skipped:
+            // a parent sits between its first and last child, and ← reaches it anyway
+            let smaller = (d == "up") == isFlipped, y = v.frame.midY
+            func gap(_ n: VNode) -> CGFloat { smaller ? y - n.frame.midY : n.frame.midY - y }
+            func dx(_ n: VNode) -> CGFloat { max(0, max(n.frame.minX, v.frame.minX) - min(n.frame.maxX, v.frame.maxX)) }
+            var above = Set<ObjectIdentifier>(), p = v.parent
+            while let q = p { above.insert(ObjectIdentifier(q)); p = q.parent }
+            let ahead = all.filter { $0.kind != .root && $0.dir == v.dir && gap($0) > 2 && !above.contains(ObjectIdentifier($0)) }
+            if let near = ahead.map(gap).min(),
+               let next = ahead.filter({ gap($0) < near + 4 }).min(by: { dx($0) < dx($1) }) { select(next.key) }
         }
     }
 
