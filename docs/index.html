@@ -61,7 +61,7 @@
   h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; letter-spacing: -.02em; text-align: center; }
   .sub { color: var(--ink2); text-align: center; max-width: 620px; margin: 14px auto 0; }
 
-  /* The spinning flower from the menu bar */
+  /* The flower from the app icon */
   .kiku { width: 22px; height: 22px; color: var(--accent); flex: none; }
   .kiku.spin { animation: spin 7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -252,7 +252,7 @@
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.3</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.3 版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.4</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.4 版</span></p>
       <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
   </section>
@@ -277,14 +277,14 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Menu bar</span><span lang="zh">菜单栏</span></p>
           <h3><span lang="en">Know what Claude and ChatGPT are doing</span><span lang="zh">随时知道 Claude 和 ChatGPT 在干什么</span></h3>
-          <p lang="en">One icon in the menu bar. The orange flower spins while a chat is running. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval.</p>
+          <p lang="en">One icon in the menu bar. While chats run, it shows how many, in a ring with an orange arc going round. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval. With nothing running or unread, it's a little orange flower.</p>
           <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
-          <p lang="zh">菜单栏只有一个图标。橙色小菊花在转，就是有对话在跑；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。</p>
+          <p lang="zh">菜单栏只有一个图标。有对话在跑时，显示在跑几个，数字外面一圈橙色在转；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。都没有时，就是一朵橙色小菊花。</p>
           <p lang="zh"><b>听声音就知道：</b>对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“定价方案做完了”），声音、语速、念的内容都能自己改，也可以换成自己的声音文件。</p>
           <p lang="en">Works with the Claude desktop app, with Claude Code (Terminal, VS Code, the app's Code mode) and with the ChatGPT desktop app: the <b>Codex</b> chats you pin there show next to Claude's chats, marked <b>GPT</b>, in ChatGPT's order. (Ordinary ChatGPT chats are kept online, not on your Mac, so they can't show.) Nothing to set up for ChatGPT.</p>
           <p lang="zh">支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 ChatGPT 桌面 App：你在 ChatGPT 里置顶的 <b>Codex</b> 对话会和 Claude 的对话放在一起，前面标着 <b>GPT</b>，顺序和 ChatGPT 一样。（普通 ChatGPT 聊天存在云端、不在你的 Mac 上，显示不了。）ChatGPT 这边不用任何设置。</p>
         </div>
-        <figure class="shot"><img src="demo/menubar.gif" width="1440" height="495" loading="lazy" alt="The menu-bar icon spinning while Claude works, then showing a red unread badge, then an exclamation mark when a chat needs approval"></figure>
+        <figure class="shot"><img src="demo/menubar.gif" width="1440" height="495" loading="lazy" alt="The menu-bar icon counting running chats in a ring that turns, then a red unread badge, then an exclamation mark when a chat needs approval"></figure>
       </div>
 
       <div class="feature flip">
@@ -535,8 +535,8 @@
         </details>
         <details>
           <summary><span lang="en">What does the name mean?</span><span lang="zh">名字是什么意思？</span></summary>
-          <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little orange flower that spins in your menu bar while Claude works. Kikumap is the map that grows out of it.</p>
-          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是菜单栏里那朵 Claude 干活时会转的橙色小菊花；Kikumap 就是从它长出来的导图。</p>
+          <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little orange flower on Kikumap's icon and in your menu bar. Kikumap is the map that grows out of it.</p>
+          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是 Kikumap 图标和菜单栏里那朵橙色小菊花；Kikumap 就是从它长出来的导图。</p>
         </details>
       </div>
     </div>

@@ -189,8 +189,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.settled = 1.8
         case .menubar:
             titleL.stringValue = tr("菜单栏一眼看完", "Everything at a glance")
-            bodyL.stringValue = tr("菜单栏里只占一个图标：红色数字 = 未读，做完了还没看（带 ! 表示要你批准），橙色小菊花在转 = 还在跑。点开是列表和用量，点一下直接跳到那个对话。",
-                                   "One icon in the menu bar: a red number = unread, finished but not yet seen (with ! when it needs your approval); the orange burst turning = still running. Click for the list and your usage; click a chat to jump to it.")
+            bodyL.stringValue = tr("菜单栏里只占一个图标：红色数字 = 未读，做完了还没看（带 ! 表示要你批准），圈里的数字 = 在跑几个，外圈在转就是正在跑。点开是列表和用量，点一下直接跳到那个对话。",
+                                   "One icon in the menu bar: a red number = unread, finished but not yet seen (with ! when it needs your approval); a number in a ring = how many are running, its arc going round while they do. Click for the list and your usage; click a chat to jump to it.")
             art.painter = { r, t in Onboarding.paintMenuBar(r, t) }
             art.settled = 4
         case .map:

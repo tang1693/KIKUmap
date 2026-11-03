@@ -766,7 +766,7 @@ final class Store {
     func liveEnd(_ id: String, now: Date = Date()) -> Date {
         id.hasPrefix("gpt-") && outOfSight(id) ? min(gptActive[id] ?? now, now) : now
     }
-    /// Running, as far as Kikumap can see now (what the menu-bar burst and the counts go by).
+    /// Running, as far as Kikumap can see now (what the menu-bar ring and the counts go by).
     var seenRunningChats: [Chat] { runningChats.filter { !outOfSight($0.id) } }
 
     /// The highlight of the branch a chat sits in (nil = no colour).

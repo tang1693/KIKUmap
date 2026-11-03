@@ -119,6 +119,23 @@ final class HeaderView: NSView {
     var running = 0, unread = 0
     /// Some of those running are out of Kikumap's sight (shown "2?").
     var runningUnsure = false
+    /// Of those running, the ones Kikumap sees run now: while there are any, the ring round the count turns.
+    var runningSeen = 0 { didSet { if (runningSeen > 0) != (oldValue > 0) { turnRing() } } }
+    private var ringTimer: Timer?
+    private var ringPhase: CGFloat = 0
+    private var ringRect = NSRect.zero
+
+    private func turnRing() {
+        ringTimer?.invalidate(); ringTimer = nil
+        guard runningSeen > 0 else { needsDisplay = true; return }
+        ringTimer = Timer.scheduledTimer(withTimeInterval: Theme.turnFrame, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self = self, self.window?.isVisible == true, self.window?.occlusionState.contains(.visible) == true else { return }
+                self.ringPhase = Theme.turn()
+                self.setNeedsDisplay(self.ringRect.insetBy(dx: -2, dy: -2))
+            }
+        }
+    }
     /// (label, percent, "今天 18:40 重置") — drawn as stacked bars like claude.ai's Usage page (a third while the Sonnet-only week holds you back).
     var meters: [(String, Double?, String)] = []
     /// ChatGPT's, drawn as a column of their own next to Claude's (each marked when both are there).
@@ -234,8 +251,10 @@ final class HeaderView: NSView {
     /// Where the logo, the name and the two counts with their words (or the pills alone) end, as `draw` lays them out.
     private func countsEnd(words: Bool = true) -> CGFloat {
         var x: CGFloat = 48 + ceil("Kikumap".size(Theme.ui(15, .semibold)).width) + 22
+        let f = Theme.mono(12.5, .bold)
         for (n, label) in [(running, tr("进行中", "Running")), (unread, tr("未读", "Unread"))] {
-            let w = max(24, ceil((String(n) + "?").size(Theme.mono(12.5, .bold)).width) + 14)
+            let w = label == tr("未读", "Unread") ? max(24, ceil(String(n).size(f).width) + 14)
+                : max(24, ceil((n > 99 ? "99+" : String(n)).size(f).width) + 10) + (runningUnsure ? 2 + ceil("?".size(f).width) : 0)
             x += words ? w + 6 + ceil(label.size(Theme.ui(12.5, .medium)).width) + 16 : w + 10
         }
         return x - (words ? 16 : 10)
@@ -292,7 +311,22 @@ final class HeaderView: NSView {
         // still no room for the words beside the counts: the pills alone (their shapes say which is which)
         let words = countsEnd() + (live.isEmpty ? 0 : 12 + liveW) <= limit
         for (n, label, solid) in [(running, tr("进行中", "Running"), false), (unread, tr("未读", "Unread"), true)] {
-            let w = HeaderView.drawCount(n, solid: solid, at: x, midY: mid, font: Theme.mono(12.5, .bold), unsure: !solid && runningUnsure)
+            var w: CGFloat
+            if solid {
+                w = HeaderView.drawCount(n, solid: true, at: x, midY: mid, font: Theme.mono(12.5, .bold))
+            } else {
+                // running: the number in a ring, as in the menu bar ("?" after it for some out of sight)
+                let f = Theme.mono(12.5, .bold), s = n > 99 ? "99+" : String(n)
+                let d = max(24, ceil(s.size(f).width) + 10)
+                ringRect = NSRect(x: x, y: mid - d / 2, width: d, height: d)
+                Theme.drawRunCount(s, in: ringRect, ink: Theme.ink, arc: Logo.orange, font: f, phase: runningSeen > 0 ? ringPhase : nil)
+                w = d
+                if runningUnsure {
+                    let qs = "?".size(f)
+                    ("?" as NSString).draw(at: NSPoint(x: x + d + 2, y: mid - qs.height / 2), withAttributes: [.font: f, .foregroundColor: Theme.ink])
+                    w += 2 + ceil(qs.width)
+                }
+            }
             guard words else { x += w + 10; continue }
             let lf = Theme.ui(12.5, .medium)
             let ls = label.size(lf)

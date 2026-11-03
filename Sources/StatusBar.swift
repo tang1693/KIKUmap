@@ -133,7 +133,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         update()
     }
 
-    /// `sure`: of those running, the ones Kikumap can see run now (the burst turns only for them; the others are "?").
+    /// `sure`: of those running, the ones Kikumap can see run now (the ring turns only for them; the others are "?").
     private var counts: (run: Int, sure: Int, unread: Int, needs: Int) {
         let unread = store.unreadChats
         return (store.runningChats.count, store.seenRunningChats.count, unread.count, unread.filter(store.needsInput).count)
@@ -142,12 +142,12 @@ final class StatusBar: NSObject, NSMenuDelegate {
     func update() {
         let c = counts
         draw()
-        // the burst turns while something runs (as far as Kikumap can see)
+        // the ring's arc goes round while something runs (as far as Kikumap can see)
         if c.sure > 0, spin == nil {
-            spin = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            spin = Timer.scheduledTimer(withTimeInterval: Theme.turnFrame, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self = self else { return }
-                    self.phase = (self.phase + 1 / CGFloat(Logo.rayCount)).truncatingRemainder(dividingBy: 1)
+                    self.phase = Theme.turn()
                     self.draw()
                 }
             }
@@ -165,7 +165,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
                 : tr("：Claude 里在跑和未读的可能不止这些，打开 Kikumap 看怎么恢复", ": there may be more running or unread in Claude than shown; open Kikumap to see how to fix it"))
         }
         if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你处理）", " (\(c.needs) need you)") }
-        tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你处理（批准、回答，或出错停下了） · 小菊花在转 = 还在跑", "\nRed = unread (finished, not yet seen) · ! = needs you (an approval, an answer, or it stopped on an error) · turning burst = still running")
+        tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你处理（批准、回答，或出错停下了） · 圈里的数字 = 在跑几个（外圈在转：正在跑）", "\nRed = unread (finished, not yet seen) · ! = needs you (an approval, an answer, or it stopped on an error) · number in a ring = how many are running (its arc going round: running now)")
         item.button?.toolTip = tip + StatusBar.usageTip(usage)
         // VoiceOver: the app's name and what it's showing (the icon alone says nothing)
         var said = tr("Kikumap，进行中 \(c.run) 个，未读 \(c.unread) 个", "Kikumap, \(c.run) running, \(c.unread) unread")
@@ -200,24 +200,25 @@ final class StatusBar: NSObject, NSMenuDelegate {
         guard let button = item.button else { return }
         let c = counts
         let dark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        button.image = StatusBar.image(run: c.run, unread: c.unread, needs: c.needs, phase: c.sure > 0 ? phase : 0,
+        button.image = StatusBar.image(run: c.run, unread: c.unread, needs: c.needs, phase: c.sure > 0 ? phase : nil,
                                        ink: dark ? .white : .black, unsure: c.run > c.sure, unknown: claudeNote?() != nil)
         button.imagePosition = .imageOnly
     }
 
-    /// Waiting for you: a red badge with the count ("!" first when one needs your approval).
-    /// Running: the orange burst turning — with the count when nothing is waiting. Nothing at all: the burst.
+    /// Running: how many, in a ring with an orange arc going round while Kikumap sees them run ("?" after it when
+    /// some are out of its sight; the ring stands still when none can be seen). Waiting for you: a red badge with
+    /// the count ("!" first when one needs you). Nothing at all: the burst.
     /// `unknown`: Claude can't be read now, so what the icon shows may not be all there is: a "?" at its end.
-    static func image(run: Int, unread: Int, needs: Int = 0, phase: CGFloat = 0, ink: NSColor = .black, unsure: Bool = false, unknown: Bool = false) -> NSImage {
-        let H: CGFloat = 18, pillH: CGFloat = 16, ringD: CGFloat = 15
+    static func image(run: Int, unread: Int, needs: Int = 0, phase: CGFloat? = nil, ink: NSColor = .black, unsure: Bool = false, unknown: Bool = false) -> NSImage {
+        let H: CGFloat = 18, pillH: CGFloat = 16, ringD: CGFloat = 17
         let f = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
         let badgeText = (needs > 0 ? "!" : "") + (unread > 99 ? "99+" : "\(unread)")
         let badge = NSAttributedString(string: badgeText, attributes: [.font: f, .foregroundColor: NSColor.white])
-        let runText = NSAttributedString(string: (run > 99 ? "99+" : "\(run)") + (unsure ? "?" : ""), attributes: [.font: f, .foregroundColor: ink])
         let pillW = unread > 0 ? max(pillH, ceil(badge.size().width) + 9) : 0
-        let ringW: CGFloat = run > 0 ? ringD + (unread > 0 ? 3 : 3 + ceil(runText.size().width)) : 0
         let q = NSAttributedString(string: "?", attributes: [.font: f, .foregroundColor: ink])
-        let qW: CGFloat = unknown ? ceil(q.size().width) + 3 : 0
+        let qw = ceil(q.size().width)
+        let ringW: CGFloat = run > 0 ? ringD + (unsure ? 1 + qw : 0) + (unread > 0 ? 1.5 : 0) : 0
+        let qW: CGFloat = unknown ? qw + 3 : 0
         let width = (run == 0 && unread == 0 ? 18 : ringW + pillW) + qW
         let img = NSImage(size: NSSize(width: width, height: H), flipped: true) { _ in
             if unknown {
@@ -230,12 +231,16 @@ final class StatusBar: NSObject, NSMenuDelegate {
             }
             var x: CGFloat = 0
             if run > 0 {
-                Logo.draw(in: NSRect(x: 0, y: (H - ringD) / 2, width: ringD, height: ringD), spin: phase == 0 ? 0.001 : phase)
-                x = ringD + 3
-                if unread == 0 {
-                    let ts = runText.size()
-                    runText.draw(at: NSPoint(x: x, y: (H - ts.height) / 2))
+                Theme.drawRunCount(run > 99 ? "99+" : "\(run)", in: NSRect(x: 0, y: (H - ringD) / 2, width: ringD, height: ringD),
+                                   ink: ink, arc: Logo.orange, font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .bold),
+                                   phase: phase, lineWidth: 1.7)
+                x = ringD
+                if unsure {
+                    let ts = q.size()
+                    q.draw(at: NSPoint(x: x + 1, y: (H - ts.height) / 2))
+                    x += 1 + qw
                 }
+                x += 1.5
             }
             if unread > 0 {
                 let r = NSRect(x: x, y: (H - pillH) / 2, width: pillW, height: pillH)

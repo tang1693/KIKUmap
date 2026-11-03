@@ -468,6 +468,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let h = main.header
         h.running = store.runningChats.count
         h.runningUnsure = store.seenRunningChats.count < store.runningChats.count
+        h.runningSeen = store.seenRunningChats.count
         h.unread = store.unreadChats.count
         h.meters = UsageMonitor.enabled ? claudeMeters() : []
         h.usageHint = ""

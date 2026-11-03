@@ -257,6 +257,59 @@ enum Theme {
         }
     }
 
+    /// Where a running count's arc is now (0…1): by the clock, so every ring turns at the same calm pace, in step,
+    /// however often it's redrawn.
+    static func turn(period: Double = 2.4) -> CGFloat {
+        CGFloat(Date().timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period)
+    }
+    /// How often a turning ring is redrawn.
+    static let turnFrame = 1.0 / 24
+
+    /// A running chat's outline: a stretch of `color` going slowly round it, clockwise on screen, like the arc round
+    /// a running count. `perimeter` is the outline's length; the stretch is at most a third of it.
+    static func drawSnake(_ p: NSBezierPath, perimeter: CGFloat, color: NSColor, lineWidth: CGFloat, length: CGFloat = 70, speed: CGFloat = 40) {
+        guard perimeter > 0 else { return }
+        let l = min(length, perimeter / 3)
+        let at = CGFloat((Date().timeIntervalSinceReferenceDate * Double(speed)).truncatingRemainder(dividingBy: Double(perimeter)))
+        let s = p.copy() as! NSBezierPath
+        s.lineWidth = lineWidth; s.lineCapStyle = .round
+        // (the rounded rect's path runs clockwise on screen in a flipped view: the dash moves on along it)
+        let flipped = NSGraphicsContext.current?.isFlipped ?? false
+        s.setLineDash([l, perimeter - l], count: 2, phase: flipped ? -at : at)
+        color.setStroke(); s.stroke()
+    }
+
+    /// How many are running: the number in a ring. With `phase` (0…1, one turn) an arc goes round it clockwise,
+    /// meaning they're running now as far as Kikumap can see; without, the ring stands still. The same in the menu
+    /// bar, the window's header and the map's topics.
+    static func drawRunCount(_ text: String, in r: NSRect, ink: NSColor, arc: NSColor, font: NSFont, phase: CGFloat?, lineWidth: CGFloat = 1.5) {
+        let d = min(r.width, r.height)
+        let c = NSRect(x: r.midX - d / 2, y: r.midY - d / 2, width: d, height: d).insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+        let ring = NSBezierPath(ovalIn: c)
+        ring.lineWidth = lineWidth
+        if let p = phase {
+            ink.withAlphaComponent(0.2).setStroke(); ring.stroke()
+            // (a flipped view counts angles the other way round: clockwise from the top either way)
+            let flipped = NSGraphicsContext.current?.isFlipped ?? false
+            let head = flipped ? -90 + p * 360 : 90 - p * 360
+            let a = NSBezierPath()
+            a.appendArc(withCenter: NSPoint(x: c.midX, y: c.midY), radius: c.width / 2,
+                        startAngle: head, endAngle: flipped ? head - 120 : head + 120, clockwise: flipped)
+            a.lineWidth = lineWidth; a.lineCapStyle = .round
+            arc.setStroke(); a.stroke()
+        } else {
+            ink.setStroke(); ring.stroke()
+        }
+        // a longer number gets a smaller font, so it stays inside
+        var f = font
+        let room = c.width - 2 * lineWidth - 3
+        let w = text.size(f).width
+        if w > room { f = NSFont(descriptor: font.fontDescriptor, size: font.pointSize * room / w) ?? font }
+        let ts = text.size(f)
+        (text as NSString).draw(at: NSPoint(x: c.midX - ts.width / 2, y: c.midY - ts.height / 2),
+                                withAttributes: [.font: f, .foregroundColor: ink])
+    }
+
     static func swatch(_ c: NSColor?, size: CGFloat = 12) -> NSImage {
         NSImage(size: NSSize(width: size, height: size), flipped: false) { r in
             let p = NSBezierPath(ovalIn: r.insetBy(dx: 1, dy: 1))

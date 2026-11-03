@@ -47,12 +47,12 @@ https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
 
 <table>
 <tr>
-<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon spinning while Claude works, then showing a red unread badge, then an exclamation mark when a chat needs approval"></td>
+<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon counting running chats in a ring that turns, then a red unread badge, then an exclamation mark when a chat needs approval"></td>
 <td>
 
 ### Know what Claude and ChatGPT are doing
 
-One icon in the menu bar. The orange flower spins while a pinned chat is running. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval.
+One icon in the menu bar. While pinned chats run, it shows how many, in a ring with an orange arc going round. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval. With nothing running or unread, it's a little orange flower.
 
 **Hear it instead of checking.** A sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.
 
@@ -309,7 +309,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 <details>
 <summary><b>Why the name?</b></summary>
 
-*Kiku* (菊) is Japanese for chrysanthemum: the little orange flower in your menu bar, which spins while Claude works. Kikumap is the map that grows out of it.
+*Kiku* (菊) is Japanese for chrysanthemum: the little orange flower on Kikumap's icon and in your menu bar. Kikumap is the map that grows out of it.
 </details>
 
 ## Contributing

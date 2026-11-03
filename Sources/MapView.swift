@@ -17,6 +17,9 @@ final class VNode {
     var tagMarks: [(color: NSColor, icon: String?)] = []
     var count = 0
     var runN = 0, unrN = 0
+    /// A topic: of the `runN` running, one Kikumap sees run now (its count's ring turns). A chat: it's seen running
+    /// now (an orange stretch goes round its outline).
+    var runSeen = false
     var collapsed = false
     var hasKids = false
     var glyph: String?            // the topic's shape (nil: none)
@@ -168,7 +171,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     @objc private func occlusionChanged() {
         let onScreen = window?.isVisible == true && window?.occlusionState.contains(.visible) == true
         if onScreen && animTimer == nil {
-            animTimer = Timer.scheduledTimer(timeInterval: 0.12, target: self, selector: #selector(animate), userInfo: nil, repeats: true)
+            animTimer = Timer.scheduledTimer(timeInterval: Theme.turnFrame, target: self, selector: #selector(animate), userInfo: nil, repeats: true)
         } else if !onScreen {
             animTimer?.invalidate()
             animTimer = nil
@@ -186,8 +189,17 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard window?.isVisible == true, window?.occlusionState.contains(.visible) == true else { return }
         let running = all.filter { $0.state == 2 || ($0.kind != .chat && $0.runN > 0) }
         guard !running.isEmpty else { return }
-        phase = (phase + 1) % 8
-        for v in running { setNeedsDisplay(v.frame.insetBy(dx: -14, dy: -14)) }
+        // the rings round the running counts and the stretches round running chats move smoothly: just they are
+        // redrawn, every frame
+        for v in running where v.runSeen {
+            if v.kind == .chat { setNeedsDisplay(v.frame.insetBy(dx: -3, dy: -3)); continue }
+            for b in badges(v) where b.state == 2 { setNeedsDisplay(b.rect.insetBy(dx: -3, dy: -3)) }
+        }
+        // the dots after a running chat's "running" step on every 0.12 s, as before
+        let step = Int(Date().timeIntervalSinceReferenceDate / 0.12) % 8
+        guard step != phase else { return }
+        phase = step
+        for v in running where v.state == 2 { setNeedsDisplay(v.frame.insetBy(dx: -14, dy: -14)) }
     }
 
     // MARK: build & layout
@@ -296,17 +308,17 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     private func fill(_ v: VNode, from n: MapNode, depth: Int, color: NSColor, colored: Bool) {
         register(v)
-        var run = 0, unr = 0, cnt = 0
+        var run = 0, unr = 0, cnt = 0, seen = false
         func tally(_ n: MapNode) {
             store.map.walkChats(n) { id in
                 guard self.onMap(id) || self.showAll else { return }
                 cnt += 1
                 guard let c = self.store.chat(id), self.store.isShown(c) else { return }
-                if self.store.isRunning(id) { run += 1 } else if self.store.isUnread(c) { unr += 1 }
+                if self.store.isRunning(id) { run += 1; if !self.store.outOfSight(id) { seen = true } } else if self.store.isUnread(c) { unr += 1 }
             }
         }
         tally(n)
-        v.count = cnt; v.runN = run; v.unrN = unr
+        v.count = cnt; v.runN = run; v.unrN = unr; v.runSeen = seen
         v.hasKids = !n.children.isEmpty
         v.collapsed = n.isCollapsed
         measure(v)
@@ -321,6 +333,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                 k.colored = colored
                 if let c = c, live {
                     k.state = store.isRunning(id) ? 2 : (store.isUnread(c) ? 1 : 0)
+                    k.runSeen = k.state == 2 && !store.outOfSight(id)
                     k.time = store.timeLabel(c)
                 } else {
                     // unpinned (or deleted) since it was filed: it keeps its place, quietly. A filed Claude Code session
@@ -701,9 +714,13 @@ final class MapView: NSView, NSTextFieldDelegate {
                     Theme.ink.setFill(); pill.fill()
                     textC = Theme.bg; timeC = Theme.bg.withAlphaComponent(0.75)
                 } else {
-                    // running: outlined
+                    // running: outlined; while it's seen running, an orange stretch goes round the outline
                     Theme.paper.setFill(); pill.fill()
-                    Theme.ink.setStroke(); pill.lineWidth = 1.5; pill.stroke()
+                    (v.runSeen ? Theme.ink.withAlphaComponent(0.35) : Theme.ink).setStroke(); pill.lineWidth = 1.5; pill.stroke()
+                    if v.runSeen {
+                        let b = r.insetBy(dx: 0.75, dy: 0.75)
+                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Logo.orange, lineWidth: 2)
+                    }
                 }
                 if v.colored {
                     v.color.setFill()
@@ -836,18 +853,31 @@ final class MapView: NSView, NSTextFieldDelegate {
         return img
     }
 
-    private func drawBadges(_ v: VNode) {
+    /// Where a topic's counts go: how many run (a ring), then how many are unread (a red badge).
+    private func badges(_ v: VNode) -> [(rect: NSRect, n: Int, state: Int)] {
         var items: [(Int, Int)] = []
         if v.runN > 0 { items.append((v.runN, 2)) }
         if v.unrN > 0 { items.append((v.unrN, 1)) }
-        guard !items.isEmpty else { return }
         let r = v.frame
         var x = v.kind == .root ? r.maxX + 4 : (v.dir < 0 ? r.minX - 11 : r.maxX - 11 - CGFloat(items.count - 1) * 25)
         let y = v.kind == .root ? r.minY - 16 : r.minY - 11
-        for (n, state) in items {
+        return items.map { n, state in
+            let w = state == 2 ? max(22, ceil(String(n).size(badgeF).width) + 9) : max(22, ceil(String(n).size(badgeF).width) + 10)
+            defer { x += w + 3 }
+            return (state == 2 ? NSRect(x: x, y: y + 11 - w / 2, width: w, height: w) : NSRect(x: x, y: y, width: w, height: 22), n, state)
+        }
+    }
+
+    private func drawBadges(_ v: VNode) {
+        for (b, n, state) in badges(v) {
             let s = String(n)
-            let w = max(22, ceil(s.size(badgeF).width) + 10)
-            let b = NSRect(x: x, y: y, width: w, height: 22)
+            if state == 2 {
+                // running: the number in a ring, its arc going round while any of them is seen running (as in the menu bar)
+                Theme.bg.setFill(); NSBezierPath(ovalIn: b.insetBy(dx: -2, dy: -2)).fill()
+                Theme.paper.setFill(); NSBezierPath(ovalIn: b.insetBy(dx: 0.75, dy: 0.75)).fill()
+                Theme.drawRunCount(s, in: b, ink: Theme.ink, arc: Logo.orange, font: badgeF, phase: v.runSeen ? Theme.turn() : nil)
+                continue
+            }
             Theme.bg.setFill(); NSBezierPath(roundedRect: b.insetBy(dx: -2, dy: -2), xRadius: 13, yRadius: 13).fill()
             let p = NSBezierPath(roundedRect: b.insetBy(dx: 0.75, dy: 0.75), xRadius: 10.5, yRadius: 10.5)
             if state == 1 { NSColor.systemRed.setFill(); p.fill() } else {
@@ -856,7 +886,6 @@ final class MapView: NSView, NSTextFieldDelegate {
             let ts = s.size(badgeF)
             (s as NSString).draw(at: NSPoint(x: b.midX - ts.width / 2, y: b.midY - ts.height / 2),
                                  withAttributes: [.font: badgeF, .foregroundColor: state == 1 ? NSColor.white : Theme.ink])
-            x += w + 3
         }
     }
 
