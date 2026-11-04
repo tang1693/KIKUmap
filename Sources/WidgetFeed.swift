@@ -3,8 +3,8 @@ import WidgetKit
 
 /// What the desktop widget (Widget/) shows, written to the one file it may read:
 /// ~/Library/Application Support/ClaudeConsole/widget.json — there even when the data folder was moved,
-/// since the widget is sandboxed to that path. WidgetKit only redraws so often, so the file (and the
-/// redraw request) changes right away for the lists and meters, and at most every five minutes for the chart.
+/// since the widget is sandboxed to that path. WidgetKit only redraws so often (see `redraw`): the file changes right
+/// away for the lists and meters, and at most every five minutes for the chart; the widget says from when it is.
 @MainActor
 final class WidgetFeed {
     static let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -15,6 +15,7 @@ final class WidgetFeed {
         struct Item: Codable { var id: String; var title: String; var unsure: Bool? }
         struct Meter: Codable { var label: String; var percent: Double; var resets: String?; var group: String?; var minutes: Int?; var asOf: String? }
         struct Hour: Codable { var start: String; var parts: [Double] }
+        struct Day: Codable { var start: String; var seconds: Double }
         var updated: String
         var english: Bool
         var closed: Bool?
@@ -34,6 +35,11 @@ final class WidgetFeed {
         var claudeUnreadOnly: Bool?
         /// Seconds of the chart's 24 hours that are estimated (runs out of Kikumap's sight): its total says "≈".
         var estimated: Double?
+        /// The named chats' ids and their time in these 24 hours (legend order), for the large widget's list.
+        var legendIDs: [String]?
+        var legendSeconds: [Double]?
+        /// The last seven days, by the calendar day, today last (so far).
+        var days: [Day]?
     }
 
     let store: Store
@@ -73,7 +79,7 @@ final class WidgetFeed {
             // as they can be shown now (from an earlier read: saying when). The Sonnet one has no length, so the small
             // widget calls it "S" rather than a second "7d".
             for (label, w, minutes) in [(tr("会话", "Session"), usage.shownSession, 300), (tr("本周", "Week"), usage.shownWeekly, 7 * 1440),
-                                        ("Sonnet", usage.bindingSonnet, 0)] {
+                                        (usage.modelName, usage.bindingSonnet, 0)] {
                 if let w = w { meters.append(meter(label, w.percent, w.resets, "claude", minutes: minutes, asOf: usage.asOf)) }
             }
         }
@@ -87,7 +93,7 @@ final class WidgetFeed {
             }
         }
         let note = claudeNote?()      // (quitting too: what wasn't known then stays "not known" under its "as of")
-        // (a run going out of sight, or Claude no longer read, changes what the widget says: a redraw)
+        // (what decides a quicker write: the lists and meters, as before; the widget itself goes by `redraw`)
         let key = [run.map { $0.id + (store.outOfSight($0.id) ? "?" : "") }.joined(separator: ","), unread.map(\.id).joined(separator: ","), note?.text ?? "",
                    meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")\($0.asOf ?? "")" }.joined(separator: ","),
                    Prefs.english ? "en" : "zh", closed ? "closed" : ""].joined(separator: "|")
@@ -111,6 +117,11 @@ final class WidgetFeed {
             return State.Hour(start: Clock.iso(start), parts: parts)
         }
 
+        // the last seven days, today last
+        let cal = Calendar.current, today = cal.startOfDay(for: Date())
+        let dayBounds = (-6...1).map { cal.date(byAdding: .day, value: $0, to: today) ?? today }
+        let days = zip(dayBounds, store.worked(dayBounds)).map { State.Day(start: Clock.iso($0), seconds: $1.values.reduce(0, +).rounded()) }
+
         // (one out of Kikumap's sight, not known to run still, is marked so)
         func items(_ cs: [Chat]) -> [State.Item] { cs.prefix(6).map { State.Item(id: $0.id, title: store.name($0.id), unsure: store.outOfSight($0.id) ? true : nil) } }
         var state = State(updated: "", english: Prefs.english, closed: closed ? true : nil,
@@ -118,7 +129,8 @@ final class WidgetFeed {
                           meters: meters, usageOff: !UsageMonitor.enabled && !gptOn, hours: hours, legend: top.map { store.name($0) },
                           colours: top.map { id in store.map.branchColorKey(ofChat: id).flatMap { Theme.highlight($0) == nil ? nil : $0 } ?? "" },
                           claudeNote: note?.text, claudeUnreadOnly: note?.unreadOnly == true ? true : nil,
-                          estimated: guessed >= 60 ? guessed.rounded() : nil)
+                          estimated: guessed >= 60 ? guessed.rounded() : nil,
+                          legendIDs: Array(top), legendSeconds: top.map { (totals[$0] ?? 0).rounded() }, days: days)
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         guard let body = try? e.encode(state) else { return }
@@ -132,26 +144,39 @@ final class WidgetFeed {
         guard let data = try? e.encode(state) else { return }
         try? FileManager.default.createDirectory(at: Self.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: Self.url, options: .atomic)
-        redraw(key, now: force)
+        // the widget shows the record and usage (not what's running or unread): any change to them is worth a redraw,
+        // paced; quitting changes nothing it shows
+        redraw(String(body.hashValue), now: force && !closed)
     }
 
-    /// macOS lets an app redraw its widget only so many times a day (spent, its requests are ignored and the widget
-    /// sits on an old picture). So a redraw is asked for only when what it says changes (the chats running or unread,
-    /// the meters, Kikumap quitting or starting), at most every five minutes, the latest always delivered in the end;
-    /// the chart alone and the heartbeat wait for the widget's next timeline.
-    private var lastRedraw = Date.distantPast, redrawnKey = ""
+    /// macOS lets an app redraw its widget only so many times a day: Apple's "Keeping a widget up to date" gives 40 to
+    /// 70, about every 15 to 60 minutes; spent, the requests are ignored and the widget sits on an old picture. So the
+    /// widget shows only what holds up when it's a while old (the record by the hour and the day, and usage, all under
+    /// "as of"), and a redraw is asked for when that changes, at most every twenty minutes, the latest always delivered
+    /// in the end. While Kikumap is the app in front, redraws don't count against that, so they go at once (and when
+    /// it comes to the front, one catches up).
+    private static let pace: TimeInterval = 20 * 60
+    private var lastRedraw = Date.distantPast, redrawnKey = "", wantedKey = ""
     private var redrawLater: Timer?
+
+    /// Kikumap came to the front: the widget catches up for free, if it's behind.
+    func caughtUp() {
+        guard redrawnKey != wantedKey, !wantedKey.isEmpty else { return }
+        redraw(wantedKey, now: true)
+    }
+
     private func redraw(_ key: String, now: Bool) {
+        wantedKey = key
         guard now || key != redrawnKey else { return }
-        let wait = 300 - Date().timeIntervalSince(lastRedraw)
-        if now || wait <= 0 || wait > 300 {
+        let wait = Self.pace - Date().timeIntervalSince(lastRedraw)
+        if now || NSApp.isActive || wait <= 0 || wait > Self.pace {
             redrawLater?.invalidate(); redrawLater = nil
             redrawnKey = key
             lastRedraw = Date()
             WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget")
         } else if redrawLater == nil {
             redrawLater = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self] _ in
-                MainActor.assumeIsolated { guard let self else { return }; self.redrawLater = nil; self.redraw(self.lastKey, now: true) }
+                MainActor.assumeIsolated { guard let self else { return }; self.redrawLater = nil; self.redraw(self.wantedKey, now: true) }
             }
         }
     }

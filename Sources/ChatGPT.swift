@@ -132,8 +132,12 @@ final class GPTWatcher {
 
     /// The threads, the ones ChatGPT shows as unread (nil when it doesn't say), and whether its pins were read.
     var onThreads: (([GPTThread], Set<String>?, Bool) -> Void)?
-    /// Plan usage as of the latest answer (nil until one is found).
-    private(set) var usage: GPTUsage?
+    /// Plan usage as of the latest answer in Codex's logs (nil until one is found).
+    private(set) var loggedUsage: GPTUsage?
+    /// Plan usage straight from OpenAI (GPTUsageMonitor, when you've allowed it).
+    var fetchedUsage: GPTUsage?
+    /// Whichever is newer.
+    var usage: GPTUsage? { [loggedUsage, fetchedUsage].compactMap { $0 }.max { $0.at < $1.at } }
     /// When its files were last read, and when they will be next at the latest (also whenever they change).
     private(set) var lastRead: Date?
     var nextRead: Date? { timer?.fireDate }
@@ -250,7 +254,7 @@ final class GPTWatcher {
         watcher = nil
         timer?.invalidate()
         timer = nil
-        usage = nil
+        loggedUsage = nil
         lastRead = nil
         readError = nil
         failures = 0
@@ -260,7 +264,7 @@ final class GPTWatcher {
     private func reportGone() {
         guard !gone else { return }
         gone = true
-        usage = nil
+        loggedUsage = nil
         onThreads?([], nil, true)
     }
 
@@ -314,7 +318,7 @@ final class GPTWatcher {
                     self.lastRead = Date()
                     self.primary = (loaded[k].path, pinnedAt)
                     // never back to an older snapshot (opening an old thread doesn't make its limits current)
-                    if let u = usage, u.at >= (self.usage?.at ?? .distantPast) { self.usage = u }
+                    if let u = usage, u.at >= (self.loggedUsage?.at ?? .distantPast) { self.loggedUsage = u }
                     // without the app none of its threads is pinned, so a pin missing from the list is gone
                     self.onThreads?(threads, window.unread, window.read || dbPins || !app)
                 }

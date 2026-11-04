@@ -137,12 +137,12 @@ https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
 
 ### 放在桌面上 <sup>新</sup>
 
-桌面或通知中心的小组件，小、中、大三种尺寸。上面是进行中和未读的对话；接着是用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；下面是最近 24 小时的柱状图，每个对话一种颜色。点对话就能打开。
+桌面或通知中心的小组件，小、中、大三种尺寸：最近 24 小时 Claude 干了多久（柱状图，每个对话一种颜色）和今天的时长；用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；大号还列出用时最多的对话和最近 7 天。macOS 只让小组件隔一阵刷新一次（苹果的规定大约是 15 到 60 分钟），所以小组件只放晚一点看也不会错的内容，并标出是几点的数据；正在跑和未读的看菜单栏。点柱状图打开统计，点对话打开对话。
 
 在桌面右键 → **编辑小组件**，搜 Kikumap。需要 macOS 14 或更新。
 
 </td>
-<td width="55%"><img src="docs/demo/widget-zh.png" width="100%" alt="四个 Kikumap 小组件：大、中和两个小的，都有进行中和未读的对话、Claude 的会话和本周用量、ChatGPT 的本周用量，以及最近 24 小时的分段柱状图"></td>
+<td width="55%"><img src="docs/demo/widget-zh.png" width="100%" alt="四个 Kikumap 小组件：大、中和两个小的，都有最近 24 小时 Claude 干了多久的分段柱状图和用量；大号还列出用时最多的对话和最近 7 天"></td>
 </tr>
 <tr>
 <td width="55%"><img src="docs/demo/stats.png" width="100%" alt="统计：最近 7 天，每 6 小时一根柱，每个对话一种颜色，带总计、图例，以及柱子时长和范围的切换"></td>
@@ -232,6 +232,9 @@ open Install.command        # 或者在 Finder 里双击它
 | ChatGPT 的 Codex 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表和置顶、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
 | 桌面小组件 | Kikumap 专门写给它的一个文件（`widget.json`）；小组件在沙盒里，只能读这一个文件 | 不需要 |
 | 用量、计划任务（可选，默认关闭；Claude 付费套餐） | Anthropic 用量接口，用 Claude Code 已存在钥匙串里的登录：只读、不保存 | 钥匙串，你开启后才问 |
+| ChatGPT 用量（可选，默认关闭，试验性） | OpenAI 的用量接口（Codex 用的那个），用 Codex 存在 `~/.codex/auth.json` 里的 ChatGPT 登录：只读、不保存 | 不需要 |
+
+**关于两个用量选项：** Anthropic 不允许第三方应用收集 Claude 的登录令牌，OpenAI 也没说允许应用使用 Codex 查用量的那个接口。Kikumap 只读取你 Mac 上已有的登录、不保存、只查你自己的用量，但两者仍可能不被允许、被限制，所以都默认关闭，你开了才用。
 
 **日志：** 同一目录下的 `logs/` 只记出问题时用得上的简短信息，每个日志约 2 MB 封顶。通知日志只记 Claude 的通知什么时候来、属于哪个对话，从不记内容；1.0 之前记过内容的旧日志会在第一次启动时删掉。
 
@@ -303,7 +306,7 @@ Claude App 没有“哪些对话在跑”的接口，所以 Kikumap 像你一样
 - **Claude Code 会话没显示**：设置 → 授权 → Claude Code → *连接*，然后开一个新会话。如果显示 hook 被关掉了，是你（或你组织）的 Claude Code 设置关掉了 hook（`disableAllHooks`，或托管设置）。用 `CLAUDE_CONFIG_DIR` 启动的 Claude Code 用的是另一个设置文件，Kikumap 连不到它。
 - **ChatGPT 对话没显示**：Kikumap 读的是新版 ChatGPT 桌面 App（Codex 内核），而且只读它存在你 Mac 上的 Codex 对话；普通 ChatGPT 聊天存在云端，显示不了。看一下 设置 → 授权 → ChatGPT。和 Claude 的对话一样，Codex 对话在 ChatGPT 里置顶（或放进置顶项目）后才会显示。
 - **小组件库里找不到 Kikumap**：需要 macOS 14 或更新，并且 Kikumap 在「应用程序」里。先打开一次 Kikumap，再在桌面右键 → *编辑小组件*，搜 Kikumap。还是没有的话，在终端运行 `pluginkit -m -v -i ninja.tang.claudeconsole.widget`，把输出发到 issue 里。
-- **没有用量**：用量默认关闭，先在 设置 → 授权 → 用量 → *连接* 打开。它借用 Claude Code 的登录读取，所以这台 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：装好 Claude Code，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。免费套餐和 API key 没有用量可看。标着「…时的数据」的是上次读到的数，Claude Code 的登录恢复后会自动更新。
+- **没有用量**：用量默认关闭，先在 设置 → 授权 → Claude 用量 → *连接* 打开。它借用 Claude Code 的登录读取，所以这台 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：装好 Claude Code，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。免费套餐和 API key 没有用量可看。标着「…时的数据」的是上次读到的数，Claude Code 的登录恢复后会自动更新。ChatGPT 的用量来自 Codex 在本机的记录，用 Codex 跑过任务才有；想直接向 OpenAI 查，打开 设置 → 授权 → ChatGPT 用量（试验性）。
 </details>
 
 <details>

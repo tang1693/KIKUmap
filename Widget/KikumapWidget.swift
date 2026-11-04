@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-// The desktop widget: running, unread and usage on top, the last 24 hours below.
+// The desktop widget: how long Claude worked (the last 24 hours, the last 7 days) and usage, as of when Kikumap last wrote.
 // It only reads ~/Library/Application Support/ClaudeConsole/widget.json (Widget.entitlements), which
 // Kikumap rewrites when something changes and asks WidgetKit to redraw.
 
@@ -52,8 +52,8 @@ struct KikumapWidget: Widget {
             KikumapWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Kikumap")
-        .description(zh ? "进行中、未读、用量，和最近 24 小时 Claude 干了多久。"
-                        : "Running, unread, usage, and how long Claude worked in the last 24 hours.")
+        .description(zh ? "最近 24 小时和 7 天 Claude 干了多久，还有用量。在跑和未读的看菜单栏。"
+                        : "How long Claude worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

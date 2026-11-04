@@ -137,12 +137,12 @@ The export can keep itself up to date. **Import** starts a new pinned chat per f
 
 ### On your desktop <sup>new</sup>
 
-A widget for the desktop or Notification Center, in three sizes. Running and unread chats on top; then your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and below, the last 24 hours as bars, a colour per chat. Click a chat to open it.
+A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time and the last 7 days. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.
 
 Right-click the desktop → **Edit Widgets** and search for Kikumap. macOS 14 or later.
 
 </td>
-<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="Four Kikumap widgets: large, medium and two small ones, each with running and unread chats, Claude's session and weekly usage and ChatGPT's weekly usage, and the last 24 hours as stacked bars"></td>
+<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="Four Kikumap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time and the last 7 days"></td>
 </tr>
 <tr>
 <td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: seven days in six-hour bars, a colour per chat, with totals, a legend and the bar-size and range controls"></td>
@@ -232,6 +232,9 @@ No surprise prompts: every macOS permission dialog comes after Kikumap has told 
 | ChatGPT's Codex chats | What the ChatGPT desktop app keeps in `~/.codex`: its thread list and pins, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
 | Desktop widget | One file Kikumap writes for it (`widget.json`); the widget is sandboxed and can read only that file | none |
 | Usage, scheduled tasks (optional, off by default; paid Claude plans) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
+| ChatGPT usage (optional, off by default, experimental) | OpenAI's usage interface (the one Codex uses), with the ChatGPT sign-in Codex keeps in `~/.codex/auth.json`: read-only, never saved | none |
+
+**About the two usage options:** Anthropic doesn't allow third-party apps to collect Claude sign-in tokens, and OpenAI hasn't said apps may use the interface Codex reads its usage from. Kikumap only reads the sign-ins already on your Mac, never saves them and only looks up your own usage, but either may still not be allowed and could be blocked. That's why both are off until you turn them on.
 
 **Logs:** `logs/` in that folder holds short notes for when something goes wrong, each log capped at about 2 MB. The notification log says when a Claude notification came and for which chat, never what it said; logs from before 1.0, which did, are deleted on the first start.
 
@@ -303,7 +306,7 @@ Apple charges $99 a year to sign and notarize apps. Kikumap is free, so it isn't
 - **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session. If it says the hooks are off, your Claude Code settings (or your organization's) turn hooks off (`disableAllHooks`, or managed settings). A Claude Code started with `CLAUDE_CONFIG_DIR` uses another settings file, which Kikumap doesn't connect.
 - **ChatGPT chats don't show:** Kikumap reads the current ChatGPT desktop app (the one built on Codex), and only the Codex chats it keeps on your Mac: ordinary ChatGPT chats are kept online and can't show. Check Settings → Access → ChatGPT. Like Claude's chats, a Codex chat shows once you pin it in ChatGPT (or file it in a pinned project).
 - **The widget isn't in the widget gallery:** it needs macOS 14 or later and Kikumap in Applications. Open Kikumap once, then right-click the desktop → *Edit Widgets* and search for Kikumap. Still missing? Run `pluginkit -m -v -i ninja.tang.claudeconsole.widget` in Terminal and open an issue with what it prints.
-- **No usage:** it's off until you turn it on: Settings → Access → Usage → *Connect*. It's read through Claude Code's sign-in, so it needs Claude Code on this Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): install Claude Code, run `claude` in Terminal, type `/login` and choose your Claude account. The Free plan and API keys have no usage to show. Numbers marked "as of" are from the last read; they update once Claude Code's sign-in works again.
+- **No usage:** it's off until you turn it on: Settings → Access → Claude usage → *Connect*. It's read through Claude Code's sign-in, so it needs Claude Code on this Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): install Claude Code, run `claude` in Terminal, type `/login` and choose your Claude account. The Free plan and API keys have no usage to show. Numbers marked "as of" are from the last read; they update once Claude Code's sign-in works again. ChatGPT's usage comes from Codex's logs on this Mac, so it shows after you've run a Codex task; to get it straight from OpenAI, turn on Settings → Access → ChatGPT usage (experimental).
 </details>
 
 <details>

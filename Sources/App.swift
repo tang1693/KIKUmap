@@ -15,6 +15,7 @@ enum Front {
     /// Comes forward to show a window.
     static func activate() {
         if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
+        if NSApp.isHidden { NSApp.unhide(nil) }            // hidden with ⌘H: its windows come back too
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -34,7 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var sidebar = SidebarWatcher(store: store)
     lazy var code = CodeWatcher()
     lazy var gpt = GPTWatcher()
-    lazy var perms = Permissions(notifications: notifications, sidebar: sidebar, usage: usage)
+    lazy var gptUsage = GPTUsageMonitor()
+    lazy var perms = Permissions(notifications: notifications, sidebar: sidebar, usage: usage, gptUsage: gptUsage)
     lazy var statusBar = StatusBar(store: store, usage: usage, sounds: sounds)
     lazy var main = MainWindow(store: store, usage: usage)
     lazy var settings = SettingsWindow(store: store, perms: perms)
@@ -158,6 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let b = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier else { return }
             MainActor.assumeIsolated { self?.store.appCameToFront(b) }
         }
+        // Kikumap in front: the widget's redraws are free then, so a widget left behind catches up
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.widget.caughtUp() }
+        }
         intro.onLanguage = { [weak self] in self?.relabelAll() }
         intro.onFinish = { [weak self] in
             guard let self = self else { return }
@@ -222,6 +228,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         usage.onChange = { [weak self] in self?.refreshUI() }
         usage.log = { [weak self] t in self?.store.log(Clock.iso() + " " + t + "\n", file: "usage.log") }
+        // ChatGPT's usage straight from OpenAI, when allowed: the newer of it and Codex's logs is shown
+        gptUsage.onChange = { [weak self] in
+            guard let self = self else { return }
+            self.gpt.fetchedUsage = self.gptUsage.usage
+            self.widget.update()
+            self.refreshUI()
+        }
+        gptUsage.log = { [weak self] t in self?.store.log(Clock.iso() + " " + t + "\n", file: "usage.log") }
 
         notifications.start()
         SyncIssue.alerts = notifications.status == .ok
@@ -262,6 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // nothing until usage was turned on; then it reads during a resumed intro too (relaunched by Quit & Reopen)
         usage.start()
+        gptUsage.start()
         if !Prefs.onboarded {
             intro.show(resume: true)
         } else {
@@ -447,14 +462,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         widget.update(force: true)
     }
 
-    /// Claude's meters as they'd be shown now (session, week, and the Sonnet-only week while it's the one that
-    /// holds you back): name, percent, under-text.
+    /// Claude's meters as they'd be shown now (the 5-hour session where the plan has it, the week, and a one-model
+    /// week while it's the one that holds you back): name, percent, under-text.
     private func claudeMeters() -> [(String, Double?, String)] {
         guard usage.session != nil || usage.weekly != nil else { return [] }
         let asOf = usage.asOfText
-        var m = [(tr("会话", "Session"), usage.shownSession?.percent, asOf ?? Clock.resets(usage.shownSession?.resets)),
-                 (tr("本周", "Week"), usage.shownWeekly?.percent, asOf ?? Clock.resets(usage.shownWeekly?.resets))]
-        if let s = usage.bindingSonnet { m.append(("Sonnet", s.percent, asOf ?? Clock.resets(s.resets))) }
+        var m: [(String, Double?, String)] = []
+        if usage.session != nil { m.append((tr("会话", "Session"), usage.shownSession?.percent, asOf ?? Clock.resets(usage.shownSession?.resets))) }
+        if usage.weekly != nil { m.append((tr("本周", "Week"), usage.shownWeekly?.percent, asOf ?? Clock.resets(usage.shownWeekly?.resets))) }
+        if let s = usage.bindingSonnet { m.append((usage.modelName, s.percent, asOf ?? Clock.resets(s.resets))) }
         return m
     }
 
@@ -779,6 +795,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar.schedule(0)
         if GPTWatcher.enabled { gpt.read() }
         usage.refreshNow()
+        gptUsage.refresh(now: true)
         widget.update()
         refreshUI()
     }
@@ -1067,6 +1084,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(showSettings), keyEquivalent: ",")
         appMenu.addItem(withTitle: tr("导出对话…", "Export chats…"), action: #selector(showExport), keyEquivalent: "E")
         appMenu.addItem(withTitle: tr("导出导图 PDF…", "Export map as PDF…"), action: #selector(exportPDF), keyEquivalent: "e")
+        appMenu.addItem(.separator())
+        // the standard three every Mac app has (⌘H, ⌥⌘H)
+        appMenu.addItem(withTitle: tr("隐藏 Kikumap", "Hide Kikumap"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let others = appMenu.addItem(withTitle: tr("隐藏其他", "Hide Others"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        others.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: tr("全部显示", "Show All"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: tr("收起窗口", "Close window"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(withTitle: tr("退出", "Quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

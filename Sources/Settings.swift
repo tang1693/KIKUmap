@@ -8,11 +8,13 @@ final class Permissions {
     let notifications: NotificationWatcher
     let sidebar: SidebarWatcher
     let usage: UsageMonitor
+    let gptUsage: GPTUsageMonitor
 
-    init(notifications: NotificationWatcher, sidebar: SidebarWatcher, usage: UsageMonitor) {
+    init(notifications: NotificationWatcher, sidebar: SidebarWatcher, usage: UsageMonitor, gptUsage: GPTUsageMonitor) {
         self.notifications = notifications
         self.sidebar = sidebar
         self.usage = usage
+        self.gptUsage = gptUsage
     }
 
     /// Granted (also when the database it opens couldn't be read as expected: that's not a permission problem).
@@ -118,6 +120,7 @@ final class Permissions {
 
                 • 只读取，不修改、不保存这份登录
                 • 只发给 api.anthropic.com，只用来查用量和计划任务
+                • Anthropic 不允许第三方应用收集 Claude 的登录令牌。Kikumap 只在本机读、不保存、只查你自己的用量，但这仍可能不被允许、被限制，开不开由你决定
                 • 随时可以在 设置 → 授权 里关掉
 
                 Kikumap 和 Claude Code 用同一种方式读取它，所以 macOS 一般不会问。如果问了，选「允许」。
@@ -126,6 +129,7 @@ final class Permissions {
 
                 • It only reads it: never changes or saves it
                 • It's only sent to api.anthropic.com, to look up usage and scheduled tasks
+                • Anthropic doesn't allow third-party apps to collect Claude sign-in tokens. Kikumap only reads it on this Mac, never saves it and only looks up your own usage, but this may still not be allowed and could be blocked: it's your call
                 • You can turn it off any time in Settings → Access
 
                 Kikumap reads it the same way Claude Code does, so macOS usually doesn't ask. If it does, choose "Allow".
@@ -143,6 +147,50 @@ final class Permissions {
     func disconnectUsage() {
         UsageMonitor.enabled = false
         usage.stop()
+    }
+
+    /// ChatGPT's usage straight from OpenAI needs the ChatGPT sign-in Codex keeps on this Mac, so nothing is read
+    /// until you agree here (it's a file: macOS asks nothing).
+    func connectGPTUsage() {
+        if !GPTUsageMonitor.enabled {
+            let a = NSAlert()
+            a.messageText = tr("直接向 OpenAI 查 ChatGPT 的用量？（试验性）", "Get ChatGPT's usage straight from OpenAI? (experimental)")
+            let none = GPTUsageMonitor.readAuth() == nil
+                ? tr("\n\n这台 Mac 上的 Codex 好像还没用 ChatGPT 账号登录：先在 ChatGPT 桌面 App 或 Codex 里登录，这里才查得到。",
+                     "\n\nCodex on this Mac doesn't seem to be signed in with a ChatGPT account yet: sign in in the ChatGPT desktop app or Codex first.")
+                : ""
+            a.informativeText = tr("""
+                不开的话，ChatGPT 的用量只在你用 Codex 跑任务时更新（从 Codex 的本地记录里读）；用量重置后，要等下次用 Codex 才有新数字。
+
+                开了以后，Kikumap 借用 Codex 存在这台 Mac 上的 ChatGPT 登录（~/.codex/auth.json），像 Codex 自己那样每 10 分钟向 OpenAI 查一次用量，不用再登录一次。
+
+                • 只读取，不修改、不保存这份登录，也不帮它续期（登录过期了，用一下 Codex 就会续上）
+                • 只发给 chatgpt.com，只用来查用量
+                • 用的是 OpenAI 没公开的接口，OpenAI 也没说允许第三方这样用：以后可能失效或被限制，开不开由你决定；失效了也照样显示用 Codex 时的数字
+                • 随时可以在 设置 → 授权 里关掉
+                """, """
+                Without it, ChatGPT's usage updates only when you run a Codex task (it's read from Codex's own logs on this Mac); after a reset, nothing new is known until you use Codex again.
+
+                With it, Kikumap borrows the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI for your usage every 10 minutes, the way Codex itself does — no second login.
+
+                • It only reads it: never changes, saves or renews it (if it expires, using Codex renews it)
+                • It's only sent to chatgpt.com, to look up usage
+                • It's an interface OpenAI hasn't published, and OpenAI hasn't said third-party apps may use it: it may stop working or be blocked, so it's your call; if it stops, the numbers from using Codex still show
+                • You can turn it off any time in Settings → Access
+                """) + none
+            a.addButton(withTitle: tr("开启", "Turn on"))
+            a.addButton(withTitle: tr("先不用", "Not now"))
+            NSApp.activate(ignoringOtherApps: true)
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+        }
+        GPTUsageMonitor.enabled = true
+        gptUsage.start()
+        gptUsage.refresh(now: true)
+    }
+
+    func disconnectGPTUsage() {
+        GPTUsageMonitor.enabled = false
+        gptUsage.stop()
     }
 
     var codeHooks: Bool { CodeHooks.installed }
@@ -784,9 +832,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     }
                     return Perm(text: trusted ? on : off, on: trusted, enabled: !trusted)
                 }, { p.openAccessibility() }),
-            row(tr("用量", "Usage"),
-                tr("可选，默认关闭。需要 Claude 付费套餐（Pro、Max、Team 或 Enterprise），并在这台 Mac 的 Claude Code 里登录（免费套餐和 API key 没有用量可看）。开启后借用 Claude Code 在钥匙串里的登录，读取 5 小时 / 每周用量和计划任务；只读，只发给 api.anthropic.com。",
-                   "Optional, off by default. Needs a paid Claude plan (Pro, Max, Team or Enterprise) signed in to Claude Code on this Mac (the Free plan and API keys have no usage to show). When on, it borrows Claude Code's sign-in from the Keychain to read 5-hour / weekly usage and scheduled tasks — read-only, sent only to api.anthropic.com."),
+            row(tr("Claude 用量", "Claude usage"),
+                tr("可选，默认关闭。关着时不显示 Claude 的用量和计划任务（本机没有别的地方能读到）。需要 Claude 付费套餐，并在这台 Mac 的 Claude Code 里登录（免费套餐和 API key 没有用量可看）。开启后借用 Claude Code 在钥匙串里的登录，每 10 分钟读一次用量和计划任务；只读，只发给 api.anthropic.com。Anthropic 不允许第三方应用收集 Claude 的登录令牌：Kikumap 只在本机读、不保存，但仍可能不被允许、被限制。",
+                   "Optional, off by default. While it's off, Claude's usage and scheduled tasks aren't shown (nothing on this Mac has them). Needs a paid Claude plan signed in to Claude Code on this Mac (the Free plan and API keys have no usage to show). When on, it borrows Claude Code's sign-in from the Keychain to read usage and scheduled tasks every 10 minutes — read-only, sent only to api.anthropic.com. Anthropic doesn't allow third-party apps to collect Claude sign-in tokens: Kikumap only reads it on this Mac and never saves it, but this may still not be allowed and could be blocked."),
                 tr("连接", "Connect"), {
                     guard UsageMonitor.enabled else { return Perm(text: off, on: false, button: tr("连接", "Connect"), enabled: true) }
                     let who = p.usage.account.map { tr("\n账号：", "\nAccount: ") + $0 } ?? ""
@@ -829,6 +877,25 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     if !GPTWatcher.installed { return Perm(text: tr("已开启 · 没有 ChatGPT App，只读编辑器、终端里的 Codex", "On · no ChatGPT app: Codex in editors and the terminal only"), on: true, enabled: false) }
                     return Perm(text: on, on: true, enabled: false)
                 }, { [weak self] in p.connectGPT(); self?.refreshPerms() }),
+            row(tr("ChatGPT 用量（试验性）", "ChatGPT usage (experimental)"),
+                tr("可选，默认关闭。关着时，ChatGPT 的用量只在你用 Codex 跑任务时更新（从 Codex 的本地记录读）；用量重置后，要等下次用 Codex 才有新数字。开启后借用 Codex 存在本机的 ChatGPT 登录（~/.codex/auth.json），每 10 分钟向 OpenAI 查一次；只读，只发给 chatgpt.com。用的是 OpenAI 没公开的接口，也没说允许第三方这样用，可能失效或被限制。",
+                   "Optional, off by default. While it's off, ChatGPT's usage updates only when you run a Codex task (read from Codex's own logs); after a reset, nothing new is known until you use Codex again. When on, it borrows the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI every 10 minutes — read-only, sent only to chatgpt.com. It's an interface OpenAI hasn't published or said third-party apps may use: it may stop working or be blocked."),
+                tr("连接", "Connect"), {
+                    guard GPTUsageMonitor.enabled else { return Perm(text: off, on: false, button: tr("连接", "Connect"), enabled: true) }
+                    switch p.gptUsage.status {
+                    case .ok: return Perm(text: on, on: true, button: tr("连接", "Connect"), enabled: false)
+                    case .unknown: return Perm(text: tr("已开启 · 读取中…", "On · reading…"), on: true, button: tr("连接", "Connect"), enabled: false)
+                    default:
+                        let short: String
+                        switch p.gptUsage.status {
+                        case .noLogin: short = tr("Codex 未登录", "Codex not signed in")
+                        case .expired: short = tr("登录过期了", "sign-in expired")
+                        case .limited: short = tr("暂停查询中", "waiting a while")
+                        default: short = tr("暂时查不到", "can't get it right now")
+                        }
+                        return Perm(text: tr("已开启 · ", "On · ") + short, on: false, button: tr("重新读取", "Read again"), enabled: true, why: p.gptUsage.hint)
+                    }
+                }, { [weak self] in p.connectGPTUsage(); self?.refreshPerms() }),
         ]
         let tip = label(tr("如果这里显示未开启、但系统设置里已经勾上：先退出并重新打开 Kikumap；还是不行（比如重装之后），在系统设置里把 Kikumap 删掉（−）再重新加一次。",
                            "If access shows as off here but it's ticked in System Settings: quit and reopen Kikumap first; if it's still off (after reinstalling, say), remove Kikumap there (−) and add it again."), small: true)
@@ -836,10 +903,12 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         diag.toolTip = tr("写一份 kikumap-check.txt：哪些正常、哪些不行。不含对话标题、内容和密码，可以直接发给帮你看的人。",
                           "Writes kikumap-check.txt: what works and what doesn't. No chat titles, messages or passwords, so you can send it to whoever helps.")
         let unhook = button(tr("断开 Claude Code", "Disconnect Claude Code")) { [weak self] in p.disconnectCode(); self?.refreshPerms() }
-        let usageOff = button(tr("关闭用量", "Turn off usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
+        let usageOff = button(tr("关闭 Claude 用量", "Turn off Claude usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
         let gptOff = button(tr("断开 ChatGPT", "Disconnect ChatGPT")) { [weak self] in p.disconnectGPT(); self?.refreshPerms() }
-        offButtons = [(unhook, { p.codeHooks }), (usageOff, { UsageMonitor.enabled }), (gptOff, { GPTWatcher.enabled })]
-        return vstack(rows + [tip, NSStackView(views: [diag, unhook, usageOff, gptOff])], spacing: 18)
+        let gptUsageOff = button(tr("关闭 ChatGPT 用量", "Turn off ChatGPT usage")) { [weak self] in p.disconnectGPTUsage(); self?.refreshPerms() }
+        offButtons = [(unhook, { p.codeHooks }), (usageOff, { UsageMonitor.enabled }), (gptOff, { GPTWatcher.enabled }), (gptUsageOff, { GPTUsageMonitor.enabled })]
+        // (two rows of buttons: one is too wide for the window)
+        return vstack(rows + [tip, NSStackView(views: [diag, unhook, usageOff]), NSStackView(views: [gptOff, gptUsageOff])], spacing: 18)
     }
 
     private func refreshPerms() {

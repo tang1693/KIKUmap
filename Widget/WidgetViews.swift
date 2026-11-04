@@ -14,7 +14,7 @@ struct WidgetState: Codable {
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
     var english: Bool
-    /// Kikumap quit (so nothing here is live any more).
+    /// Kikumap was quitting when it wrote this (so it was no longer live from then: shown dimmed, under from when).
     var closed: Bool?
     var running: [Item]
     var unread: [Item]
@@ -32,6 +32,12 @@ struct WidgetState: Codable {
     var claudeUnreadOnly: Bool? = nil
     /// Seconds of the chart's 24 hours that are estimated (runs out of Kikumap's sight): its total says "≈".
     var estimated: Double? = nil
+    /// The named chats' ids and their time in these 24 hours (legend order), for the large widget's list.
+    var legendIDs: [String]? = nil
+    var legendSeconds: [Double]? = nil
+    /// The last seven days by the calendar day, the latest last: seconds Claude worked.
+    struct Day: Codable, Hashable { var start: String; var seconds: Double }
+    var days: [Day]? = nil
 
     /// The file, read through the real home folder (inside the sandbox, NSHomeDirectory() is the widget's own container).
     static func load() -> WidgetState? {
@@ -59,6 +65,7 @@ struct WidgetState: Codable {
             let sum = p.reduce(0, +), scale = sum > 3300 ? 3300 / sum : 1
             return Hour(start: WidgetTime.iso(hour.addingTimeInterval(Double(i - 23) * 3600)), parts: p.map { ($0 * scale).rounded() })
         }
+        let legendSeconds = (0..<5).map { i in hours.reduce(0) { $0 + (i < $1.parts.count ? $1.parts[i] : 0) } }
         return WidgetState(
             updated: WidgetTime.iso(now), english: english, closed: nil,
             running: [Item(id: "a", title: t("重构登录流程", "Refactor the login flow")),
@@ -73,7 +80,12 @@ struct WidgetState: Codable {
             legend: [t("重构登录流程", "Refactor the login flow"), t("周报数据整理", "Weekly report numbers"),
                      t("旅行行程规划", "Trip itinerary"), t("上线检查清单", "Launch checklist"), t("网站首页文案", "Homepage copy")],
             // branch colours as a map might have them (one without: grey)
-            colours: ["blue", "green", "orange", "violet", ""])
+            colours: ["blue", "green", "orange", "violet", ""],
+            legendIDs: ["a", "b", "c", "d", "e"], legendSeconds: legendSeconds,
+            days: [3.1, 5.4, 0.6, 4.2, 6.8, 2.5, 4.9].enumerated().map { i, h in
+                Day(start: WidgetTime.iso(Calendar.current.date(byAdding: .day, value: i - 6, to: Calendar.current.startOfDay(for: now)) ?? now),
+                    seconds: (h * 3600).rounded())
+            })
     }
 }
 
@@ -122,6 +134,22 @@ enum WidgetText {
     /// (the app says it the same way: UsageMonitor.stamp).
     static func asOf(_ d: Date, now: Date, _ en: Bool) -> String {
         en ? "as of " + when(d, now: now, en) : when(d, now: now, en) + " 时的数据"
+    }
+
+    /// "今天" / "昨天" / "周一" ("Today", "Yesterday", "Mon"): a day as seen on `now`'s.
+    static func day(_ d: Date, now: Date, _ en: Bool) -> String {
+        let cal = Calendar.current
+        if cal.isDate(d, inSameDayAs: now) { return en ? "Today" : "今天" }
+        if let y = cal.date(byAdding: .day, value: -1, to: now), cal.isDate(d, inSameDayAs: y) { return en ? "Yesterday" : "昨天" }
+        return weekday(d, en, short: false)
+    }
+
+    /// "一" … "日" / "M" … "S" under a day's bar (`short: false`: "周一" / "Mon").
+    static func weekday(_ d: Date, _ en: Bool, short: Bool = true) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: en ? "en_US" : "zh_CN")
+        f.dateFormat = short ? (en ? "EEEEE" : "EEEEE") : "EEE"
+        return f.string(from: d)
     }
 
     /// "09:00" the same day, "Mon 09:00" in the six days before, else "10/21 09:00".
@@ -181,27 +209,13 @@ struct KikumapWidgetView: View {
     private var en: Bool { state?.english ?? !WidgetText.systemChinese }
     private func t(_ zh: String, _ e: String) -> String { en ? e : zh }
 
-    /// Kikumap said it quit, or there's been no word from it for longer than a timeline lasts (it rewrites the
-    /// file at least every ten minutes while it runs, but macOS may wait hours before asking for a new
-    /// timeline; until then the old one's entries go on, and they mustn't call a running Kikumap stopped).
-    private var stale: Bool {
-        guard let s = state else { return false }
-        if s.closed == true { return true }
-        guard let u = WidgetTime.parse(s.updated) else { return true }
-        return date.timeIntervalSince(u) > 7 * 3600
-    }
+    /// When Kikumap wrote what's shown. macOS redraws a widget only so often (Apple: about every 15 to 60 minutes),
+    /// so the widget keeps to what still holds when it's a while old: how long Claude worked, by the hour and the day,
+    /// and usage, all as of then, and saying so. What's running or unread right now is the menu bar's.
+    private var asOf: Date { state.flatMap { WidgetTime.parse($0.updated) } ?? date }
 
-    /// What's shown is from a while back (macOS lets a widget be redrawn only so many times a day): it says from
-    /// when, rather than pass for now.
-    private var behind: Date? {
-        guard let s = state, !stale, let u = WidgetTime.parse(s.updated), date.timeIntervalSince(u) > 600 else { return nil }
-        return u
-    }
-
-    private func behindNote(_ u: Date) -> some View {
-        Text(WidgetText.asOf(u, now: date, en))
-            .font(.system(size: 9.5, weight: .medium).monospacedDigit()).foregroundStyle(Color.secondary).lineLimit(1)
-    }
+    /// From a while back: a usage window that has reset since then isn't shown as if known.
+    private var behind: Bool { date.timeIntervalSince(asOf) > 600 }
 
     var body: some View {
         if let s = state {
@@ -224,17 +238,14 @@ struct KikumapWidgetView: View {
     // MARK: sizes
 
     private func small(_ s: WidgetState) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                count(s.runningCount, running: true)
-                count(s.unreadCount, running: false)
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                caption(t("24 小时", "24 hours"))
+                Spacer(minLength: 2)
+                stamp
             }
-            if stale { staleMark } else {
-                if let u = behind { behindNote(u) }
-                claudeNoteLine(s)
-                meters(s, labelWidth: nil, compact: true, limit: 3)
-            }
+            totalText(s, size: 18)
+            meters(s, labelWidth: nil, compact: true, limit: 3)
             chart(s, compact: true)
         }
     }
@@ -242,20 +253,20 @@ struct KikumapWidgetView: View {
     private func medium(_ s: WidgetState) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    summaryRow(s.runningCount, s.running.first, running: true)
-                    summaryRow(s.unreadCount, s.unread.first, running: false)
+                VStack(alignment: .leading, spacing: 2) {
+                    caption(t("最近 24 小时", "Last 24 hours"))
+                    totalText(s, size: 22)
+                    dayLine(s)
+                    stamp.padding(.top, 1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 4) {
-                    // a longer label ("Sonnet", "5 小时") gets the room it needs in Chinese too
-                    if stale { staleMark } else {
+                if !s.usageOff && !s.meters.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        // a longer label ("Sonnet", "5 小时") gets the room it needs in Chinese too
                         meters(s, labelWidth: en ? 44 : s.meters.contains { $0.label.count > 2 } ? 40 : 26, compact: true, limit: 3)
-                        if let u = behind { behindNote(u) }
-                        claudeNoteLine(s)
                     }
+                    .frame(width: tagged(s) ? 174 : 150)
                 }
-                .frame(width: tagged(s) ? 174 : 150)
             }
             chart(s, compact: false)
         }
@@ -263,89 +274,105 @@ struct KikumapWidgetView: View {
 
     private func large(_ s: WidgetState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("Kikumap").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.secondary)
                 Spacer(minLength: 4)
-                if stale {
-                    staleMark
-                } else if behind != nil || s.claudeNote != nil {
-                    // both when both apply: from when, and that Claude isn't read
-                    Text([behind.map { WidgetText.asOf($0, now: date, en) }, s.claudeNote].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 9.5, weight: .medium).monospacedDigit()).foregroundStyle(Color.secondary)
-                        .lineLimit(1).minimumScaleFactor(0.75)
-                } else {
-                    Text(t("24小时 · ", "24h · ") + ((s.estimated ?? 0) >= 60 ? "≈" : "") + WidgetText.duration(total(s), en))
-                        .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Color.secondary)
-                }
+                stamp
             }
-            HStack(alignment: .top, spacing: 12) {
-                list(t("进行中", "Running"), s.runningCount, s.running, running: true)
-                list(t("未读", "Unread"), s.unreadCount, s.unread, running: false)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                totalText(s, size: 22)
+                caption(t("最近 24 小时", "in the last 24 hours"))
+                Spacer(minLength: 4)
+                dayLine(s)
             }
-            if !stale { meters(s, labelWidth: 40, compact: false, limit: 4) }
-            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
             chart(s, compact: false)
-            legend(s)
+            HStack(alignment: .top, spacing: 14) {
+                topChats(s).frame(maxWidth: .infinity, alignment: .topLeading)
+                week(s).frame(width: 118)
+            }
+            if !s.usageOff && !s.meters.isEmpty {
+                Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                meters(s, labelWidth: 40, compact: false, limit: 4)
+            }
         }
     }
 
     // MARK: pieces
 
-    /// What the widget shows is as of when Kikumap last wrote: it said it quit then, or nothing has come from it since
-    /// (never "isn't running": macOS may not have let the widget hear of it starting again yet). The counts and lists
-    /// from then stay, dimmed.
-    private var staleMark: some View {
-        let u = state.flatMap { WidgetTime.parse($0.updated) }
-        let at = u.map { WidgetText.when($0, now: date, en) } ?? "?"
-        let text = state?.closed == true ? t("\(at) 时的数据 · Kikumap 已退出", "As of \(at) · Kikumap quit")
-                                         : t("\(at) 时的数据 · 之后没有 Kikumap 的消息", "As of \(at) · no word from Kikumap since")
-        // (the small widget's line is too short for it: two lines, so the time isn't cut off)
-        return Text(text).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
-            .lineLimit(size == .large ? 1 : 2).minimumScaleFactor(0.8)
+    private func caption(_ text: String) -> some View {
+        Text(text).font(.system(size: 10.5, weight: .medium)).foregroundStyle(Color.secondary).lineLimit(1)
     }
 
-    private func mark(running: Bool) -> some View {
-        Group {
-            if running {
-                Image(systemName: "circle.dotted").font(.system(size: 9, weight: .bold)).foregroundStyle(Color.primary)
-            } else {
-                Circle().fill(Color.red).frame(width: 7, height: 7)
+    /// "15:20 时的数据" / "as of 15:20": always there, since a widget can be a while behind.
+    private var stamp: some View {
+        Text(WidgetText.asOf(asOf, now: date, en))
+            .font(.system(size: 9.5, weight: .medium).monospacedDigit()).foregroundStyle(Color.secondary)
+            .lineLimit(1).minimumScaleFactor(0.8)
+    }
+
+    /// The 24 hours up to `asOf`, all of it (pieces too short for the chart to draw too, as the app counts it).
+    private func total(_ s: WidgetState) -> Double { s.hours.reduce(0) { $0 + $1.parts.reduce(0, +) } }
+
+    private func totalText(_ s: WidgetState, size: CGFloat) -> some View {
+        Text(WidgetText.duration(total(s), en))
+            .font(.system(size: size, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
+            .lineLimit(1).minimumScaleFactor(0.6)
+    }
+
+    private func days(_ s: WidgetState) -> [(start: Date, seconds: Double)] {
+        (s.days ?? []).compactMap { d in WidgetTime.parse(d.start).map { ($0, d.seconds) } }
+    }
+
+    /// "今天 2小时10分": the latest day on record, named from the day this is seen (the large widget has the week).
+    @ViewBuilder private func dayLine(_ s: WidgetState) -> some View {
+        if let d = days(s).last {
+            Text(WidgetText.day(d.start, now: date, en) + " " + WidgetText.duration(d.seconds, en))
+                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Color.secondary).lineLimit(1).minimumScaleFactor(0.8)
+        }
+    }
+
+    /// The chats with the most time in these 24 hours, each with its time (a click opens it).
+    @ViewBuilder private func topChats(_ s: WidgetState) -> some View {
+        let secs = s.legendSeconds ?? []
+        let rows = s.legend.indices.filter { $0 >= secs.count || secs[$0] >= 60 }.prefix(5)
+        VStack(alignment: .leading, spacing: 4) {
+            caption(t("用时最多", "Most time"))
+            if rows.isEmpty {
+                Text(t("没有", "None")).font(.system(size: 11)).foregroundStyle(Color.secondary)
+            }
+            ForEach(Array(rows), id: \.self) { i in
+                let row = HStack(spacing: 5) {
+                    Circle().fill(WidgetPalette.color(i, count: s.legend.count, keys: s.colours, dark: scheme == .dark)).frame(width: 7, height: 7)
+                    Text(s.legend[i]).font(.system(size: 11)).foregroundStyle(Color.primary).lineLimit(1)
+                    Spacer(minLength: 4)
+                    if i < secs.count {
+                        Text(WidgetText.duration(secs[i], en)).font(.system(size: 10).monospacedDigit()).foregroundStyle(Color.secondary)
+                    }
+                }
+                if let ids = s.legendIDs, i < ids.count { link(ids[i]) { row } } else { row }
             }
         }
-        .frame(width: 11, height: 11)
     }
 
-    private func count(_ n: Int, running: Bool) -> some View {
-        HStack(spacing: 4) {
-            mark(running: running)
-            Text(number(n, running)).font(.system(size: 17, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
+    /// The last seven days, a bar each, the latest darker.
+    @ViewBuilder private func week(_ s: WidgetState) -> some View {
+        let ds = days(s)
+        let peak = max(ds.map(\.seconds).max() ?? 0, 1)
+        VStack(alignment: .leading, spacing: 4) {
+            caption(t("7 天 ", "7 days ") + WidgetText.duration(ds.reduce(0) { $0 + $1.seconds }, en))
+            HStack(alignment: .bottom, spacing: 4) {
+                ForEach(ds.indices, id: \.self) { i in
+                    VStack(spacing: 3) {
+                        UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 2)
+                            .fill(Color.primary.opacity(i == ds.count - 1 ? 0.85 : 0.3))
+                            .frame(height: max(2, 44 * CGFloat(ds[i].seconds / peak)))
+                        Text(WidgetText.weekday(ds[i].start, en)).font(.system(size: 8.5)).foregroundStyle(Color.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 58, alignment: .bottom)
         }
-    }
-
-    /// Text that says what's current; dimmed while the widget only has what Kikumap last wrote.
-    private var ink: Color { stale ? Color.secondary : Color.primary }
-
-    /// A count as known: "2?" when some of those running are out of its sight or Claude can't be read (with no word
-    /// from Kikumap: the count it last wrote, dimmed, under "as of").
-    private func number(_ n: Int, _ running: Bool) -> String {
-        let unsure = blind(running) || (running && (state?.running.contains { $0.unsure == true } ?? false))
-        return "\(n)" + (unsure ? "?" : "")
-    }
-    /// Claude can't be read for this list now (its chat list, or for unread its marks alone).
-    private func blind(_ running: Bool) -> Bool { state?.claudeNote != nil && !(running && state?.claudeUnreadOnly == true) }
-    private func titled(_ it: WidgetState.Item) -> String { (it.unsure == true ? "? " : "") + it.title }
-
-    /// Claude can't be read now: one line saying so (from the app, in its words).
-    @ViewBuilder private func claudeNoteLine(_ s: WidgetState) -> some View {
-        if !stale, let n = s.claudeNote {
-            Text(n).font(.system(size: 9.5, weight: .medium)).foregroundStyle(Color.secondary).lineLimit(1).minimumScaleFactor(0.8)
-        }
-    }
-
-    /// With no word from Kikumap, or Claude not read, what's running or unread isn't known: it isn't shown as "nothing".
-    private func none(_ running: Bool, capital: Bool) -> String {
-        if blind(running) { return t("不知道", capital ? "Not known" : "not known") }
-        return running ? t("没有在跑的", capital ? "Nothing running" : "nothing running") : t("都看过了", capital ? "All read" : "all read")
     }
 
     private func link<V: View>(_ id: String, @ViewBuilder _ v: () -> V) -> some View {
@@ -356,44 +383,6 @@ struct KikumapWidgetView: View {
                 v()
             }
         }
-    }
-
-    /// "◌ 2  Refactor the login flow"
-    private func summaryRow(_ n: Int, _ first: WidgetState.Item?, running: Bool) -> some View {
-        let row = HStack(spacing: 5) {
-            mark(running: running)
-            Text(number(n, running)).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
-            Text(first.map(titled) ?? none(running, capital: false))
-                .font(.system(size: 11)).foregroundStyle(first == nil ? Color.secondary : ink)
-                .lineLimit(1)
-        }
-        return Group {
-            if let f = first { link(f.id) { row } } else { row }
-        }
-    }
-
-    private func list(_ title: String, _ n: Int, _ items: [WidgetState.Item], running: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                mark(running: running)
-                Text(title + " · " + number(n, running)).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(ink)
-            }
-            if items.isEmpty {
-                Text(none(running, capital: true))
-                    .font(.system(size: 11)).foregroundStyle(Color.secondary).padding(.leading, 16)
-            }
-            ForEach(Array(items.prefix(3)), id: \.self) { it in
-                link(it.id) {
-                    Text(titled(it)).font(.system(size: 11)).foregroundStyle(ink).lineLimit(1)
-                        .padding(.leading, 16)
-                }
-            }
-            if n > 3 {
-                Text(t("还有 \(n - 3) 个", "+\(n - 3) more")).font(.system(size: 10)).foregroundStyle(Color.secondary)
-                    .padding(.leading, 16)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     /// ChatGPT's meters are there too: each group gets its mark (Claude's alone look as they always did).
@@ -409,13 +398,14 @@ struct KikumapWidgetView: View {
             if size == .small, let a = WidgetTime.parse(m.asOf), date.timeIntervalSince(a) > 900 { return nil }
             guard let r = WidgetTime.parse(m.resets), r <= date else { return m }
             // reset since: from an earlier read, or with the file itself from a while back, what's used since is unknown
-            if m.asOf != nil || behind != nil { return nil }
+            if m.asOf != nil || behind { return nil }
             var z = m; z.percent = 0; z.resets = nil
             return z
         }
         let groups = ["claude", "gpt"].map { g in current.indices.filter { (current[$0].group ?? "claude") == g } }
         if current.count <= limit { return groups.flatMap { $0.map { current[$0] } } }
         var keep = Set(groups.compactMap { g in g.max { current[$0].percent < current[$1].percent } })
+        if keep.count > limit { keep = Set(current.indices.sorted { current[$0].percent > current[$1].percent }.prefix(limit)) }
         for i in current.indices.sorted(by: { current[$0].percent > current[$1].percent }) where keep.count < limit { keep.insert(i) }
         return groups.flatMap { $0.filter(keep.contains).map { current[$0] } }
     }
@@ -430,7 +420,7 @@ struct KikumapWidgetView: View {
                     meter(list[i], labelWidth: labelWidth, compact: compact, marked: tag)
                 }
                 // the medium widget's rows have no room for it either: one line under them says when
-                if let d = asOf(list) {
+                if let d = metersAsOf(list) {
                     // the mark of whose numbers are old (both: no mark, the line is about all of them)
                     let groups = Set(list.filter { $0.asOf != nil }.map { $0.group ?? "claude" })
                     asOfLine(d, mark: tag && groups.count == 1 ? groups.first : nil)
@@ -439,10 +429,10 @@ struct KikumapWidgetView: View {
         }
     }
 
-    /// When the medium widget's meters are from an earlier read (Claude's or ChatGPT's), unless Kikumap isn't
-    /// running (that says enough); the large one says it on each row, the small one leaves them out.
-    private func asOf(_ list: [WidgetState.Meter]) -> Date? {
-        size == .medium && !stale ? list.compactMap { WidgetTime.parse($0.asOf) }.min() : nil
+    /// When the medium widget's meters are from an earlier read than the rest (Claude's or ChatGPT's); the large one
+    /// says it on each row, the small one leaves them out.
+    private func metersAsOf(_ list: [WidgetState.Meter]) -> Date? {
+        size == .medium ? list.compactMap { WidgetTime.parse($0.asOf) }.min() : nil
     }
 
     private func asOfLine(_ d: Date, mark group: String?) -> some View {
@@ -491,24 +481,19 @@ struct KikumapWidgetView: View {
         }
     }
 
-    /// Everything recorded in these 24 hours, pieces too short for the chart to draw too (as the app counts it).
-    private func total(_ s: WidgetState) -> Double {
-        HoursChart.bins(s, at: date).reduce(0) { $0 + $1.parts.reduce(0, +) }
-    }
-
+    /// The 24 hours up to `asOf` (a click opens the statistics).
     private func chart(_ s: WidgetState, compact: Bool) -> some View {
         Group {
             if links, let u = URL(string: "kikumap://stats") {
-                Link(destination: u) { HoursChart(state: s, date: date, compact: compact, dark: scheme == .dark) }
+                Link(destination: u) { HoursChart(state: s, date: asOf, compact: compact, dark: scheme == .dark) }
             } else {
-                HoursChart(state: s, date: date, compact: compact, dark: scheme == .dark)
+                HoursChart(state: s, date: asOf, compact: compact, dark: scheme == .dark)
             }
         }
         .frame(maxHeight: .infinity)
         .overlay {
-            // (with no word from Kikumap, nothing was recorded: the note above says since when)
-            if total(s) == 0 && !stale {
-                Text(t("最近 24 小时没有活动", "Nothing in the last 24 hours"))
+            if total(s) == 0 {
+                Text(t("这 24 小时没有活动", "Nothing in these 24 hours"))
                     .font(.system(size: 10)).foregroundStyle(Color.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4).padding(.vertical, 2)
@@ -516,22 +501,6 @@ struct KikumapWidgetView: View {
                     .padding(.bottom, 14)
             }
         }
-    }
-
-    /// The named chats in the chart (only those with time in these 24 hours).
-    private func legend(_ s: WidgetState) -> some View {
-        let bins = HoursChart.bins(s, at: date)
-        let shown = s.legend.indices.filter { i in bins.contains { i < $0.parts.count && $0.parts[i] > 0 } }
-        return HStack(spacing: 10) {
-            ForEach(shown.prefix(3), id: \.self) { i in
-                HStack(spacing: 4) {
-                    Circle().fill(WidgetPalette.color(i, count: s.legend.count, keys: s.colours, dark: scheme == .dark)).frame(width: 7, height: 7)
-                    Text(s.legend[i]).font(.system(size: 10)).foregroundStyle(Color.secondary).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(height: 12)
     }
 }
 
@@ -653,8 +622,8 @@ struct HoursChart: View {
                     }
                     .fill(WidgetPalette.color(slot, count: named, keys: state.colours, dark: dark))
                 }
-                // value axis, on the right
-                ForEach(Array(stride(from: 0.0, through: top + 1, by: step)), id: \.self) { v in
+                // value axis, on the right (a short chart: just its top, so the labels don't run into each other)
+                ForEach(Array(stride(from: 0.0, through: top + 1, by: step)).filter { plot.height >= 40 || $0 >= top - 1 }, id: \.self) { v in
                     Text(WidgetText.axis(v))
                         .font(.system(size: compact ? 8 : 9).monospacedDigit()).foregroundStyle(Color.secondary)
                         .fixedSize()

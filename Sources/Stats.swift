@@ -365,7 +365,11 @@ final class StatsView: NSView {
             let d = Clock.format(until, "M月d日", "MMM d")
             note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")
         }
-        draw(note, Theme.ui(11.5), Theme.muted, in: NSRect(x: pad, y: 84, width: bounds.width - pad * 2, height: 16))
+        // two lines when it needs them (with an estimate it's longer than a narrow window)
+        draw(note, Theme.ui(11.5), Theme.muted, in: NSRect(x: pad, y: 76, width: bounds.width - pad * 2, height: 31))
+        // a footnote under the chart: the desktop widget's times count the estimates in too, without the ≈
+        draw(tr("注：桌面小组件里的时长也包含估算的部分，只是不标 ≈。", "Note: the desktop widget's times include the estimated part too, without the ≈."),
+             Theme.ui(10.5), Theme.muted, in: NSRect(x: pad, y: bounds.height - 18, width: plot.maxX - pad, height: 14))
 
         let plot = self.plot
         guard sums.reduce(0, +) > 0 else {

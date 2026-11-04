@@ -252,7 +252,7 @@
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.4</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.4 版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.5</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.5 版</span></p>
       <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
   </section>
@@ -368,12 +368,12 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Widget · new</span><span lang="zh">小组件 · 新</span></p>
           <h3><span lang="en">On your desktop</span><span lang="zh">放在桌面上</span></h3>
-          <p lang="en">A widget for the desktop or Notification Center, in three sizes. Running and unread chats on top; then your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and below, the last 24 hours as bars, a colour per chat. Click a chat to open it.</p>
-          <p lang="zh">桌面或通知中心的小组件，小、中、大三种尺寸。上面是进行中和未读的对话；接着是用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；下面是最近 24 小时的柱状图，每个对话一种颜色。点对话就能打开。</p>
+          <p lang="en">A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time and the last 7 days. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.</p>
+          <p lang="zh">桌面或通知中心的小组件，小、中、大三种尺寸：最近 24 小时 Claude 干了多久（柱状图，每个对话一种颜色）和今天的时长；用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；大号还列出用时最多的对话和最近 7 天。macOS 只让小组件隔一阵刷新一次（苹果的规定大约是 15 到 60 分钟），所以小组件只放晚一点看也不会错的内容，并标出是几点的数据；正在跑和未读的看菜单栏。点柱状图打开统计，点对话打开对话。</p>
           <p lang="en">Right-click the desktop → <b>Edit Widgets</b> and search for Kikumap. macOS 14 or later.</p>
           <p lang="zh">在桌面右键 → <b>编辑小组件</b>，搜 Kikumap。需要 macOS 14 或更新。</p>
         </div>
-        <figure class="shot"><img lang="en" src="demo/widget.png" width="1632" height="1088" loading="lazy" alt="Four Kikumap widgets: large, medium and two small ones, each with running and unread chats, Claude's and ChatGPT's usage, and the last 24 hours as stacked bars"><img lang="zh" src="demo/widget-zh.png" width="1632" height="1088" loading="lazy" alt="四个 Kikumap 小组件：大、中和两个小的，都有进行中和未读的对话、Claude 和 ChatGPT 的用量，以及最近 24 小时的分段柱状图"></figure>
+        <figure class="shot"><img lang="en" src="demo/widget.png" width="1632" height="1088" loading="lazy" alt="Four Kikumap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time and the last 7 days"><img lang="zh" src="demo/widget-zh.png" width="1632" height="1088" loading="lazy" alt="四个 Kikumap 小组件：大、中和两个小的，都有最近 24 小时 Claude 干了多久的分段柱状图和用量；大号还列出用时最多的对话和最近 7 天"></figure>
       </div>
 
       <div class="feature">
@@ -525,8 +525,8 @@
         </details>
         <details>
           <summary><span lang="en">Why is there no usage?</span><span lang="zh">为什么没有用量？</span></summary>
-          <p lang="en">Usage is off until you turn it on (Settings → Access → Usage). It's read through Claude Code's sign-in, so it needs Claude Code on your Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): run <code>claude</code> in Terminal and type <code>/login</code>. The Free plan and API keys have no usage to show. ChatGPT's usage comes from its own files, with nothing to turn on.</p>
-          <p lang="zh">用量默认关闭（设置 → 授权 → 用量）。它借用 Claude Code 的登录读取，所以 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：在终端运行 <code>claude</code>，输入 <code>/login</code>。免费套餐和 API key 没有用量可看。ChatGPT 的用量来自它自己的文件，不用开。</p>
+          <p lang="en">Usage is off until you turn it on (Settings → Access → Claude usage). It's read through Claude Code's sign-in, so it needs Claude Code on your Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): run <code>claude</code> in Terminal and type <code>/login</code>. The Free plan and API keys have no usage to show. ChatGPT's usage comes from Codex's logs on this Mac, so it shows after you've run a Codex task; to get it straight from OpenAI, turn on Settings → Access → ChatGPT usage (experimental). Both options borrow sign-ins already on your Mac, read-only and never saved; Anthropic doesn't allow third-party apps to collect Claude sign-in tokens, and OpenAI hasn't said apps may use that interface, so either may be blocked. That's why they're off until you choose.</p>
+          <p lang="zh">用量默认关闭（设置 → 授权 → Claude 用量）。它借用 Claude Code 的登录读取，所以 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：在终端运行 <code>claude</code>，输入 <code>/login</code>。免费套餐和 API key 没有用量可看。ChatGPT 的用量来自 Codex 在本机的记录，用 Codex 跑过任务才有；想直接向 OpenAI 查，打开 设置 → 授权 → ChatGPT 用量（试验性）。两项都是借用你 Mac 上已有的登录，只读、不保存；Anthropic 不允许第三方应用收集 Claude 的登录令牌，OpenAI 也没说允许应用用那个接口，所以都可能被限制，默认关闭，由你决定开不开。</p>
         </details>
         <details>
           <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span></summary>

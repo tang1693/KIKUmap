@@ -184,7 +184,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         func used(_ w: UsageMonitor.Window?) -> String { w.map { tr("已用 ", "") + "\(Int($0.percent.rounded()))%  \(Clock.resets($0.resets))" } ?? "–" }
         if usage.session != nil { tip += tr("\n当前会话 ", "\nSession ") + used(usage.shownSession) + asOf }
         if usage.weekly != nil { tip += tr("\n本周 ", "\nWeek ") + used(usage.shownWeekly) + asOf }
-        if let o = usage.bindingSonnet { tip += tr("\n本周（仅 Sonnet）已用 ", "\nWeek (Sonnet only) ") + "\(Int(o.percent.rounded()))%  \(Clock.resets(o.resets))" + asOf }
+        if let o = usage.bindingSonnet { tip += tr("\n本周（仅 \(usage.modelName)）已用 ", "\nWeek (\(usage.modelName) only) ") + "\(Int(o.percent.rounded()))%  \(Clock.resets(o.resets))" + asOf }
         if let a = usage.account, !tip.isEmpty { tip += tr("\nClaude Code 的账号：", "\nClaude Code's account: ") + a }
         return tip
     }
@@ -415,9 +415,12 @@ final class StatusBar: NSObject, NSMenuDelegate {
         let asOf = usage.asOfText
         var who: String?
         if UsageMonitor.enabled && (usage.session != nil || usage.weekly != nil) {
-            rows += [(tr("当前会话", "Current session"), usage.shownSession, asOf),
-                     (usage.sonnet != nil ? tr("本周（所有模型）", "This week (all models)") : tr("本周", "This week"), usage.shownWeekly, asOf)]
-            if usage.sonnet != nil { rows.append((tr("本周（仅 Sonnet）", "This week (Sonnet only)"), usage.shownSonnet, asOf)) }
+            // (a plan without the 5-hour limit has no session row)
+            if usage.session != nil { rows.append((tr("当前会话", "Current session"), usage.shownSession, asOf)) }
+            if usage.weekly != nil {
+                rows.append((usage.sonnet != nil ? tr("本周（所有模型）", "This week (all models)") : tr("本周", "This week"), usage.shownWeekly, asOf))
+            }
+            if usage.sonnet != nil { rows.append((tr("本周（仅 \(usage.modelName)）", "This week (\(usage.modelName) only)"), usage.shownSonnet, asOf)) }
             // whose it is: the account Claude Code is signed in with, which may not be the Claude app's
             who = usage.account.map { tr("Claude 的用量来自 Claude Code 登录的账号：", "Claude's usage is for the account Claude Code is signed in with: ") + $0 }
         }

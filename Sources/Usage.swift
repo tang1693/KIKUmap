@@ -50,8 +50,10 @@ final class UsageMonitor: NSObject {
     private(set) var status = Status.unknown
     private(set) var session: Window?
     private(set) var weekly: Window?
-    /// This week, Sonnet only: on the plans that have that limit (Max, Team), as Claude Code shows it.
+    /// This week, one model only (Sonnet, Opus, Fable…): on the plans that have such a limit, as Claude Code shows
+    /// it; with several, the fullest. `modelName` says which.
     private(set) var sonnet: Window?
+    private(set) var modelName = "Sonnet"
     private(set) var updated: Date?
     private(set) var routines: [Routine] = []
     /// When the scheduled tasks were last read (they're read with the usage, every few minutes).
@@ -76,6 +78,12 @@ final class UsageMonitor: NSObject {
     private var tokenAccount: String?
     private var tokenOrg: String?
     private var lastRead = Date.distantPast
+    /// When usage was last asked for: not more than every ten minutes on its own (Claude Code's editor meters ask
+    /// the same place with the same sign-in, and Anthropic turns too many away with 429).
+    private var lastFetch = Date.distantPast
+    private static let fetchEvery: TimeInterval = 600
+    /// The windows the last answer had, logged when they change (a plan without the 5-hour limit, a model's week).
+    private var windowNames = ""
     private var busy = false
     private var timer: Timer?
     private var routinesNote = ""
@@ -124,7 +132,7 @@ final class UsageMonitor: NSObject {
     var shownWeekly: Window? { shown(weekly) }
     var shownSonnet: Window? { shown(sonnet) }
 
-    /// The Sonnet-only week where it's what holds you back: nearly used up, or fuller than the all-models week.
+    /// The one-model week where it's what holds you back: nearly used up, or fuller than the all-models week.
     /// The header, the menu-bar tooltip and the widget add it only then; the menu always lists it.
     var bindingSonnet: Window? {
         guard let s = shownSonnet else { return nil }
@@ -178,6 +186,7 @@ final class UsageMonitor: NSObject {
 
     func start() {
         guard UsageMonitor.enabled, timer == nil else { return }
+        restore()
         refresh()
         timer = Timer.scheduledTimer(timeInterval: 300, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
         // a locked keychain is read again as soon as the Mac is unlocked
@@ -188,7 +197,7 @@ final class UsageMonitor: NSObject {
     @objc private func unlocked() { if status == .locked { lastRead = .distantPast; refresh() } }
 
     func refreshIfStale() {
-        if let u = updated, (0..<120).contains(Date().timeIntervalSince(u)) { return }
+        if let u = updated, (0..<UsageMonitor.fetchEvery).contains(Date().timeIntervalSince(u)) { return }
         refresh()
     }
 
@@ -237,7 +246,12 @@ final class UsageMonitor: NSObject {
         }
         // Anthropic asked to wait (the account above is still checked meanwhile)
         if !userAction, let h = holdUntil, h > Date() { return }
-        if let t = token, !t.isExpired { fetch(t); return }
+        if let t = token, !t.isExpired {
+            // on its own, not more than every ten minutes; a click (the refresh button) reads now, but not twice a minute
+            let since = Date().timeIntervalSince(lastFetch)
+            if (0..<(userAction ? 60 : UsageMonitor.fetchEvery)).contains(since) { return }
+            fetch(t); return
+        }
         // re-read the sign-in at most every 15 minutes, and after a few quiet refusals only on a click
         if !userAction {
             if status == .denied && quietDenials >= 3 { return }
@@ -268,6 +282,7 @@ final class UsageMonitor: NSObject {
         routines = []
         updated = nil
         account = nil
+        UserDefaults.standard.removeObject(forKey: UsageMonitor.lastKey)
         holdUntil = nil
         failures = 0
         quietDenials = 0
@@ -302,7 +317,9 @@ final class UsageMonitor: NSObject {
         switch s {
         case .ok: updated = Date()
         // the sign-in is gone or isn't this account's any more: nothing read with it is shown
-        case .noLogin, .noScope, .denied: session = nil; weekly = nil; sonnet = nil; routines = []; updated = nil
+        case .noLogin, .noScope, .denied:
+            session = nil; weekly = nil; sonnet = nil; routines = []; updated = nil
+            UserDefaults.standard.removeObject(forKey: UsageMonitor.lastKey)
         default: break                                       // older numbers stay, marked "as of"
         }
         onChange?()
@@ -432,6 +449,7 @@ final class UsageMonitor: NSObject {
 
     private func fetch(_ t: Token) {
         busy = true
+        lastFetch = Date()
         get("/api/oauth/usage", t, beta: "oauth-2025-04-20") { [weak self] code, obj, retryAfter in
             guard let self = self else { return }
             self.busy = false
@@ -442,6 +460,7 @@ final class UsageMonitor: NSObject {
                 self.failures = 0
                 self.lastNote = ""
                 self.set(.ok)
+                self.keep()
                 self.fetchRoutines(t)
             case 401:
                 self.token = nil
@@ -465,7 +484,7 @@ final class UsageMonitor: NSObject {
                 // read again at the time the hint gives, not at the first 5-minute tick after it (unless a newer
                 // answer, a click or turning usage off changed the wait meanwhile)
                 DispatchQueue.main.asyncAfter(deadline: .now() + wait + 1) { [weak self] in
-                    MainActor.assumeIsolated { if let self = self, self.holdUntil == until { self.refresh() } }
+                    MainActor.assumeIsolated { if let self = self, self.holdUntil == until { self.lastFetch = .distantPast; self.refresh() } }
                 }
             default:
                 // offline (0), a server error, an answer it can't read: the numbers stay; it tries again in a minute,
@@ -481,7 +500,7 @@ final class UsageMonitor: NSObject {
         guard !retrying else { return }
         retrying = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
-            MainActor.assumeIsolated { self?.retrying = false; self?.refresh() }
+            MainActor.assumeIsolated { self?.retrying = false; self?.lastFetch = .distantPast; self?.refresh() }
         }
     }
 
@@ -541,8 +560,8 @@ final class UsageMonitor: NSObject {
         }.resume()
     }
 
-    /// The windows from /api/oauth/usage. A window without a number isn't shown (not as 0%); a plan without
-    /// either window is still a good answer (nothing to show).
+    /// The windows from /api/oauth/usage. A window without a number isn't shown (not as 0%): a plan without the
+    /// 5-hour limit (Ultra) has no session row at all, and a plan without either window is still a good answer.
     private func parse(_ obj: Any?, plan: String?) -> Bool {
         guard let o = obj as? [String: Any], o.keys.contains("five_hour") || o.keys.contains("seven_day") else { return false }
         func win(_ k: String) -> Window? {
@@ -551,8 +570,43 @@ final class UsageMonitor: NSObject {
         }
         session = win("five_hour")
         weekly = win("seven_day")
-        // the Sonnet-only week, where the plan has it (as Claude Code's /usage shows it)
-        sonnet = plan == nil || plan == "max" || plan == "team" ? win("seven_day_sonnet") : nil
+        // a one-model week where the plan has one (as Claude Code's /usage shows it; Pro's numbers there mean nothing):
+        // the fullest of them
+        let models = ["seven_day_sonnet": "Sonnet", "seven_day_opus": "Opus", "seven_day_fable": "Fable", "seven_day_haiku": "Haiku"]
+        let found = plan == "pro" || plan == "free" ? [] : models.compactMap { k, name in win(k).map { (name, $0) } }
+        let fullest = found.max { $0.1.percent != $1.1.percent ? $0.1.percent < $1.1.percent : $0.0 > $1.0 }
+        sonnet = fullest?.1
+        if let n = fullest?.0 { modelName = n }
+        // which windows this plan has, said once in the log (so a new plan's shape can be seen)
+        let names = o.filter { ($0.value as? [String: Any])?["utilization"] is NSNumber }.keys.sorted().joined(separator: ", ")
+        if names != windowNames { windowNames = names; log?("usage windows: " + (names.isEmpty ? "none" : names) + " (plan \(plan ?? "?"))") }
         return true
+    }
+
+    // MARK: the last numbers, kept across a restart
+
+    private static let lastKey = "UsageLast"
+
+    /// The last good answer, so a restart (or Anthropic asking to wait) shows it "as of" then instead of nothing.
+    private func keep() {
+        func w(_ x: Window?) -> [Double]? { x.map { [$0.percent, $0.resets?.timeIntervalSince1970 ?? 0] } }
+        var d: [String: Any] = ["account": tokenAccount ?? "", "updated": (updated ?? Date()).timeIntervalSince1970, "model": modelName]
+        d["session"] = w(session); d["weekly"] = w(weekly); d["modelWeek"] = w(sonnet)
+        UserDefaults.standard.set(d, forKey: UsageMonitor.lastKey)
+    }
+
+    /// Back after a restart: the last answer, as of when it came (for the account it was read with: if Claude Code
+    /// signed in to another one meanwhile, the first read sees that and drops it).
+    private func restore() {
+        guard updated == nil, let d = UserDefaults.standard.dictionary(forKey: UsageMonitor.lastKey),
+              let at = d["updated"] as? Double else { return }
+        func w(_ k: String) -> Window? {
+            guard let a = d[k] as? [Double], a.count == 2 else { return nil }
+            return Window(percent: a[0], resets: a[1] > 0 ? Date(timeIntervalSince1970: a[1]) : nil)
+        }
+        session = w("session"); weekly = w("weekly"); sonnet = w("modelWeek")
+        modelName = d["model"] as? String ?? "Sonnet"
+        updated = Date(timeIntervalSince1970: at)
+        tokenAccount = (d["account"] as? String).flatMap { $0.isEmpty ? nil : $0 }
     }
 }
