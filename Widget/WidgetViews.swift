@@ -3,18 +3,18 @@ import SwiftUI
 // The desktop widget's views. Plain SwiftUI (no WidgetKit), so a preview tool can draw them too;
 // KikumapWidget.swift puts them in a widget.
 
-/// What Kikumap writes to ~/Library/Application Support/ClaudeConsole/widget.json
+/// What KIKUmap writes to ~/Library/Application Support/ClaudeConsole/widget.json
 /// (Sources/WidgetFeed.swift writes the same shape — keep the two in step).
 struct WidgetState: Codable {
     struct Item: Codable, Hashable { var id: String; var title: String; var unsure: Bool? = nil }
     /// One usage window; `group` is whose: "claude" (also when missing) or "gpt"; `minutes` how long it is.
-    /// `asOf`: the numbers are from an earlier read (Kikumap couldn't read usage since): when that was.
+    /// `asOf`: the numbers are from an earlier read (KIKUmap couldn't read usage since): when that was.
     struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String?; var group: String?; var minutes: Int?; var asOf: String? }
     /// One hour: seconds Claude worked per colour slot (legend order); the last one is every other chat.
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
     var english: Bool
-    /// Kikumap was quitting when it wrote this (so it was no longer live from then: shown dimmed, under from when).
+    /// KIKUmap was quitting when it wrote this (so it was no longer live from then: shown dimmed, under from when).
     var closed: Bool?
     var running: [Item]
     var unread: [Item]
@@ -24,13 +24,13 @@ struct WidgetState: Codable {
     var usageOff: Bool
     var hours: [Hour]
     var legend: [String]
-    /// Each named chat's branch colour on the map ("" for none; nil from an older Kikumap: the palette's).
+    /// Each named chat's branch colour on the map ("" for none; nil from an older KIKUmap: the palette's).
     var colours: [String]? = nil
     /// Claude's chat list (or its unread marks) can't be read now: said, and the counts carry a "?".
     var claudeNote: String? = nil
     /// The note is about Claude's unread marks alone: what's running is read as usual.
     var claudeUnreadOnly: Bool? = nil
-    /// Seconds of the chart's 24 hours that are estimated (runs out of Kikumap's sight): its total says "≈".
+    /// Seconds of the chart's 24 hours that are estimated (runs out of KIKUmap's sight): its total says "≈".
     var estimated: Double? = nil
     /// The named chats' ids and their time in these 24 hours (legend order), for the large widget's list.
     var legendIDs: [String]? = nil
@@ -212,7 +212,7 @@ struct KikumapWidgetView: View {
     private var en: Bool { state?.english ?? !WidgetText.systemChinese }
     private func t(_ zh: String, _ e: String) -> String { en ? e : zh }
 
-    /// When Kikumap wrote what's shown. macOS redraws a widget only so often (Apple: about every 15 to 60 minutes),
+    /// When KIKUmap wrote what's shown. macOS redraws a widget only so often (Apple: about every 15 to 60 minutes),
     /// so the widget keeps to what still holds when it's a while old: how long Claude worked, by the hour and the day,
     /// and usage, all as of then, and saying so. What's running or unread right now is the menu bar's.
     private var asOf: Date { state.flatMap { WidgetTime.parse($0.updated) } ?? date }
@@ -229,8 +229,8 @@ struct KikumapWidgetView: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Kikumap").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.primary)
-                Text(t("打开一次 Kikumap，这里就有内容了", "Open Kikumap once to fill this in"))
+                Text("KIKUmap").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.primary)
+                Text(t("打开一次 KIKUmap，这里就有内容了", "Open KIKUmap once to fill this in"))
                     .font(.system(size: 11)).foregroundStyle(Color.secondary)
                 Spacer(minLength: 0)
             }
@@ -278,7 +278,7 @@ struct KikumapWidgetView: View {
     private func large(_ s: WidgetState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("Kikumap").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.secondary)
+                Text("KIKUmap").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.secondary)
                 Spacer(minLength: 4)
                 stamp
             }
@@ -530,7 +530,7 @@ struct KikumapWidgetView: View {
     }
 }
 
-/// Whose meter it is: Claude's mark, or ChatGPT's "GPT" tag — as in Kikumap's sidebar.
+/// Whose meter it is: Claude's mark, or ChatGPT's "GPT" tag — as in KIKUmap's sidebar.
 struct ProviderMark: View {
     let gpt: Bool
 
@@ -540,24 +540,21 @@ struct ProviderMark: View {
                 .padding(.horizontal, 2).frame(height: 10)
                 .overlay(RoundedRectangle(cornerRadius: 2.2).stroke(Color.secondary, lineWidth: 0.9))
         } else {
-            Spark().stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.1, lineCap: .round)).frame(width: 10, height: 10)
+            Flower().fill(Color.secondary).frame(width: 10, height: 10)
         }
     }
 }
 
-/// Kikumap's twelve uneven rays (Sources/Logo.swift draws the same mark in the app).
-struct Spark: Shape {
-    private static let rays: [CGFloat] = [1.0, 0.66, 0.92, 0.72, 0.97, 0.62, 0.9, 0.7, 0.95, 0.64, 0.88, 0.74]
-
+/// KIKUmap's flower: six oval petals round an open centre (Sources/Logo.swift draws the same mark in the app).
+struct Flower: Shape {
     func path(in r: CGRect) -> Path {
-        let s = min(r.width, r.height), c = CGPoint(x: r.midX, y: r.midY)
-        let inner = s * 0.11, outer = s / 2 - 0.55
+        // the flower's own units, as Logo.draw: petals 8.6 × 12.6 from 6.4 to 31.6 off the centre
+        let s = min(r.width, r.height) / 63.2
+        let rx = 8.6 * s, ry = 12.6 * s, d = 6.4 * s + ry
         var p = Path()
-        for (i, len) in Self.rays.enumerated() {
-            let a = (90 - 360 * CGFloat(i) / CGFloat(Self.rays.count)) * .pi / 180
-            let r1 = inner + (outer - inner) * len
-            p.move(to: CGPoint(x: c.x + cos(a) * inner, y: c.y - sin(a) * inner))
-            p.addLine(to: CGPoint(x: c.x + cos(a) * r1, y: c.y - sin(a) * r1))
+        for i in 0..<6 {
+            let petal = Path(ellipseIn: CGRect(x: -rx, y: -d - ry, width: 2 * rx, height: 2 * ry))
+            p.addPath(petal, transform: CGAffineTransform(rotationAngle: .pi / 3 * CGFloat(i)).concatenating(CGAffineTransform(translationX: r.midX, y: r.midY)))
         }
         return p
     }

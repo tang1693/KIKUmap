@@ -117,9 +117,9 @@ final class IconButton: NSButton {
 @MainActor
 final class HeaderView: NSView {
     var running = 0, unread = 0
-    /// Some of those running are out of Kikumap's sight (shown "2?").
+    /// Some of those running are out of KIKUmap's sight (shown "2?").
     var runningUnsure = false
-    /// Of those running, the ones Kikumap sees run now: while there are any, the ring round the count turns.
+    /// Of those running, the ones KIKUmap sees run now: while there are any, the ring round the count turns.
     var runningSeen = 0 { didSet { if (runningSeen > 0) != (oldValue > 0) { turnRing() } } }
     private var ringTimer: Timer?
     private var ringPhase: CGFloat = 0
@@ -250,7 +250,7 @@ final class HeaderView: NSView {
 
     /// Where the logo, the name and the two counts with their words (or the pills alone) end, as `draw` lays them out.
     private func countsEnd(words: Bool = true) -> CGFloat {
-        var x: CGFloat = 48 + ceil("Kikumap".size(Theme.ui(15, .semibold)).width) + 22
+        var x: CGFloat = 48 + ceil("KIKUmap".size(Theme.ui(15, .semibold)).width) + 22
         let f = Theme.mono(12.5, .bold)
         for (n, label) in [(running, tr("进行中", "Running")), (unread, tr("未读", "Unread"))] {
             let w = label == tr("未读", "Unread") ? max(24, ceil(String(n).size(f).width) + 14)
@@ -292,7 +292,7 @@ final class HeaderView: NSView {
         Logo.draw(in: NSRect(x: 16, y: mid - 12, width: 24, height: 24))
         var x: CGFloat = 48
         let tf = Theme.ui(15, .semibold)
-        let title = "Kikumap"
+        let title = "KIKUmap"
         let ts = title.size(tf)
         (title as NSString).draw(at: NSPoint(x: x, y: mid - ts.height / 2), withAttributes: [.font: tf, .foregroundColor: Theme.ink])
         x += ts.width + 22
@@ -730,7 +730,7 @@ final class SidebarView: NSView, NSDraggingSource {
             return m
         }
         let on = c.pinned == true
-        m.addItem(MenuAction(title: on ? tr("取消置顶", "Unpin") : tr("在 Kikumap 置顶", "Pin in Kikumap")) { [weak self] in
+        m.addItem(MenuAction(title: on ? tr("取消置顶", "Unpin") : tr("在 KIKUmap 置顶", "Pin in KIKUmap")) { [weak self] in
             self?.store.setPinned(c.id, !on)
         })
         m.addItem(MenuAction(title: tr("打开", "Open")) { [weak self] in self?.onOpen?(c.id) })
@@ -1055,7 +1055,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     func relabel() {
         hint.stringValue = MainWindow.hintText()
         keysButton.attributedTitle = MainWindow.keysTitle()
-        window.title = "Kikumap"
+        window.title = "KIKUmap"
         layoutPanes()                   // the button and the hint are sized to the new words
         header.relabel()
         reload()
@@ -1071,7 +1071,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
                           styleMask: [.titled, .closable, .resizable, .miniaturizable],
                           backing: .buffered, defer: false)
         super.init()
-        window.title = "Kikumap"
+        window.title = "KIKUmap"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = Theme.bg

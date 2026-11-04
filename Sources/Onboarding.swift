@@ -41,7 +41,7 @@ final class AnimView: NSView {
 /// First launch: what the app does, then each permission on its own page.
 @MainActor
 final class Onboarding: NSObject, NSWindowDelegate {
-    /// One permission (Accessibility) is all Kikumap needs; the rest is offered on one page, all optional.
+    /// One permission (Accessibility) is all KIKUmap needs; the rest is offered on one page, all optional.
     enum Page: CaseIterable { case welcome, menubar, map, timeline, colors, sources, accessibility, extras, done }
 
     private let perms: Permissions
@@ -59,7 +59,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
     private var granted = false
     private var grantedAt: Date?
     private var statusL: NSTextField?
-    /// Open Kikumap at login (asked on the last page; on unless you untick it).
+    /// Open KIKUmap at login (asked on the last page; on unless you untick it).
     private var startAtLogin = true
     private var sawDone = false
     var onLanguage: (() -> Void)?
@@ -72,7 +72,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    /// `resume`: back where you were (macOS restarted Kikumap for Full Disk Access, say).
+    /// `resume`: back where you were (macOS restarted KIKUmap for Full Disk Access, say).
     func show(resume: Bool = false) {
         if window == nil { build() }
         index = resume ? min(max(UserDefaults.standard.integer(forKey: "IntroPage"), 0), Page.allCases.count - 1) : 0
@@ -179,7 +179,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
 
         switch p {
         case .welcome:
-            titleL.stringValue = "Kikumap"
+            titleL.stringValue = "KIKUmap"
             bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 里把要盯的对话置顶，或在 ChatGPT 里置顶 Codex 对话，这个菜单栏小工具就告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
                                    "Many Claude and ChatGPT chats going at once? Pin the ones to watch in Claude, or Codex chats in ChatGPT, and this menu-bar app tells you which are still running and which finished unread — and lets you sort them into a mind map.")
             let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
@@ -214,7 +214,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.painter = { r, t in Onboarding.paintColors(r, t) }
             art.settled = 5
         case .sources:
-            titleL.stringValue = tr("Kikumap 能看到什么", "What Kikumap can see")
+            titleL.stringValue = tr("KIKUmap 能看到什么", "What KIKUmap can see")
             bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的 Codex 对话。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及普通 ChatGPT 聊天，它看不到。",
                                    "It reads what's on this Mac: chats you pin in the Claude app (pinned on your phone or the web too), Claude Code and Codex run on this Mac, and Codex chats you pin in the ChatGPT app. Claude Code or Codex running on another computer, a server or in the cloud (SSH, remote), and ordinary ChatGPT chats, are out of its sight.")
             art.painter = { r, t in Onboarding.paintSources(r, t) }
@@ -228,8 +228,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         case .accessibility:
             permissionPage(step: 1, symbol: "accessibility",
                            title: tr("只需要一步：辅助功能", "Just one step: Accessibility"),
-                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 Kikumap。",
-                                    "Lets Kikumap read the Claude app's chat list: which chats are running, done or pinned. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting). ChatGPT needs no permission.\nClick below → switch on Kikumap in the list."),
+                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 KIKUmap。",
+                                    "Lets KIKUmap read the Claude app's chat list: which chats are running, done or pinned. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting). ChatGPT needs no permission.\nClick below → switch on KIKUmap in the list."),
                            action: tr("打开系统设置", "Open System Settings"),
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
         case .extras:
@@ -237,8 +237,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         case .done:
             sawDone = true
             titleL.stringValue = tr("准备好了", "You're set")
-            bodyL.stringValue = tr("下一步：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单和左栏里。Kikumap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
-                                   "Next: pin a chat in Claude, or a Codex chat in ChatGPT, and it shows up in the menu and the left column. Kikumap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
+            bodyL.stringValue = tr("下一步：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单和左栏里。KIKUmap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
+                                   "Next: pin a chat in Claude, or a Codex chat in ChatGPT, and it shows up in the menu and the left column. KIKUmap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
             bodyL.frame = NSRect(x: 90, y: 150, width: (extra.superview?.bounds.width ?? 720) - 180, height: 62)
             extra.frame = NSRect(x: 40, y: 70, width: (extra.superview?.bounds.width ?? 720) - 80, height: 74)
             let looks = Prefs.Appearance.allCases
@@ -248,13 +248,13 @@ final class Onboarding: NSObject, NSWindowDelegate {
             seg.sizeToFit()
             // open at login: on a first run with nothing chosen yet it's ticked, and applied when you leave; otherwise (the
             // installer asked, it's already on, the intro again) the box is the setting itself. From the disk image it
-            // can't be turned on: the To-do offers it once Kikumap runs from Applications.
+            // can't be turned on: the To-do offers it once KIKUmap runs from Applications.
             let away = LoginItem.temporaryPlace && !LoginItem.enabled
             let live = !away && (LoginItem.chosen || Prefs.onboarded || FileManager.default.fileExists(atPath: LoginItem.url.path))
             if live { LoginItem.chosen = true }
             weak var b: NSButton?               // weak: the box holds this closure
-            let box = ClosureCheck(title: away ? tr("登录时自动打开：先把 Kikumap 拖进「应用程序」，从那里打开", "Open at login: first drag Kikumap into Applications and open it from there")
-                                               : tr("登录 Mac 时自动打开 Kikumap（只在菜单栏）", "Open Kikumap when you log in (menu bar only)"),
+            let box = ClosureCheck(title: away ? tr("登录时自动打开：先把 KIKUmap 拖进「应用程序」，从那里打开", "Open at login: first drag KIKUmap into Applications and open it from there")
+                                               : tr("登录 Mac 时自动打开 KIKUmap（只在菜单栏）", "Open KIKUmap when you log in (menu bar only)"),
                                    on: live ? LoginItem.enabled : startAtLogin && !away) { [weak self] on in
                 guard live else { self?.startAtLogin = on; return }
                 LoginItem.choose(on)
@@ -276,7 +276,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
     /// The optional extras, each a button with what it adds; all can be skipped and turned on later in Settings.
     private func extrasPage() {
         titleL.stringValue = tr("可以再开的功能（都可选）", "Optional extras")
-        bodyL.stringValue = tr("不开也能正常用。以后在 设置 → 授权 里随时能开。", "Kikumap works without them. Turn them on any time in Settings → Access.")
+        bodyL.stringValue = tr("不开也能正常用。以后在 设置 → 授权 里随时能开。", "KIKUmap works without them. Turn them on any time in Settings → Access.")
         bodyL.frame = NSRect(x: 90, y: 184, width: extra.superview!.bounds.width - 180, height: 22)
         extra.frame = NSRect(x: 40, y: 66, width: extra.superview!.bounds.width - 80, height: 116)
         var rows: [(String, String, () -> Bool, () -> Void)] = [
@@ -328,7 +328,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
                 // Full Disk Access opened and still off: if it was switched on, macOS gives it only after a reopen
                 if k == 0, let l = diskLabel {
                     let text = !done && pm.fullDiskAsked
-                        ? tr("在系统设置里开好了？Kikumap 要退出并重新打开才能用上：再点一下这个按钮。", "Switched it on in System Settings? Kikumap gets it once it quits and reopens: click this button again.")
+                        ? tr("在系统设置里开好了？KIKUmap 要退出并重新打开才能用上：再点一下这个按钮。", "Switched it on in System Settings? KIKUmap gets it once it quits and reopens: click this button again.")
                         // on, but Notification Center's database can't be read (moved or changed by a macOS update)
                         : done && pm.notifications.status == .unreadable
                         ? tr("「完全磁盘访问」已开，但读不了 macOS 的通知数据库（系统更新改了它？），Claude 通知里的提醒暂时用不了。", "Full Disk Access is on, but macOS's notification database can't be read (changed by an update?), so the alerts from Claude's notifications don't work for now.")
@@ -567,7 +567,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         }
     }
 
-    /// What it sees: the apps on this Mac feed Kikumap; what runs elsewhere stops at the Mac's edge.
+    /// What it sees: the apps on this Mac feed KIKUmap; what runs elsewhere stops at the Mac's edge.
     static func paintSources(_ r: NSRect, _ t: CGFloat) {
         let mac = NSRect(x: 30, y: 22, width: 404, height: 276)
         card(mac)
@@ -590,7 +590,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
             }
             text(name, .systemFont(ofSize: 13, weight: .semibold), Theme.ink, NSPoint(x: row.minX + 40, y: row.minY + 11))
             text(sub, .systemFont(ofSize: 11.5), Theme.muted, NSPoint(x: row.minX + 40, y: row.minY + 31))
-            // its path into Kikumap, a dot running along it
+            // its path into KIKUmap, a dot running along it
             let a = NSPoint(x: row.maxX + 2, y: row.midY), d = NSPoint(x: hub.x - 34, y: hub.y)
             let b = NSPoint(x: (a.x + d.x) / 2, y: a.y), c = NSPoint(x: (a.x + d.x) / 2, y: d.y)
             let p = NSBezierPath(); p.move(to: a); p.curve(to: d, controlPoint1: b, controlPoint2: c)
@@ -600,8 +600,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
             Theme.ink.setFill(); NSBezierPath(ovalIn: NSRect(x: m.x - 3.5, y: m.y - 3.5, width: 7, height: 7)).fill()
         }
         Logo.draw(in: NSRect(x: hub.x - 30, y: hub.y - 30, width: 60, height: 60))
-        let kf = NSFont.systemFont(ofSize: 13, weight: .semibold), ks = "Kikumap".size(kf)
-        text("Kikumap", kf, Theme.ink, NSPoint(x: hub.x - ks.width / 2, y: hub.y + 38))
+        let kf = NSFont.systemFont(ofSize: 13, weight: .semibold), ks = "KIKUmap".size(kf)
+        text("KIKUmap", kf, Theme.ink, NSPoint(x: hub.x - ks.width / 2, y: hub.y + 38))
         // elsewhere: it never gets in
         let away = NSRect(x: mac.maxX + 46, y: mac.minY, width: r.width - mac.maxX - 46 - 22, height: mac.height)
         text(tr("别处", "Elsewhere"), lf, Theme.muted, NSPoint(x: away.minX + 2, y: away.minY + 12))

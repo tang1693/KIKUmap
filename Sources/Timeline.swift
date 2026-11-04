@@ -295,7 +295,7 @@ final class TimelineView: NSView {
             let e = live ? max(end, now) : end
             guard e >= left && s <= right else { continue }
             let r = NSRect(x: x(s), y: laneY(0) + 4 + rowH * CGFloat(row), width: max(4, x(e) - x(s)), height: rowH - 4)
-            // your branch colour if the chat has one, otherwise neutral; time Kikumap didn't see (estimated) faint,
+            // your branch colour if the chat has one, otherwise neutral; time KIKUmap didn't see (estimated) faint,
             // with a dashed edge
             let base = store.branchColor(id) ?? Theme.muted
             (live ? base : base.withAlphaComponent(est ? 0.22 : 0.55)).setFill()
@@ -314,13 +314,13 @@ final class TimelineView: NSView {
                 NSGraphicsContext.current?.restoreGraphicsState()
             }
             // still going, but out of sight since its end here (a Codex task whose log went quiet): said so; a stretch
-            // Kikumap didn't see: estimated, and how
+            // KIKUmap didn't see: estimated, and how
             let unseen = !live && !est && store.runStart[id].flatMap(Clock.parse) == s && store.outOfSight(id)
             let typical = Self.dur(store.typicalRun(id))
             let tip = "\(store.name(id))\n\(est ? "≈ " : "")\(Self.hm(s)) – \(live ? tr("进行中", "running") : Self.hm(e)) (\(est ? "≈ " : "")\(Self.dur(e.timeIntervalSince(s))))"
                 + (unseen ? tr("\n之后没看到动静（在等你批准，还是一步做得久，不知道）", "\nNo activity seen since (waiting for you, or a long step: not known)") : "")
-                + (est ? tr("\n估算：这段 Kikumap 没看到\n（两次看到它之间，或按你一次运行的常见时长 \(typical)）",
-                            "\nEstimated: Kikumap didn't see this stretch\n(between two sightings, or your typical run of \(typical))") : "")
+                + (est ? tr("\n估算：这段 KIKUmap 没看到\n（两次看到它之间，或按你一次运行的常见时长 \(typical)）",
+                            "\nEstimated: KIKUmap didn't see this stretch\n(between two sightings, or your typical run of \(typical))") : "")
             hits.append((r, tip, { [weak self] in if self?.store.canOpen(id) == true { self?.onOpenChat?(id) } }))
         }
 

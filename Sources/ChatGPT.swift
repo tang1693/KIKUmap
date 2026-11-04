@@ -4,7 +4,7 @@ import SQLite3
 // The ChatGPT desktop app (built on Codex) keeps its threads on this Mac in ~/.codex: a SQLite list
 // (title, archived, last change), a log per thread whose last "task started / complete" line says
 // whether it's working and whose answers carry the plan limits, and the window state with its pins
-// and unread dots. Kikumap only reads them; nothing is changed or sent anywhere.
+// and unread dots. KIKUmap only reads them; nothing is changed or sent anywhere.
 
 struct GPTThread {
     let id: String
@@ -104,7 +104,7 @@ final class GPTWatcher {
         return at.map { Date().timeIntervalSince($0) } ?? .infinity
     }
     static var available: Bool { database != nil }
-    /// The older ChatGPT app (before it was built on Codex) is on this Mac: it keeps nothing Kikumap can read.
+    /// The older ChatGPT app (before it was built on Codex) is on this Mac: it keeps nothing KIKUmap can read.
     static var oldAppOnly: Bool {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) == nil
             && NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.chat") != nil
@@ -709,8 +709,8 @@ final class GPTWatcher {
             NSWorkspace.shared.open([u], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
         } else {
             Permissions.alert(tr("打不开：这台 Mac 上没有 ChatGPT", "Can't open it: ChatGPT isn't on this Mac"),
-                              tr("这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。装好后，在 ChatGPT 里置顶的对话也会回到 Kikumap。",
-                                 "This chat lives in the ChatGPT desktop app, so it opens only there. Once the app is installed, chats pinned in ChatGPT show in Kikumap again."))
+                              tr("这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。装好后，在 ChatGPT 里置顶的对话也会回到 KIKUmap。",
+                                 "This chat lives in the ChatGPT desktop app, so it opens only there. Once the app is installed, chats pinned in ChatGPT show in KIKUmap again."))
         }
     }
 

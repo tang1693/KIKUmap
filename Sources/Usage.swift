@@ -171,7 +171,7 @@ final class UsageMonitor: NSObject {
     }
 
     /// Claude Code's `claude` command is on this Mac: asking nothing, reading no secret. Not the ~/.claude folder,
-    /// which Kikumap's own hooks and the Claude app's Code mode make too.
+    /// which KIKUmap's own hooks and the Claude app's Code mode make too.
     static var claudeCodeInstalled: Bool { claudeCommand(home: NSHomeDirectory()) }
 
     /// Where Claude Code's installers and npm put `claude` (the app has no shell PATH to look along).
@@ -363,7 +363,7 @@ final class UsageMonitor: NSObject {
         // a locked keychain: Apple's tool would put up its own dialog; wait for the Mac to be unlocked instead
         if !interactive && keychainLocked() { return .locked }
         // then the way Claude Code itself reads it, through Apple's `security` tool, which the item trusts.
-        // An "Always Allow" given to Kikumap doesn't last: Claude Code rewrites the item whenever it renews its
+        // An "Always Allow" given to KIKUmap doesn't last: Claude Code rewrites the item whenever it renews its
         // sign-in (a few times a day), and macOS would ask again each time.
         if let r = fromTool(viaSecurityTool()) { return r }
         return interactive ? keychain(q, interactive: true) : quiet

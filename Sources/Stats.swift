@@ -105,7 +105,7 @@ final class StatsView: NSView {
     private var perBar: [[String: Double]] = []
     private var dayStarts: [Date] = []               // the summary goes by day: each day's start, then tomorrow's
     private var daySums: [Double] = []
-    /// How much of the range's time is estimated (stretches Kikumap didn't see): in all, by day, by bar and chat.
+    /// How much of the range's time is estimated (stretches KIKUmap didn't see): in all, by day, by bar and chat.
     private var estTotal: Double = 0
     private var estDays: [Double] = []
     private var estPerBar: [[String: Double]] = []
@@ -358,8 +358,8 @@ final class StatsView: NSView {
         var note = tr("\(per) \(GPTWatcher.who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
                       "Hours \(GPTWatcher.who) worked \(per), split by chat. Chats running side by side share the time.")
         if estTotal >= 60 {
-            note += tr(" 其中 ≈\(Clock.duration(estTotal)) 是估算：Kikumap 看不到的时候（Claude 窗口关了、Codex 任务没动静），按你一次运行的常见时长算。",
-                       " ≈\(Clock.duration(estTotal)) of it is estimated: while Kikumap couldn't see (Claude's window closed, a Codex task quiet), at your typical run's length.")
+            note += tr(" 其中 ≈\(Clock.duration(estTotal)) 是估算：KIKUmap 看不到的时候（Claude 窗口关了、Codex 任务没动静），按你一次运行的常见时长算。",
+                       " ≈\(Clock.duration(estTotal)) of it is estimated: while KIKUmap couldn't see (Claude's window closed, a Codex task quiet), at your typical run's length.")
         }
         if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] {
             let d = Clock.format(until, "M月d日", "MMM d")
@@ -373,7 +373,7 @@ final class StatsView: NSView {
 
         let plot = self.plot
         guard sums.reduce(0, +) > 0 else {
-            draw(tr("这段时间还没有记录。Kikumap 开着时，\(GPTWatcher.who) 干活的时长都会记下来。", "Nothing recorded in this range yet. While Kikumap runs, it records how long \(GPTWatcher.who) work."),
+            draw(tr("这段时间还没有记录。KIKUmap 开着时，\(GPTWatcher.who) 干活的时长都会记下来。", "Nothing recorded in this range yet. While KIKUmap runs, it records how long \(GPTWatcher.who) work."),
                  Theme.ui(13), Theme.muted, in: NSRect(x: plot.minX, y: plot.midY - 10, width: plot.width, height: 20), .center)
             drawLegend(total: 0)
             return

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lays out the Kikumap disk-image window: Kikumap on the left, the Applications shortcut on the right,
+"""Lays out the KIKUmap disk-image window: KIKUmap on the left, the Applications shortcut on the right,
 big icons, no toolbar or sidebar, and the picture in .background/background.tiff behind them.
 
 Usage:
@@ -17,8 +17,8 @@ import sys
 
 W, H = 560, 380                         # window frame, title bar included
 ICON = 128
-SPOTS = {"Kikumap.app": (140, 165), "Applications": (420, 165)}
-VOLUME = "Kikumap"
+SPOTS = {"KIKUmap.app": (140, 165), "Applications": (420, 165)}
+VOLUME = "KIKUmap"
 BG_DIR, BG_FILE = ".background", "background.tiff"
 
 
@@ -37,7 +37,7 @@ def plist(d):
 
 
 def alias(volume_date, folder_cnid, file_cnid, file_date):
-    """A Mac alias (version 2) to /.background/background.tiff on the Kikumap volume."""
+    """A Mac alias (version 2) to /.background/background.tiff on the KIKUmap volume."""
     def tag(t, data):
         return struct.pack(">hh", t, len(data)) + data + (b"\0" if len(data) & 1 else b"")
     fixed = struct.pack(">h28pI2shI64pII4s4shhI2s10s",

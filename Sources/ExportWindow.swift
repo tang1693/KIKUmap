@@ -161,8 +161,8 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         }
         change.controlSize = .small
         // without Full Disk Access, macOS asks before an app may write into Documents, Desktop or Downloads
-        let folderNote = label(tr("第一次导出到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 Kikumap 存到这里。",
-                                  "The first export into Documents, Desktop or Downloads, macOS asks once whether Kikumap may save there."), small: true, width: 470)
+        let folderNote = label(tr("第一次导出到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 KIKUmap 存到这里。",
+                                  "The first export into Documents, Desktop or Downloads, macOS asks once whether KIKUmap may save there."), small: true, width: 470)
         folderNote.isHidden = ClaudeExport.canLookInDownloads
         let auto = ClosureCheck(title: tr("自动更新", "Keep it updated"), on: Archive.auto) { Archive.auto = $0 }
         let days = Archive.everyChoices

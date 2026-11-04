@@ -17,7 +17,7 @@ final class VNode {
     var tagMarks: [(color: NSColor, icon: String?)] = []
     var count = 0
     var runN = 0, unrN = 0
-    /// A topic: of the `runN` running, one Kikumap sees run now (its count's ring turns). A chat: it's seen running
+    /// A topic: of the `runN` running, one KIKUmap sees run now (its count's ring turns). A chat: it's seen running
     /// now (an orange stretch goes round its outline).
     var runSeen = false
     var collapsed = false
@@ -541,7 +541,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard let w = window, let d = pdfData() else { return }
         let p = NSSavePanel()
         p.allowedContentTypes = [.pdf]
-        p.nameFieldStringValue = tr("Kikumap 导图 ", "Kikumap map ") + Clock.format(Date(), "yyyy-MM-dd", "yyyy-MM-dd") + ".pdf"
+        p.nameFieldStringValue = tr("KIKUmap 导图 ", "KIKUmap map ") + Clock.format(Date(), "yyyy-MM-dd", "yyyy-MM-dd") + ".pdf"
         p.beginSheetModal(for: w) { r in
             guard r == .OK, let url = p.url else { return }
             do { try d.write(to: url, options: .atomic); NSWorkspace.shared.activateFileViewerSelecting([url]) }
@@ -1882,7 +1882,7 @@ final class MapView: NSView, NSTextFieldDelegate {
 }
 
 extension Store {
-    /// Somewhere to open it: a chat Kikumap still knows, or a Claude chat by its address. A Claude Code session or a
+    /// Somewhere to open it: a chat KIKUmap still knows, or a Claude chat by its address. A Claude Code session or a
     /// ChatGPT thread with no record left (only filed, or only in the statistics) has none.
     func canOpen(_ id: String) -> Bool { chat(id) != nil || !(id.hasPrefix("cc-") || id.hasPrefix("gpt-")) }
 }

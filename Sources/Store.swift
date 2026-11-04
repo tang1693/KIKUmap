@@ -37,7 +37,7 @@ struct Interval: Codable {
     var id: String
     var start: String
     var end: String
-    /// A stretch Kikumap didn't see (the run was out of its sight), counted at a typical run's length: shown "≈".
+    /// A stretch KIKUmap didn't see (the run was out of its sight), counted at a typical run's length: shown "≈".
     var est: Bool? = nil
 }
 
@@ -105,7 +105,7 @@ final class Store {
     private var missingSince: [String: Date] = [:]
     /// The chat open in Claude's window (from the sidebar's last read).
     var openChatID: (() -> String?)?
-    /// When Claude last asked for an approval in a chat Kikumap couldn't tell (its window closed): said in the To-do.
+    /// When Claude last asked for an approval in a chat KIKUmap couldn't tell (its window closed): said in the To-do.
     private(set) var approvalAsked: Date?
     /// How many times a chat's id has changed: a sidebar read begun before a change is stale.
     private(set) var idMoves = 0
@@ -119,7 +119,7 @@ final class Store {
     /// The newest version of each file that couldn't be saved, written again by `retrySaves`.
     private var pending: [String: (data: Data, url: URL, report: Bool)] = [:]
     /// Renames in Claude's sidebar are worked out only once it has been watched for a while: what changed while it
-    /// wasn't (Kikumap not running, the Mac asleep, the list out of sight) may be an unpin and a pin, two chats.
+    /// wasn't (KIKUmap not running, the Mac asleep, the list out of sight) may be an unpin and a pin, two chats.
     private var renamesFrom = Date().addingTimeInterval(Store.renameHold)
     static let renameHold: TimeInterval = 120
 
@@ -147,7 +147,7 @@ final class Store {
         if let s = load([String: String].self, dismissedURL) { dismissed = s }
         if let a = load(ActivityFile.self, activityURL) {
             intervals = a.intervals
-            // still open: Kikumap stopped without closing them (a crash, a forced quit). They end when it was last
+            // still open: KIKUmap stopped without closing them (a crash, a forced quit). They end when it was last
             // seen running, not now: the time it was away isn't work it saw.
             let alive = UserDefaults.standard.string(forKey: "AliveAt").flatMap(Clock.parse)
                 ?? ((try? FileManager.default.attributesOfItem(atPath: activityURL.path))?[.modificationDate] as? Date) ?? Date()
@@ -167,7 +167,7 @@ final class Store {
         log("\(Clock.iso()) start · data \(dir.path) · chats \(chats.count) · topics \(before)→\(map.root.children.count)\n", file: "app.log")
     }
 
-    /// Reads a data file. Missing: nil (a first run). There but unreadable (damaged, or from a newer Kikumap): moved
+    /// Reads a data file. Missing: nil (a first run). There but unreadable (damaged, or from a newer KIKUmap): moved
     /// aside to data/backups first, so nothing overwrites it, and listed in the To-do; nil.
     private func load<T: Decodable>(_ type: T.Type, _ url: URL) -> T? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
@@ -221,7 +221,7 @@ final class Store {
         let placed = map.placedChats(), named = Set(map.aliases.keys), timed = Set(intervals.map(\.id))
         var drop = Set(chats.filter { c in
             guard c.pinned != true, !placed.contains(c.id), !named.contains(c.id), !timed.contains(c.id) else { return false }
-            if c.updated_at.isEmpty { return true }          // never active while Kikumap watched: nothing to keep
+            if c.updated_at.isEmpty { return true }          // never active while KIKUmap watched: nothing to keep
             return c.updated_at < cut && seen[c.id] != "" && (seen[c.id] ?? "") >= c.updated_at   // read, and old
         }.map(\.id))
         guard !drop.isEmpty else { return }
@@ -308,20 +308,20 @@ final class Store {
     func today() -> [(id: String, secs: Double)] {
         worked([Calendar.current.startOfDay(for: Date()), Date()])[0].sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
     }
-    /// How much of today's time is estimated (stretches Kikumap didn't see).
+    /// How much of today's time is estimated (stretches KIKUmap didn't see).
     /// A Codex task whose log went quiet for good ("quiet since …"): not running, not known to be done.
     func isQuiet(_ id: String) -> Bool { gptQuiet.contains(id) }
 
     func todayEstimated() -> Double { estimated([Calendar.current.startOfDay(for: Date()), Date()])[0].values.reduce(0, +) }
 
-    // MARK: time Kikumap didn't see
+    // MARK: time KIKUmap didn't see
 
     /// When each running chat's run began (kept while it's out of sight), for the estimate of its unseen time.
     private var runBegan: [String: Date] = [:]
     private var typicalCache: [Bool: (count: Int, last: String, value: TimeInterval)] = [:]
 
     /// How long a run of this kind (a Claude-app chat, or a Codex task) typically lasts here: the median of the stretches
-    /// Kikumap saw lately (the timeline's week: older ones are folded into totals); 20 minutes until there are a few.
+    /// KIKUmap saw lately (the timeline's week: older ones are folded into totals); 20 minutes until there are a few.
     func typicalRun(_ id: String) -> TimeInterval {
         let codex = id.hasPrefix("gpt-")
         if let c = typicalCache[codex], c.count == intervals.count, c.last == (intervals.last?.end ?? "") { return c.value }
@@ -353,7 +353,7 @@ final class Store {
         return [(a, b)]
     }
 
-    /// A stretch Kikumap didn't see, counted as estimated.
+    /// A stretch KIKUmap didn't see, counted as estimated.
     private func estimate(_ id: String, from a: Date, to b: Date) {
         let parts = awake(a, b).filter { $0.1.timeIntervalSince($0.0) >= 1 }
         guard !parts.isEmpty else { return }
@@ -385,7 +385,7 @@ final class Store {
     /// `dailyOnlyUntil`).
     func worked(_ bounds: [Date], wholeDays: Bool = true) -> [[String: Double]] { workedSplit(bounds, wholeDays: wholeDays).all }
 
-    /// How much of `worked` is estimated (stretches Kikumap didn't see), by slot and chat.
+    /// How much of `worked` is estimated (stretches KIKUmap didn't see), by slot and chat.
     func estimated(_ bounds: [Date]) -> [[String: Double]] { workedSplit(bounds, wholeDays: false).est }
 
     private func workedSplit(_ bounds: [Date], wholeDays: Bool) -> (all: [[String: Double]], est: [[String: Double]]) {
@@ -631,7 +631,7 @@ final class Store {
         return false
     }
     /// Put before a chat's note when its run stopped on an error (Claude Code's StopFailure, a status on Claude's row
-    /// Kikumap doesn't know): its words are shown, and it wants you, not "done". Invisible.
+    /// KIKUmap doesn't know): its words are shown, and it wants you, not "done". Invisible.
     static let stopMark = "\u{2062}"
 
     /// Claude's notifications that it waits for you (your input, or permission to use your computer), in each language
@@ -691,11 +691,11 @@ final class Store {
     }
 
     /// Requests Claude's notifications put on a chat ("needs you"), by the notification's key: if Claude takes the
-    /// notification back (answered on the banner or elsewhere), so does Kikumap.
+    /// notification back (answered on the banner or elsewhere), so does KIKUmap.
     private var requests: [String: String] = [:]
 
     /// Claude took these notifications back. A request that's gone, on a chat still shown waiting for it: it was
-    /// answered (or cancelled) somewhere Kikumap can't see, so the chat is out of sight again ("running?"), not waiting.
+    /// answered (or cancelled) somewhere KIKUmap can't see, so the chat is out of sight again ("running?"), not waiting.
     func withdrawn(_ keys: Set<String>) {
         var changed = false
         for k in keys {
@@ -709,7 +709,7 @@ final class Store {
         if changed { saveChats(); notify() }
     }
 
-    /// A run ends where a notification says (it finished, or waits for you): its time up to then; out of Kikumap's
+    /// A run ends where a notification says (it finished, or waits for you): its time up to then; out of KIKUmap's
     /// sight, from the last sighting (time asleep isn't counted: a finish after the last wake counts from that wake).
     private func stopRun(_ id: String, at date: Date) {
         running.remove(id)
@@ -750,7 +750,7 @@ final class Store {
         return Clock.ago(c.updated_at)
     }
 
-    /// Running when last seen, but out of Kikumap's sight since (Claude's window closed, its sidebar hidden): whether
+    /// Running when last seen, but out of KIKUmap's sight since (Claude's window closed, its sidebar hidden): whether
     /// it has finished isn't known, and it isn't shown as if it were.
     func outOfSight(_ id: String) -> Bool {
         guard running.contains(id) else { return false }
@@ -766,7 +766,7 @@ final class Store {
     func liveEnd(_ id: String, now: Date = Date()) -> Date {
         id.hasPrefix("gpt-") && outOfSight(id) ? min(gptActive[id] ?? now, now) : now
     }
-    /// Running, as far as Kikumap can see now (what the menu-bar ring and the counts go by).
+    /// Running, as far as KIKUmap can see now (what the menu-bar ring and the counts go by).
     var seenRunningChats: [Chat] { runningChats.filter { !outOfSight($0.id) } }
 
     /// The highlight of the branch a chat sits in (nil = no colour).
@@ -834,7 +834,7 @@ final class Store {
         if let d = try? e.encode(dismissed) { write(d, dismissedURL) }
     }
 
-    /// Everything written again from memory (another copy of Kikumap may have written over it).
+    /// Everything written again from memory (another copy of KIKUmap may have written over it).
     func saveAll() { saveChats(); saveSeen(); saveActivity(); saveHistory() }
 
     private func saveChats() {
@@ -889,7 +889,7 @@ final class Store {
         if let d = try? e.encode(HistoryFile(days: history, titles: historyTitles)) { write(d, historyURL, report: report) }
     }
 
-    /// Kikumap is quitting, or the Mac going to sleep: running chats stop counting now (nothing can be seen
+    /// KIKUmap is quitting, or the Mac going to sleep: running chats stop counting now (nothing can be seen
     /// while it's away, and time it can't see isn't counted).
     func closeRuns(at when: Date) {
         sleptAt = when
@@ -939,7 +939,7 @@ final class Store {
     enum Event { case finished(String), needsInput(String) }
 
     /// Claude posted notifications ("done", "needs your input").
-    /// `quietBefore`: notifications from before then (posted while Kikumap wasn't running) update the chats but
+    /// `quietBefore`: notifications from before then (posted while KIKUmap wasn't running) update the chats but
     /// make no sound.
     func apply(_ notes: [Notif], quietBefore: Date = .distantPast) -> [Event] {
         var events: [Event] = []
@@ -949,7 +949,7 @@ final class Store {
             if title.isEmpty || title.lowercased() == "claude" { continue }
             let when = Clock.iso(n.date)
             // Claude's "needs your approval" names no chat: it's the one open in Claude's window, or the only one of
-            // Claude's out of Kikumap's sight; else it's said as such (never made into a chat of that name)
+            // Claude's out of KIKUmap's sight; else it's said as such (never made into a chat of that name)
             if n.chatId == nil && Store.approvalTitles.contains(title) {
                 let mine = running.filter { !$0.hasPrefix("cc-") && !$0.hasPrefix("gpt-") && outOfSight($0) }
                 if let id = openChatID?() ?? (mine.count == 1 ? mine.first : nil), let k = index[id] {
@@ -1127,7 +1127,7 @@ final class Store {
     // MARK: Claude Code
 
     /// Events from the Claude Code hooks. Returns sounds to play; `needsTitle` gets sessions whose name should be
-    /// (re)read from their transcript, once each. `quietBefore`: lines written before then (while Kikumap wasn't
+    /// (re)read from their transcript, once each. `quietBefore`: lines written before then (while KIKUmap wasn't
     /// running) update the sessions but make no sound.
     func apply(code evs: [CodeEvent], quietBefore: Date = .distantPast, needsTitle: (String, String) -> Void) -> [Event] {
         var events: [Event] = []
@@ -1280,7 +1280,7 @@ final class Store {
                 saveActivity()
             }
             guard let i = index[id] else {
-                // already there before Kikumap saw it: not unread (unless ChatGPT's own list says so)
+                // already there before KIKUmap saw it: not unread (unless ChatGPT's own list says so)
                 chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
                                   last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd,
                                   app: t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID))
@@ -1335,7 +1335,7 @@ final class Store {
                 }
                 changed = true
             } else if !t.running, let f = t.finished.map(Clock.iso), f > chats[i].updated_at {
-                chats[i].updated_at = f                             // finished while Kikumap wasn't watching
+                chats[i].updated_at = f                             // finished while KIKUmap wasn't watching
                 if t.stopped { gptQuiet.remove(id); seen[id] = f; seenChanged = true }      // stopped: nothing to read
                 else if gptQuiet.remove(id) != nil {
                     // the quiet task did finish: its time runs to that known finish (not after 6 hours)
@@ -1515,7 +1515,7 @@ final class Store {
                 // marked read here since its last change: Claude's mark is passed over until it's opened there
                 if let d = dismissed[l.id], let i = index[l.id], chats[i].updated_at <= d { } else {
                     nowUnread.insert(l.id)
-                    // Claude marks it unread, though by Kikumap's own record it was read: something came that Kikumap
+                    // Claude marks it unread, though by KIKUmap's own record it was read: something came that KIKUmap
                     // didn't see (a reply from the phone, or with Claude's window closed): dated now, learned late
                     if !axUnread.contains(l.id), let i = index[l.id], !chats[i].outsideClaude, !chats[i].updated_at.isEmpty,
                        chats[i].updated_at <= (seen[l.id] ?? ""), !running.contains(l.id) { chats[i].updated_at = now; changed = true }
@@ -1589,7 +1589,7 @@ final class Store {
             } else if rules.markFinishedUnread || waits != nil {
                 chats[i].updated_at = now; changed = true
                 finishedAt[id] = Date()
-                // stopped with a status Kikumap doesn't know ("Your context window is full"…): Claude's words, and it
+                // stopped with a status KIKUmap doesn't know ("Your context window is full"…): Claude's words, and it
                 // wants you, not "done"
                 let err = flagsOf[id].flatMap(SidebarWatcher.unknownStatus)
                 if let w = waits { chats[i].last_note = w }
@@ -1604,7 +1604,7 @@ final class Store {
                 if let n = chats[i].last_note, SidebarWatcher.waitingStatuses.contains(n) { chats[i].last_note = nil; changed = true }
             }
         }
-        // Claude's "waiting for you" on a row, mirrored on every read (not only when Kikumap saw it start): shown while
+        // Claude's "waiting for you" on a row, mirrored on every read (not only when KIKUmap saw it start): shown while
         // Claude shows it, and gone once it doesn't (answered here or elsewhere, or cancelled)
         for l in links where !nowRunning.contains(l.id) {
             guard let i = index[l.id], !chats[i].outsideClaude else { continue }
@@ -1636,7 +1636,7 @@ final class Store {
             if !u.isEmpty && u > (seen[c] ?? "") { seen[c] = u; seenChanged = true }
             if dismissed.removeValue(forKey: c) != nil { seenChanged = true }
         }
-        // Claude shows no unread mark on it, so it was read there (say while Kikumap wasn't running): read here too.
+        // Claude shows no unread mark on it, so it was read there (say while KIKUmap wasn't running): read here too.
         // Not one that finished in the last minute (Claude may not have marked it yet), one you marked unread, one
         // waiting for you (Claude marks that differently), or the one open in Claude's window while Claude isn't in
         // front (Claude never marks the chat it shows: no mark there says nothing about you having seen it).

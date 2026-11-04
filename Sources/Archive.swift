@@ -65,7 +65,7 @@ final class Archive {
         }
     }
 
-    /// There but unreadable (damaged, or from a newer Kikumap): moved to data/backups before anything can write over
+    /// There but unreadable (damaged, or from a newer KIKUmap): moved to data/backups before anything can write over
     /// it (what was imported and summarized is in it), and listed in the To-do.
     private func keepAside(_ error: Error) {
         let fm = FileManager.default, dir = stateURL.deletingLastPathComponent().appendingPathComponent("backups")
@@ -149,7 +149,7 @@ final class Archive {
         let names = Prefs.english ? ["Claude Export", "Claude 导出"] : ["Claude 导出", "Claude Export"]
         folder = names.map { docs.appendingPathComponent($0) }.first { FileManager.default.fileExists(atPath: $0.path) } ?? folder
     }
-    /// A folder Kikumap names in its language: the one already in `dir` in the other language, if there is one.
+    /// A folder KIKUmap names in its language: the one already in `dir` in the other language, if there is one.
     static func named(_ zh: String, _ en: String, in dir: URL) -> String {
         let fm = FileManager.default, mine = tr(zh, en), other = mine == zh ? en : zh
         return !fm.fileExists(atPath: dir.appendingPathComponent(mine).path) && fm.fileExists(atPath: dir.appendingPathComponent(other).path) ? other : mine
@@ -418,7 +418,7 @@ final class Archive {
     @discardableResult
     private func follow(_ list: [Item]) -> [Item] {
         // a summary or files recorded under a chat's title-only id that no chat has any more (it got its address since,
-        // in this run or an older Kikumap): they're this chat's
+        // in this run or an older KIKUmap): they're this chat's
         for it in list where Archive.isAddress(it.id) {
             let n = "n-" + Store.fnv(it.title)
             if state.summaries[n] != nil || state.files[n] != nil, store.chat(n) == nil { moved(n, to: it.id) }
@@ -508,7 +508,7 @@ final class Archive {
         return Archive.hasRest(dir) && state.files.contains { $0.key != id && URL(fileURLWithPath: $0.value).standardizedFileURL.path.lowercased() == p }
     }
 
-    /// Whose summary this is: the id in its front matter (nil: not one of Kikumap's, or not there).
+    /// Whose summary this is: the id in its front matter (nil: not one of KIKUmap's, or not there).
     nonisolated static func summaryID(_ memory: URL) -> String? {
         guard let s = try? String(contentsOf: memory, encoding: .utf8), s.hasPrefix("---\n"), let end = s.range(of: "\n---\n") else { return nil }
         return s[..<end.lowerBound].split(separator: "\n").first { $0.hasPrefix("id: ") }.map { String($0.dropFirst(4)) }
@@ -654,7 +654,7 @@ final class Archive {
             if arts > 0 { has.append("\(arts) artifacts") }
             s += "- [\(store.name(it.id))](<\(rel)/>) · " + has.joined(separator: " · ") + "\n"
         }
-        // only files Kikumap wrote are written over: someone's own Index.md or map.json in that folder stays
+        // only files KIKUmap wrote are written over: someone's own Index.md or map.json in that folder stays
         let mark = "<!-- kikumap-index -->\n"
         func ours(_ url: URL, _ test: (Data) -> Bool) -> Bool {
             guard let d = fm.contents(atPath: url.path) else { return !fm.fileExists(atPath: url.path) }
@@ -665,7 +665,7 @@ final class Archive {
             let t = String(decoding: d.prefix(200), as: UTF8.self)
             return t.hasPrefix(mark) || t.hasPrefix("# Claude Export\n\nUpdated ") || t.hasPrefix("# Claude 导出\n\n更新于 ")
         }
-        let indexURL = ours(index, isIndex) ? index : root.appendingPathComponent(tr("Kikumap 索引.md", "Kikumap Index.md"))
+        let indexURL = ours(index, isIndex) ? index : root.appendingPathComponent(tr("KIKUmap 索引.md", "KIKUmap Index.md"))
         if ours(indexURL, isIndex) { try? (mark + s).write(to: indexURL, atomically: true, encoding: .utf8) }
         let mapCopy = root.appendingPathComponent("map.json")
         let isMap: (Data) -> Bool = { (try? JSONDecoder().decode(MapDoc.self, from: $0)) != nil }
@@ -1125,7 +1125,7 @@ final class ClaudeDriver: @unchecked Sendable {
         return t
     }
 
-    /// The message feed is there (else Claude's window isn't one Kikumap knows how to read).
+    /// The message feed is there (else Claude's window isn't one KIKUmap knows how to read).
     func messagesFound() -> Bool { web().flatMap { messagesGroup($0) } != nil }
 
     func chatID() -> String? {
@@ -1307,7 +1307,7 @@ final class ClaudeDriver: @unchecked Sendable {
         }
     }
 
-    /// The clipboard as Kikumap last left it: put back only if it's still that (whatever you copied meanwhile stays).
+    /// The clipboard as KIKUmap last left it: put back only if it's still that (whatever you copied meanwhile stays).
     private var ownChange: Int?
 
     func restoreClipboard(_ items: [[NSPasteboard.PasteboardType: Data]]) {

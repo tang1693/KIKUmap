@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Kikumap</string>
+	<string>KIKUmap</string>
 	<key>CFBundleExecutable</key>
 	<string>ClaudeConsole</string>
 	<key>CFBundleIconFile</key>
@@ -11,16 +11,16 @@
 	<key>CFBundleIdentifier</key>
 	<string>ninja.tang.claudeconsole</string>
 	<key>CFBundleName</key>
-	<string>Kikumap</string>
+	<string>KIKUmap</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.6</string>
+	<string>1.0.7</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>Kikumap</string>
+			<string>KIKUmap</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>kikumap</string>
@@ -28,7 +28,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>28</string>
+	<string>29</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>

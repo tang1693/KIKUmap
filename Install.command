@@ -1,11 +1,11 @@
 #!/bin/bash
-# Double-click: build Kikumap from source and install it to ~/Applications.
+# Double-click: build KIKUmap from source and install it to ~/Applications.
 cd "$(dirname "$0")" || exit 1
 DIR="$(pwd)"
 mkdir -p "$DIR/logs"
 exec > >(tee "$DIR/logs/install.log") 2>&1
 
-echo "== Kikumap install  $(date) =="
+echo "== KIKUmap install  $(date) =="
 sw_vers 2>/dev/null | tr '\n' ' '; echo
 
 if ! xcrun --find swiftc >/dev/null 2>&1; then
@@ -17,13 +17,13 @@ fi
 # the sources need Swift 5.10 or later (Xcode 15.3 / its Command Line Tools)
 read -r SMAJ SMIN <<<"$(xcrun swiftc --version 2>&1 | sed -n 's/.*Swift version \([0-9]*\)\.\([0-9]*\).*/\1 \2/p' | head -1)"
 if [ -n "$SMAJ" ] && { [ "$SMAJ" -lt 5 ] || { [ "$SMAJ" -eq 5 ] && [ "${SMIN:-0}" -lt 10 ]; }; }; then
-  echo "This Mac's Swift ($SMAJ.$SMIN) is too old to build Kikumap (it needs 5.10 or later)."
+  echo "This Mac's Swift ($SMAJ.$SMIN) is too old to build KIKUmap (it needs 5.10 or later)."
   echo "Update the Command Line Tools (System Settings → General → Software Update, or: xcode-select --install),"
   echo "or install the ready-made disk image instead: https://github.com/tang1693/KIKUmap/releases/latest"
   echo "STATUS=OLD_SWIFT"; exit 1
 fi
 
-APP="$HOME/Applications/Kikumap.app"
+APP="$HOME/Applications/KIKUmap.app"
 OLD="$HOME/Applications/Claude中控台.app"       # its earlier names
 OLD2="$HOME/Applications/Kiku.app"
 TMP="$(mktemp -d)"
@@ -58,7 +58,7 @@ if [ "$WIDGET" = 1 ]; then
     -c "Set CFBundleVersion $(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Resources/Info.plist)" "$WX/Contents/Info.plist"
 fi
 rm -rf "$TMP"
-[ -d "/Applications/Kikumap.app" ] && echo "Note: there's also a Kikumap in /Applications (from the disk image). Delete one of them, so only one runs."
+[ -d "/Applications/KIKUmap.app" ] && echo "Note: there's also a KIKUmap in /Applications (from the disk image). Delete one of them, so only one runs."
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/LICENSE-lucide.txt "$APP/Contents/Resources/"
 # the icon is drawn in code (Sources/Logo.swift)
@@ -70,7 +70,7 @@ IDENT="Kikumap Local Signing"
 security find-certificate -c "Claude Console Local Signing" >/dev/null 2>&1 && IDENT="Claude Console Local Signing"
 if ! security find-certificate -c "$IDENT" >/dev/null 2>&1; then
   echo "Creating a local signing certificate in your login keychain (once), so macOS keeps"
-  echo "Kikumap's permissions when you rebuild. It only signs Kikumap, on this Mac."
+  echo "KIKUmap's permissions when you rebuild. It only signs KIKUmap, on this Mac."
   C="$(mktemp -d)"
   cat > "$C/cfg" <<CFG
 [req]
@@ -116,11 +116,11 @@ if [ -f "$PL" ]; then
   ANS=y
   echo "Starts at login (your earlier choice, kept)."
 else
-  read -r -p "Start Kikumap automatically at login? (y = yes, Enter = no): " ANS
+  read -r -p "Start KIKUmap automatically at login? (y = yes, Enter = no): " ANS
 fi
 if [ "$ANS" = "y" ] || [ "$ANS" = "Y" ]; then
 mkdir -p "$HOME/Library/LaunchAgents"
-# opens Kikumap by its bundle id (not its path), so it still starts after the app is moved or renamed; the app writes the same
+# opens KIKUmap by its bundle id (not its path), so it still starts after the app is moved or renamed; the app writes the same
 cat > "$PL" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -148,6 +148,6 @@ echo "Done. Menu bar: red number = unread (! = needs your approval), turning ora
 if [ "$SIGNED" = "stable" ] && [ -z "$FIRST_CERT" ]; then
   echo "Permissions you granted before are kept."
 else
-  echo "If access shows as off: remove Kikumap in System Settings → Privacy & Security (−) and add it again."
+  echo "If access shows as off: remove KIKUmap in System Settings → Privacy & Security (−) and add it again."
   [ "$SIGNED" = "stable" ] && echo "This is the last time — from now on the signature stays the same."
 fi

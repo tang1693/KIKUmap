@@ -13,7 +13,7 @@ struct ExportedChat {
 }
 
 enum ClaudeExport {
-    /// Looking through ~/Downloads makes macOS ask about that folder unless Kikumap has Full Disk Access,
+    /// Looking through ~/Downloads makes macOS ask about that folder unless KIKUmap has Full Disk Access,
     /// so without it nothing is looked for by itself: you pick the zip, and the open panel needs no prompt.
     static var canLookInDownloads: Bool {
         let tcc = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/com.apple.TCC/TCC.db")

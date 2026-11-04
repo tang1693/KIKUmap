@@ -1,9 +1,9 @@
 import SwiftUI
 import WidgetKit
 
-// The desktop widget: how long Claude worked (the last 24 hours, the last 7 days) and usage, as of when Kikumap last wrote.
+// The desktop widget: how long Claude worked (the last 24 hours, the last 7 days) and usage, as of when KIKUmap last wrote.
 // It only reads ~/Library/Application Support/ClaudeConsole/widget.json (Widget.entitlements), which
-// Kikumap rewrites when something changes and asks WidgetKit to redraw.
+// KIKUmap rewrites when something changes and asks WidgetKit to redraw.
 
 struct KikumapEntry: TimelineEntry {
     let date: Date
@@ -21,7 +21,7 @@ struct KikumapProvider: TimelineProvider {
     }
 
     /// Now, then each of the next six hours (the chart moves along with the clock even if nothing new
-    /// is written); Kikumap asks for a fresh timeline whenever it writes the file. Also the moment a usage number
+    /// is written); KIKUmap asks for a fresh timeline whenever it writes the file. Also the moment a usage number
     /// from an earlier read turns a quarter of an hour old, when the small widget stops showing it.
     func getTimeline(in context: Context, completion: @escaping (Timeline<KikumapEntry>) -> Void) {
         let now = Date(), state = WidgetState.load()
@@ -51,7 +51,7 @@ struct KikumapWidget: Widget {
         return StaticConfiguration(kind: "KikumapWidget", provider: KikumapProvider()) { entry in
             KikumapWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Kikumap")
+        .configurationDisplayName("KIKUmap")
         .description(zh ? "最近 24 小时和 7 天 Claude 干了多久，还有用量。在跑和未读的看菜单栏。"
                         : "How long Claude worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])

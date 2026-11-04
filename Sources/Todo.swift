@@ -1,6 +1,6 @@
 import Cocoa
 
-/// Something you could do so Kikumap works fully: what to do, what doesn't work until then, and a button that
+/// Something you could do so KIKUmap works fully: what to do, what doesn't work until then, and a button that
 /// does it. It's up to you: an ignored one is only counted again once you ask for it back.
 struct Todo {
     let id: String

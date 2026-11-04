@@ -1,4 +1,4 @@
-// Draws the disk-image window's background: Kikumap on the left, an arrow, Applications on the right.
+// Draws the disk-image window's background: KIKUmap on the left, an arrow, Applications on the right.
 // Usage: swift scripts/dmg-background.swift <out.tiff>   → one TIFF holding the 1× and 2× (Retina) pictures,
 // which Finder picks between by itself.
 // Positions match scripts/dmg-layout.py (icons centred at x 140 and 420, y 165 from the top).
@@ -22,7 +22,7 @@ func draw() {
                ending: NSColor(srgbRed: 0xEE / 255, green: 0xE5 / 255, blue: 0xD7 / 255, alpha: 1))!
         .draw(in: NSRect(x: 0, y: 0, width: W, height: H), angle: -90)
 
-    centred("Drag Kikumap into Applications", .systemFont(ofSize: 17, weight: .semibold), ink, top: 30)
+    centred("Drag KIKUmap into Applications", .systemFont(ofSize: 17, weight: .semibold), ink, top: 30)
 
     // the arrow, between the two icons (their edges are at x 204 and 356)
     let cy = y(165)

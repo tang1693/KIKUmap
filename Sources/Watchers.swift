@@ -306,19 +306,19 @@ enum SyncIssue: Sendable {
     var help: String {
         switch self {
         case .accessOff:
-            return tr("macOS 关掉了 Kikumap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读。\n",
-                      "macOS switched off Kikumap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar.\n")
-                + still + tr("\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 Kikumap 删掉（−）再加回来。",
-                             "\nFix: System Settings → Privacy & Security → Accessibility: remove Kikumap (−) and add it again.")
+            return tr("macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读。\n",
+                      "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar.\n")
+                + still + tr("\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 KIKUmap 删掉（−）再加回来。",
+                             "\nFix: System Settings → Privacy & Security → Accessibility: remove KIKUmap (−) and add it again.")
         case .noWindow:
             // with Claude's notifications read, a finish ends the time the window hid at the notification
             let time = SyncIssue.alerts
                 ? tr("在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：按你一次运行的常见时长算，不超过它被看到做完的时候；发通知说做完的（Cowork 任务）算到通知那一刻。普通对话回复完 Claude 不发通知，要等窗口回来才知道。\n",
-                     "Chats that were running show \"running?\". The time Kikumap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; one whose finish Claude notifies (a Cowork task) counts up to that notification. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n")
+                     "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; one whose finish Claude notifies (a Cowork task) counts up to that notification. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n")
                 : tr("在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：按你一次运行的常见时长算，不超过它被看到做完的时候；做完没有，要等窗口回来才知道。\n",
-                     "Chats that were running show \"running?\". The time Kikumap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; whether they've finished shows when the window is back.\n")
-            return tr("Kikumap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的进行中、做完和置顶同步，窗口回到这个桌面就自动恢复。",
-                      "Kikumap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished and pins for Claude's chats; they resume once the window is back on this desktop. ")
+                     "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; whether they've finished shows when the window is back.\n")
+            return tr("KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的进行中、做完和置顶同步，窗口回到这个桌面就自动恢复。",
+                      "KIKUmap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished and pins for Claude's chats; they resume once the window is back on this desktop. ")
                 + time + still + tr("\n怎么办：点程序坞里的 Claude（关着的窗口会重新打开，在别的桌面会切过去）。想在别的桌面工作时也同步，就把 Claude 的窗口放到你用的那个桌面。",
                              "\nFix: click Claude in the Dock (it reopens a closed window, or takes you to its desktop). To keep syncing while you work on another desktop, move Claude's window to the desktop you use.")
         case .codeMode:
@@ -326,12 +326,12 @@ enum SyncIssue: Sendable {
                       "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins and the running status of chats.\n")
                 + still + tr("\n怎么办：在 Claude 侧边栏顶部切回 Chat。", "\nFix: switch Claude back to Chat at the top of its sidebar.")
         case .pinsCollapsed:
-            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，Kikumap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新），以及置顶对话的进行中和未读。\n",
-                      "The Pinned section in Claude's sidebar is folded, so Kikumap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update), and running and unread for pinned chats.\n")
+            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，KIKUmap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新），以及置顶对话的进行中和未读。\n",
+                      "The Pinned section in Claude's sidebar is folded, so KIKUmap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update), and running and unread for pinned chats.\n")
                 + still + tr("\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。", "\nFix: click \"Pinned\" in Claude's sidebar to unfold it.")
         case .sidebarHidden:
-            return tr("Claude 的侧边栏收起来了，Kikumap 没有东西可读。\n暂停：进行中状态、置顶对话、侧边栏里的未读。\n",
-                      "Claude's sidebar is hidden, so there's nothing for Kikumap to read.\nPaused: running status, pinned chats, unread from the sidebar.\n")
+            return tr("Claude 的侧边栏收起来了，KIKUmap 没有东西可读。\n暂停：进行中状态、置顶对话、侧边栏里的未读。\n",
+                      "Claude's sidebar is hidden, so there's nothing for KIKUmap to read.\nPaused: running status, pinned chats, unread from the sidebar.\n")
                 + still + tr("\n怎么办：在 Claude 窗口左上角把侧边栏打开；窗口太窄时 Claude 会自动收起它，把窗口拉宽一点。",
                              "\nFix: show the sidebar in Claude's window (top left). Claude folds it away when the window is narrow: make the window wider.")
         case .noChatsShown:
@@ -903,13 +903,13 @@ final class SidebarWatcher: NSObject {
     /// Chats running on the last read; the ones that stopped since while not open, and when.
     private var wasRunning = Set<String>()
     private var awaitingMark: [String: Date] = [:]
-    /// A chat that finished in the background got no unread mark Kikumap knows (Claude worded it anew?): until one
+    /// A chat that finished in the background got no unread mark KIKUmap knows (Claude worded it anew?): until one
     /// is seen again, a chat without a mark isn't taken as read in Claude.
     private(set) var marksMissed = UserDefaults.standard.bool(forKey: "UnreadMarkMissed")
-    /// A status on a chat row that Kikumap doesn't know (an error, or a mark worded anew), as last read: for the
+    /// A status on a chat row that KIKUmap doesn't know (an error, or a mark worded anew), as last read: for the
     /// diagnostic report (that row isn't taken as read, see Store; the others sync as usual).
     private(set) var unknownMark: String?
-    /// Background finishes with no mark Kikumap knows, one after another: two (not one chat read elsewhere right as it
+    /// Background finishes with no mark KIKUmap knows, one after another: two (not one chat read elsewhere right as it
     /// finished) say Claude's marks can't be read.
     private var lateMisses = 0
     private var loggedUnknown: String?
@@ -1080,7 +1080,7 @@ final class SidebarWatcher: NSObject {
         return best.mapValues(\.id)
     }
 
-    /// Claude's unread marks, checked on every read. `marked`: a row carries one Kikumap knows. `trusted`: a mark's
+    /// Claude's unread marks, checked on every read. `marked`: a row carries one KIKUmap knows. `trusted`: a mark's
     /// absence can be taken as "read": every chat that stopped while not open got one (or a "waiting for you" mark)
     /// within half a minute, before the store would take its absence as read.
     func checkMarks(_ links: [AXLink], at now: Date) -> (marked: Bool, trusted: Bool) {
@@ -1111,7 +1111,7 @@ final class SidebarWatcher: NSObject {
         if unknown != unknownMark { unknownMark = unknown; onStatus?() }
         if let u = unknown, u != loggedUnknown {
             loggedUnknown = u
-            store.log("\(Clock.iso()) a chat row shows a status Kikumap doesn't know ('\(u)'): that chat isn't taken as read for having no mark\n", file: "app.log")
+            store.log("\(Clock.iso()) a chat row shows a status KIKUmap doesn't know ('\(u)'): that chat isn't taken as read for having no mark\n", file: "app.log")
         }
         if marked { lateMisses = 0 } else if late { lateMisses += 1 }
         let missed = !marked && (lateMisses >= 2 || marksMissed)
@@ -1119,7 +1119,7 @@ final class SidebarWatcher: NSObject {
             marksMissed = missed
             UserDefaults.standard.set(missed, forKey: "UnreadMarkMissed")
             if missed {
-                store.log("\(Clock.iso()) a chat that finished in the background got no unread mark Kikumap knows: until one is seen again, chats without one aren't taken as read\n", file: "app.log")
+                store.log("\(Clock.iso()) a chat that finished in the background got no unread mark KIKUmap knows: until one is seen again, chats without one aren't taken as read\n", file: "app.log")
             }
         }
         return (marked, !missed)

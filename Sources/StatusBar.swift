@@ -135,7 +135,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         update()
     }
 
-    /// `sure`: of those running, the ones Kikumap can see run now (the ring turns only for them; the others are "?").
+    /// `sure`: of those running, the ones KIKUmap can see run now (the ring turns only for them; the others are "?").
     private var counts: (run: Int, sure: Int, unread: Int, needs: Int) {
         let unread = store.unreadChats
         return (store.runningChats.count, store.seenRunningChats.count, unread.count, unread.filter(store.needsInput).count)
@@ -144,7 +144,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     func update() {
         let c = counts
         draw()
-        // the ring's arc goes round while something runs (as far as Kikumap can see)
+        // the ring's arc goes round while something runs (as far as KIKUmap can see)
         if c.sure > 0, spin == nil {
             spin = Timer.scheduledTimer(withTimeInterval: Theme.turnFrame, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -158,19 +158,19 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         var tip = tr("进行中 \(c.run) · 未读 \(c.unread)", "Running \(c.run) · Unread \(c.unread)")
         if c.run > c.sure {
-            tip += tr("（其中 \(c.run - c.sure) 个现在看不到，不知道还在不在跑：带 ?）", " (\(c.run - c.sure) out of Kikumap's sight, not known if still running: marked ?)")
+            tip += tr("（其中 \(c.run - c.sure) 个现在看不到，不知道还在不在跑：带 ?）", " (\(c.run - c.sure) out of KIKUmap's sight, not known if still running: marked ?)")
         }
         let note = claudeNote?()
         if let n = note {
             tip += "\n? " + n + (claudeUnreadOnly?() == true
-                ? tr("：Claude 里哪些看过了，这里可能没跟上，打开 Kikumap 看怎么恢复", ": which chats you've read in Claude may not show here; open Kikumap to see how to fix it")
-                : tr("：Claude 里在跑和未读的可能不止这些，打开 Kikumap 看怎么恢复", ": there may be more running or unread in Claude than shown; open Kikumap to see how to fix it"))
+                ? tr("：Claude 里哪些看过了，这里可能没跟上，打开 KIKUmap 看怎么恢复", ": which chats you've read in Claude may not show here; open KIKUmap to see how to fix it")
+                : tr("：Claude 里在跑和未读的可能不止这些，打开 KIKUmap 看怎么恢复", ": there may be more running or unread in Claude than shown; open KIKUmap to see how to fix it"))
         }
         if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你处理）", " (\(c.needs) need you)") }
         tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你处理（批准、回答，或出错停下了） · 圈里的数字 = 在跑几个（外圈在转：正在跑）", "\nRed = unread (finished, not yet seen) · ! = needs you (an approval, an answer, or it stopped on an error) · number in a ring = how many are running (its arc going round: running now)")
         item.button?.toolTip = tip + StatusBar.usageTip(usage)
         // VoiceOver: the app's name and what it's showing (the icon alone says nothing)
-        var said = tr("Kikumap，进行中 \(c.run) 个，未读 \(c.unread) 个", "Kikumap, \(c.run) running, \(c.unread) unread")
+        var said = tr("KIKUmap，进行中 \(c.run) 个，未读 \(c.unread) 个", "KIKUmap, \(c.run) running, \(c.unread) unread")
         if c.run > c.sure { said += tr("，其中 \(c.run - c.sure) 个不确定", ", \(c.run - c.sure) of them not confirmed") }
         if let n = note { said += "，" + n }
         if c.needs > 0 { said += tr("，\(c.needs) 个要你处理", ", \(c.needs) need you") }
@@ -207,7 +207,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         button.imagePosition = .imageOnly
     }
 
-    /// Running: how many, in a ring with an orange arc going round while Kikumap sees them run ("?" after it when
+    /// Running: how many, in a ring with an orange arc going round while KIKUmap sees them run ("?" after it when
     /// some are out of its sight; the ring stands still when none can be seen). Waiting for you: a red badge with
     /// the count ("!" first when one needs you). Nothing at all: the burst.
     /// `unknown`: Claude can't be read now, so what the icon shows may not be all there is: a "?" at its end.
@@ -293,8 +293,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
                     it.toolTip = c.isGPT
                         ? tr("它的任务记录 \(at) 起没再动：可能在等你批准、一步做得久，或者 ChatGPT 停了。从那时起的时长是估算的（≈）。在 ChatGPT 里打开它看看。",
                              "Its task log hasn't moved since \(at): it may be waiting for your approval, a long step may be running, or ChatGPT stopped. Its time from then is estimated (≈). Open it in ChatGPT to see.")
-                        : tr("Kikumap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。看看窗口顶部的同步状态怎么恢复。",
-                             "Kikumap can't see Claude's chat list right now (window closed or on another desktop, sidebar hidden or folded, Code mode, Claude quit, or Accessibility off): it was running at \(at); whether it has finished isn't known yet, and its time from then is estimated (≈). The sync status at the top of the window says how to fix it.")
+                        : tr("KIKUmap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。看看窗口顶部的同步状态怎么恢复。",
+                             "KIKUmap can't see Claude's chat list right now (window closed or on another desktop, sidebar hidden or folded, Code mode, Claude quit, or Accessibility off): it was running at \(at); whether it has finished isn't known yet, and its time from then is estimated (≈). The sync status at the top of the window says how to fix it.")
                 }
             }
             if list.count > 15 { header(tr("　还有 \(list.count - 15) 个…", "　\(list.count - 15) more…")) }
@@ -349,15 +349,15 @@ final class StatusBar: NSObject, NSMenuDelegate {
         // today so far, in a submenu
         let day = store.today()
         let total = day.reduce(0) { $0 + $1.secs }
-        // (time Kikumap didn't see is estimated: said, with how much)
+        // (time KIKUmap didn't see is estimated: said, with how much)
         let guessed = store.todayEstimated()
         let est = guessed >= 60 ? tr("（含估算 ≈\(Clock.duration(guessed))）", " (≈ \(Clock.duration(guessed)) estimated)") : ""
         let todayItem = menu.addItem(withTitle: day.isEmpty ? tr("今日回顾 · 还没有", "Today · nothing yet")
                                                              : tr("今日回顾 · \(day.count) 个对话 · \(Clock.duration(total))", "Today · \(day.count) chats · \(Clock.duration(total))") + est,
                                      action: nil, keyEquivalent: "")
         if guessed >= 60 {
-            todayItem.toolTip = tr("Claude 的窗口看不到时（关了、在别的桌面、Claude 退出了），或 Codex 任务没动静时，Kikumap 看不到它们在不在跑。这段时间按你一次运行的常见时长估算，不超过它被看到做完的时候。",
-                                   "While Claude's window can't be seen (closed, on another desktop, Claude quit), or a Codex task is quiet, Kikumap can't see whether it's still running. That time is estimated at your typical run, never past when it was seen finished.")
+            todayItem.toolTip = tr("Claude 的窗口看不到时（关了、在别的桌面、Claude 退出了），或 Codex 任务没动静时，KIKUmap 看不到它们在不在跑。这段时间按你一次运行的常见时长估算，不超过它被看到做完的时候。",
+                                   "While Claude's window can't be seen (closed, on another desktop, Claude quit), or a Codex task is quiet, KIKUmap can't see whether it's still running. That time is estimated at your typical run, never past when it was seen finished.")
         }
         if !day.isEmpty {
             let sub = NSMenu()
@@ -461,10 +461,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
         all.isEnabled = !unread.isEmpty
         let st = menu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(settings), keyEquivalent: ",")
         st.target = self
-        let ab = menu.addItem(withTitle: tr("关于 Kikumap", "About Kikumap"), action: #selector(about), keyEquivalent: "")
+        let ab = menu.addItem(withTitle: tr("关于 KIKUmap", "About KIKUmap"), action: #selector(about), keyEquivalent: "")
         ab.target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: tr("退出 Kikumap", "Quit Kikumap"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: tr("退出 KIKUmap", "Quit KIKUmap"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
     @objc private func settings() { openSettings?() }

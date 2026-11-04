@@ -35,7 +35,7 @@ final class Permissions {
     func openFullDisk() {
         if fullDiskAsked { reopenForFullDisk(); return }
         let a = NSAlert()
-        a.messageText = tr("把 Kikumap 加进「完全磁盘访问」", "Add Kikumap to Full Disk Access")
+        a.messageText = tr("把 KIKUmap 加进「完全磁盘访问」", "Add KIKUmap to Full Disk Access")
         a.informativeText = Permissions.fullDiskSteps
         a.addButton(withTitle: tr("打开", "Open"))
         a.addButton(withTitle: tr("先不用", "Not now"))
@@ -51,13 +51,13 @@ final class Permissions {
         let a = NSAlert()
         a.messageText = tr("「完全磁盘访问」还没生效", "Full Disk Access isn't on yet")
         a.informativeText = tr("""
-            如果已经在系统设置里打开了 Kikumap 的开关：Kikumap 要退出并重新打开才能用上（在 macOS 的提示里选了「以后」就会这样）。
+            如果已经在系统设置里打开了 KIKUmap 的开关：KIKUmap 要退出并重新打开才能用上（在 macOS 的提示里选了「以后」就会这样）。
 
-            还没开的话：打开系统设置，把 Kikumap 从访达窗口拖进列表（或点 ＋ 选它），再打开开关。
+            还没开的话：打开系统设置，把 KIKUmap 从访达窗口拖进列表（或点 ＋ 选它），再打开开关。
             """, """
-            If you've switched Kikumap on in System Settings, it only gets access once it quits and reopens (that's what choosing "Later" in macOS's prompt means).
+            If you've switched KIKUmap on in System Settings, it only gets access once it quits and reopens (that's what choosing "Later" in macOS's prompt means).
 
-            Not yet? Open System Settings, drag Kikumap from the Finder window into the list (or click + and choose it), then switch it on.
+            Not yet? Open System Settings, drag KIKUmap from the Finder window into the list (or click + and choose it), then switch it on.
             """)
         a.addButton(withTitle: tr("退出并重新打开", "Quit & Reopen"))
         a.addButton(withTitle: tr("打开系统设置", "Open System Settings"))
@@ -72,7 +72,7 @@ final class Permissions {
         }
     }
 
-    /// Starts a new Kikumap, which takes over from this one as an update does (an unfinished intro comes back where it was).
+    /// Starts a new KIKUmap, which takes over from this one as an update does (an unfinished intro comes back where it was).
     static func reopen() {
         let c = NSWorkspace.OpenConfiguration()
         c.createsNewApplicationInstance = true
@@ -80,7 +80,7 @@ final class Permissions {
             guard let error = error else { return }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    alert(tr("没能重新打开 Kikumap", "Couldn't reopen Kikumap"), error.localizedDescription + tr("\n\n请退出 Kikumap，再打开它。", "\n\nQuit Kikumap and open it again."))
+                    alert(tr("没能重新打开 KIKUmap", "Couldn't reopen KIKUmap"), error.localizedDescription + tr("\n\n请退出 KIKUmap，再打开它。", "\n\nQuit KIKUmap and open it again."))
                 }
             }
         }
@@ -89,16 +89,16 @@ final class Permissions {
     /// After "Quit & Reopen" only the first-run intro comes back where it was (from anywhere else the map opens).
     static var fullDiskSteps: String {
         tr("""
-            接下来会打开系统设置和一个访达窗口（Kikumap 已选中）：把 Kikumap 从访达拖进列表（或点 ＋ 选它），再打开它的开关。
+            接下来会打开系统设置和一个访达窗口（KIKUmap 已选中）：把 KIKUmap 从访达拖进列表（或点 ＋ 选它），再打开它的开关。
 
             如果 macOS 问要不要「退出并重新打开」，选它就好：
             """, """
-            System Settings opens at Full Disk Access, with a Finder window that has Kikumap selected: drag Kikumap into the list (or click + and choose it), then switch it on.
+            System Settings opens at Full Disk Access, with a Finder window that has KIKUmap selected: drag KIKUmap into the list (or click + and choose it), then switch it on.
 
             If macOS offers "Quit & Reopen", choose it:
             """) + (Prefs.onboarded
-                ? tr("Kikumap 会自己重新打开，之后 设置 → 授权 里会显示「✓ 已开启」。", " Kikumap opens again by itself; Settings → Access then shows ✓ On.")
-                : tr("Kikumap 会自己重新打开，回到介绍的这一步。", " Kikumap opens again by itself, back at this step of the intro."))
+                ? tr("KIKUmap 会自己重新打开，之后 设置 → 授权 里会显示「✓ 已开启」。", " KIKUmap opens again by itself; Settings → Access then shows ✓ On.")
+                : tr("KIKUmap 会自己重新打开，回到介绍的这一步。", " KIKUmap opens again by itself, back at this step of the intro."))
     }
 
     func openAccessibility() {
@@ -116,23 +116,23 @@ final class Permissions {
             let need = UsageMonitor.claudeCodeInstalled ? "" : tr("\n\n这台 Mac 上好像还没有 Claude Code：先装好 Claude Code，在终端运行 claude 并用付费账号 /login，这里才有用量。",
                                                             "\n\nClaude Code doesn't seem to be on this Mac yet: install it, run claude in Terminal and /login with your paid account, then usage shows here.")
             a.informativeText = tr("""
-                Kikumap 可以借用 Claude Code 存在这台 Mac 钥匙串里的登录，查你的套餐用量和计划任务，不用再登录一次。需要 Claude 付费套餐（Pro、Max、Team 或 Enterprise）并在 Claude Code 里登录；免费套餐和 API key 没有用量可看。
+                KIKUmap 可以借用 Claude Code 存在这台 Mac 钥匙串里的登录，查你的套餐用量和计划任务，不用再登录一次。需要 Claude 付费套餐（Pro、Max、Team 或 Enterprise）并在 Claude Code 里登录；免费套餐和 API key 没有用量可看。
 
                 • 只读取，不修改、不保存这份登录
                 • 只发给 api.anthropic.com，只用来查用量和计划任务
-                • Anthropic 不允许第三方应用收集 Claude 的登录令牌。Kikumap 只在本机读、不保存、只查你自己的用量，但这仍可能不被允许、被限制，开不开由你决定
+                • Anthropic 不允许第三方应用收集 Claude 的登录令牌。KIKUmap 只在本机读、不保存、只查你自己的用量，但这仍可能不被允许、被限制，开不开由你决定
                 • 随时可以在 设置 → 授权 里关掉
 
-                Kikumap 和 Claude Code 用同一种方式读取它，所以 macOS 一般不会问。如果问了，选「允许」。
+                KIKUmap 和 Claude Code 用同一种方式读取它，所以 macOS 一般不会问。如果问了，选「允许」。
                 """, """
-                Kikumap can look up your plan usage and scheduled tasks by borrowing the sign-in Claude Code already keeps in this Mac's Keychain — no second login. It needs a paid Claude plan (Pro, Max, Team or Enterprise) signed in to Claude Code; the Free plan and API keys have no usage to show.
+                KIKUmap can look up your plan usage and scheduled tasks by borrowing the sign-in Claude Code already keeps in this Mac's Keychain — no second login. It needs a paid Claude plan (Pro, Max, Team or Enterprise) signed in to Claude Code; the Free plan and API keys have no usage to show.
 
                 • It only reads it: never changes or saves it
                 • It's only sent to api.anthropic.com, to look up usage and scheduled tasks
-                • Anthropic doesn't allow third-party apps to collect Claude sign-in tokens. Kikumap only reads it on this Mac, never saves it and only looks up your own usage, but this may still not be allowed and could be blocked: it's your call
+                • Anthropic doesn't allow third-party apps to collect Claude sign-in tokens. KIKUmap only reads it on this Mac, never saves it and only looks up your own usage, but this may still not be allowed and could be blocked: it's your call
                 • You can turn it off any time in Settings → Access
 
-                Kikumap reads it the same way Claude Code does, so macOS usually doesn't ask. If it does, choose "Allow".
+                KIKUmap reads it the same way Claude Code does, so macOS usually doesn't ask. If it does, choose "Allow".
                 """) + need
             a.addButton(withTitle: tr("继续", "Continue"))
             a.addButton(withTitle: tr("先不用", "Not now"))
@@ -162,7 +162,7 @@ final class Permissions {
             a.informativeText = tr("""
                 不开的话，ChatGPT 的用量只在你用 Codex 跑任务时更新（从 Codex 的本地记录里读）；用量重置后，要等下次用 Codex 才有新数字。
 
-                开了以后，Kikumap 借用 Codex 存在这台 Mac 上的 ChatGPT 登录（~/.codex/auth.json），像 Codex 自己那样每 10 分钟向 OpenAI 查一次用量，不用再登录一次。
+                开了以后，KIKUmap 借用 Codex 存在这台 Mac 上的 ChatGPT 登录（~/.codex/auth.json），像 Codex 自己那样每 10 分钟向 OpenAI 查一次用量，不用再登录一次。
 
                 • 只读取，不修改、不保存这份登录，也不帮它续期（登录过期了，用一下 Codex 就会续上）
                 • 只发给 chatgpt.com，只用来查用量
@@ -171,7 +171,7 @@ final class Permissions {
                 """, """
                 Without it, ChatGPT's usage updates only when you run a Codex task (it's read from Codex's own logs on this Mac); after a reset, nothing new is known until you use Codex again.
 
-                With it, Kikumap borrows the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI for your usage every 10 minutes, the way Codex itself does — no second login.
+                With it, KIKUmap borrows the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI for your usage every 10 minutes, the way Codex itself does — no second login.
 
                 • It only reads it: never changes, saves or renews it (if it expires, using Codex renews it)
                 • It's only sent to chatgpt.com, to look up usage
@@ -210,18 +210,18 @@ final class Permissions {
         else if let why = CodeHooks.blockedReason() { Permissions.alert(tr("已连接，但 Claude Code 不会运行它们", "Connected, but Claude Code won't run them"), why) }
     }
 
-    /// The backup is made only the first time (CodeHooks.install keeps the file as it was before Kikumap).
+    /// The backup is made only the first time (CodeHooks.install keeps the file as it was before KIKUmap).
     static var codeHooksSteps: String {
         tr("""
-            Kikumap 会在 ~/.claude/settings.json 里加几个 hook：Claude Code 会话一开始、做完、要你批准时，各写一行到 Kikumap 的文件夹，这样终端、VS Code 里的会话也会显示「进行中 / 未读」。
+            KIKUmap 会在 ~/.claude/settings.json 里加几个 hook：Claude Code 会话一开始、做完、要你批准时，各写一行到 KIKUmap 的文件夹，这样终端、VS Code 里的会话也会显示「进行中 / 未读」。
 
-            • Kikumap 第一次改它之前，原来的文件会备份成 settings.json.before-claude-console（以后不再更新这份备份）
+            • KIKUmap 第一次改它之前，原来的文件会备份成 settings.json.before-claude-console（以后不再更新这份备份）
             • 之后新开的会话才生效，已经开着的要重开
             • 随时可以在 设置 → 授权 里断开
             """, """
-            Kikumap adds a few hooks to ~/.claude/settings.json: when a Claude Code session starts a turn, finishes or needs your approval, it writes one line to Kikumap's folder, so sessions in Terminal or VS Code show as running / unread too.
+            KIKUmap adds a few hooks to ~/.claude/settings.json: when a Claude Code session starts a turn, finishes or needs your approval, it writes one line to KIKUmap's folder, so sessions in Terminal or VS Code show as running / unread too.
 
-            • Before Kikumap first changes it, your file is backed up as settings.json.before-claude-console (that copy isn't updated later)
+            • Before KIKUmap first changes it, your file is backed up as settings.json.before-claude-console (that copy isn't updated later)
             • Sessions started from now on report; ones already open need a restart
             • You can disconnect any time in Settings → Access
             """)
@@ -260,14 +260,14 @@ final class Permissions {
     }
 }
 
-/// Starts the app at login (a LaunchAgent, same as the installer's), shown as Kikumap in System Settings.
+/// Starts the app at login (a LaunchAgent, same as the installer's), shown as KIKUmap in System Settings.
 enum LoginItem {
     static let label = "ninja.tang.claudeconsole"
     static var url: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/\(label).plist")
     }
     static var id: String { Bundle.main.bundleIdentifier ?? ownBundleID }
-    /// Kikumap by its bundle id, not its path: macOS finds it wherever it was moved or renamed, and with two copies
+    /// KIKUmap by its bundle id, not its path: macOS finds it wherever it was moved or renamed, and with two copies
     /// it takes the one on the startup disk with the newest version. Install.command writes the same.
     static var args: [String] { ["/usr/bin/open", "-b", id, "--args", "--background"] }
     static var plist: [String: Any] { ["Label": label, "ProgramArguments": args, "RunAtLoad": true, "AssociatedBundleIdentifiers": [id]] }
@@ -304,8 +304,8 @@ enum LoginItem {
     static func set(_ on: Bool) -> String? {
         let fm = FileManager.default
         if on && temporaryPlace {
-            return tr("现在是从磁盘映像（或临时位置）运行的，下次登录时它就不在了。把 Kikumap 拖进「应用程序」文件夹，从那里打开，再来开这个。",
-                      "It's running from the disk image (or a temporary place), which won't be there at the next login. Drag Kikumap into Applications, open it from there, then turn this on.")
+            return tr("现在是从磁盘映像（或临时位置）运行的，下次登录时它就不在了。把 KIKUmap 拖进「应用程序」文件夹，从那里打开，再来开这个。",
+                      "It's running from the disk image (or a temporary place), which won't be there at the next login. Drag KIKUmap into Applications, open it from there, then turn this on.")
         }
         do {
             if !on {
@@ -347,14 +347,14 @@ enum LoginItem {
     static func todo(_ changed: @escaping () -> Void) -> Todo? {
         guard Prefs.onboarded, !chosen, !enabled else { return nil }
         if temporaryPlace {
-            return Todo(id: "login-move", title: tr("把 Kikumap 拖进「应用程序」", "Move Kikumap to Applications"),
+            return Todo(id: "login-move", title: tr("把 KIKUmap 拖进「应用程序」", "Move KIKUmap to Applications"),
                         impact: tr("现在是从磁盘映像（或临时位置）运行的，重启后它就不在了。把它拖进「应用程序」并从那里打开，就可以设成登录时自动打开。",
                                    "It's running from the disk image (or a temporary place), so it's gone after a restart. Drag it into Applications and open it from there; then it can open when you log in."),
                         action: nil)
         }
-        return Todo(id: "login", title: tr("登录 Mac 时自动打开 Kikumap", "Open Kikumap when you log in"),
-                    impact: tr("不开的话，重启后 Kikumap 不会自己打开：在你打开它之前没有提醒，Claude App 和 ChatGPT 的对话不记时间，小组件也不更新。以后可以在 设置 → 通用 里改。",
-                               "Otherwise Kikumap isn't back after a restart: until you open it there are no alerts, chats in the Claude app and ChatGPT don't count time, and the widget doesn't update. Change it any time in Settings → General."),
+        return Todo(id: "login", title: tr("登录 Mac 时自动打开 KIKUmap", "Open KIKUmap when you log in"),
+                    impact: tr("不开的话，重启后 KIKUmap 不会自己打开：在你打开它之前没有提醒，Claude App 和 ChatGPT 的对话不记时间，小组件也不更新。以后可以在 设置 → 通用 里改。",
+                               "Otherwise KIKUmap isn't back after a restart: until you open it there are no alerts, chats in the Claude app and ChatGPT don't count time, and the widget doesn't update. Change it any time in Settings → General."),
                     action: (tr("开启", "Turn on"), { if choose(true) { changed() } }))
     }
 }
@@ -743,8 +743,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             [label(tr("声音", "Voice"), width: 140), voicePop],
             [label(tr("语速", "Speed"), width: 140), NSStackView(views: [ratePop, test])],
         ])
-        let note = label(tr("Claude App 的对话：Kikumap 从 Claude 窗口的侧边栏看到它们做完，所以窗口要开在你用的桌面上。开了「完全磁盘访问」（设置 → 授权），Claude 问「允许吗？」或等你回答时、Cowork 任务做完时，窗口关着也会提醒（普通对话回复完 Claude 不发通知）。Claude Code 会话靠 设置 → 授权 里连接的 hook。",
-                            "Claude app chats: Kikumap sees them finish in Claude's sidebar, so keep its window open on the desktop you use. With Full Disk Access (Settings → Access) you're also told, even with the window closed, when Claude asks \"Allow this?\" or waits for an answer, and when a Cowork task finishes (Claude sends no notification when an ordinary chat's reply finishes). Claude Code sessions use the hooks connected in Settings → Access."), small: true)
+        let note = label(tr("Claude App 的对话：KIKUmap 从 Claude 窗口的侧边栏看到它们做完，所以窗口要开在你用的桌面上。开了「完全磁盘访问」（设置 → 授权），Claude 问「允许吗？」或等你回答时、Cowork 任务做完时，窗口关着也会提醒（普通对话回复完 Claude 不发通知）。Claude Code 会话靠 设置 → 授权 里连接的 hook。",
+                            "Claude app chats: KIKUmap sees them finish in Claude's sidebar, so keep its window open on the desktop you use. With Full Disk Access (Settings → Access) you're also told, even with the window closed, when Claude asks \"Allow this?\" or waits for an answer, and when a Cowork task finishes (Claude sends no notification when an ordinary chat's reply finishes). Claude Code sessions use the hooks connected in Settings → Access."), small: true)
         let voiceNote = label(tr("{name} 会换成对话名。名字会念出声，周围的人也听得到。想要更自然的声音：系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 管理声音，下载带 ★ 的高质量声音。",
                                  "{name} becomes the chat's name. It's said out loud, so people nearby hear it too. For a more natural voice: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download a Premium or Enhanced one (★)."), small: true)
         return vstack([g, voiceNote, note], spacing: 18)
@@ -759,7 +759,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
         icon.widthAnchor.constraint(equalToConstant: 72).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 72).isActive = true
-        let name = NSTextField(labelWithString: "Kikumap")
+        let name = NSTextField(labelWithString: "KIKUmap")
         name.font = .systemFont(ofSize: 22, weight: .bold)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let head = vstack([name, label(tr("Claude 和 ChatGPT 对话导图", "A mind map for your Claude and ChatGPT chats") + " · " + tr("版本 ", "version ") + version, small: true, width: 360)], spacing: 4)
@@ -776,8 +776,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         ])
         links.spacing = 8
         let tip = button(tr("☕ 请我喝杯咖啡（Ko-fi）", "☕ Buy me a coffee on Ko-fi")) { open(SettingsWindow.links.tip) }
-        let tipNote = label(tr("Kikumap 是免费的。如果它帮你省了时间，可以请我喝杯咖啡；点个 GitHub ⭐ 或者反馈问题也一样有帮助。",
-                               "Kikumap is free. If it saves you time, you can buy me a coffee; a GitHub star or a bug report helps just as much."), small: true)
+        let tipNote = label(tr("KIKUmap 是免费的。如果它帮你省了时间，可以请我喝杯咖啡；点个 GitHub ⭐ 或者反馈问题也一样有帮助。",
+                               "KIKUmap is free. If it saves you time, you can buy me a coffee; a GitHub star or a bug report helps just as much."), small: true)
         let fine = label(tr("个人独立开源项目，与 Anthropic 无关。MIT 协议。", "An independent open-source project, not affiliated with Anthropic. MIT License."), small: true)
         return vstack([top, by, story, links, tip, tipNote, fine], spacing: 14)
     }
@@ -811,9 +811,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                    "Optional. Reads Claude's notifications from Notification Center → tells you when Claude asks \"Allow this?\" or waits for your answer, and knows when a Cowork task in the Claude app finishes, even with its window closed (Claude sends no notification when an ordinary chat's reply finishes). Read-only, never uploaded."),
                 tr("打开设置", "Open Settings"), {
                     guard p.fullDisk else {
-                        // opened from here already: switched on in System Settings, it only counts once Kikumap reopens
-                        return p.fullDiskAsked ? Perm(text: tr("未开启 · 开了的话要重新打开 Kikumap", "Off · switched it on? Reopen Kikumap"), on: false, enabled: true,
-                                                      why: tr("「完全磁盘访问」要等 Kikumap 重新打开才生效。点「打开设置」可以退出并重新打开。", "Full Disk Access only counts once Kikumap reopens. Click Open Settings to quit and reopen it."))
+                        // opened from here already: switched on in System Settings, it only counts once KIKUmap reopens
+                        return p.fullDiskAsked ? Perm(text: tr("未开启 · 开了的话要重新打开 KIKUmap", "Off · switched it on? Reopen KIKUmap"), on: false, enabled: true,
+                                                      why: tr("「完全磁盘访问」要等 KIKUmap 重新打开才生效。点「打开设置」可以退出并重新打开。", "Full Disk Access only counts once KIKUmap reopens. Click Open Settings to quit and reopen it."))
                                                : Perm(text: off, on: false, enabled: true)
                     }
                     if p.notifications.status == .unreadable {
@@ -833,8 +833,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     return Perm(text: trusted ? on : off, on: trusted, enabled: !trusted)
                 }, { p.openAccessibility() }),
             row(tr("Claude 用量", "Claude usage"),
-                tr("可选，默认关闭。关着时不显示 Claude 的用量和计划任务（本机没有别的地方能读到）。需要 Claude 付费套餐，并在这台 Mac 的 Claude Code 里登录（免费套餐和 API key 没有用量可看）。开启后借用 Claude Code 在钥匙串里的登录，每 10 分钟读一次用量和计划任务；只读，只发给 api.anthropic.com。Anthropic 不允许第三方应用收集 Claude 的登录令牌：Kikumap 只在本机读、不保存，但仍可能不被允许、被限制。",
-                   "Optional, off by default. While it's off, Claude's usage and scheduled tasks aren't shown (nothing on this Mac has them). Needs a paid Claude plan signed in to Claude Code on this Mac (the Free plan and API keys have no usage to show). When on, it borrows Claude Code's sign-in from the Keychain to read usage and scheduled tasks every 10 minutes — read-only, sent only to api.anthropic.com. Anthropic doesn't allow third-party apps to collect Claude sign-in tokens: Kikumap only reads it on this Mac and never saves it, but this may still not be allowed and could be blocked."),
+                tr("可选，默认关闭。关着时不显示 Claude 的用量和计划任务（本机没有别的地方能读到）。需要 Claude 付费套餐，并在这台 Mac 的 Claude Code 里登录（免费套餐和 API key 没有用量可看）。开启后借用 Claude Code 在钥匙串里的登录，每 10 分钟读一次用量和计划任务；只读，只发给 api.anthropic.com。Anthropic 不允许第三方应用收集 Claude 的登录令牌：KIKUmap 只在本机读、不保存，但仍可能不被允许、被限制。",
+                   "Optional, off by default. While it's off, Claude's usage and scheduled tasks aren't shown (nothing on this Mac has them). Needs a paid Claude plan signed in to Claude Code on this Mac (the Free plan and API keys have no usage to show). When on, it borrows Claude Code's sign-in from the Keychain to read usage and scheduled tasks every 10 minutes — read-only, sent only to api.anthropic.com. Anthropic doesn't allow third-party apps to collect Claude sign-in tokens: KIKUmap only reads it on this Mac and never saves it, but this may still not be allowed and could be blocked."),
                 tr("连接", "Connect"), {
                     guard UsageMonitor.enabled else { return Perm(text: off, on: false, button: tr("连接", "Connect"), enabled: true) }
                     let who = p.usage.account.map { tr("\n账号：", "\nAccount: ") + $0 } ?? ""
@@ -897,8 +897,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     }
                 }, { [weak self] in p.connectGPTUsage(); self?.refreshPerms() }),
         ]
-        let tip = label(tr("如果这里显示未开启、但系统设置里已经勾上：先退出并重新打开 Kikumap；还是不行（比如重装之后），在系统设置里把 Kikumap 删掉（−）再重新加一次。",
-                           "If access shows as off here but it's ticked in System Settings: quit and reopen Kikumap first; if it's still off (after reinstalling, say), remove Kikumap there (−) and add it again."), small: true)
+        let tip = label(tr("如果这里显示未开启、但系统设置里已经勾上：先退出并重新打开 KIKUmap；还是不行（比如重装之后），在系统设置里把 KIKUmap 删掉（−）再重新加一次。",
+                           "If access shows as off here but it's ticked in System Settings: quit and reopen KIKUmap first; if it's still off (after reinstalling, say), remove KIKUmap there (−) and add it again."), small: true)
         let diag = button(tr("诊断报告", "Diagnostic report")) { [weak self] in self?.onDiagnose?() }
         diag.toolTip = tr("写一份 kikumap-check.txt：哪些正常、哪些不行。不含对话标题、内容和密码，可以直接发给帮你看的人。",
                           "Writes kikumap-check.txt: what works and what doesn't. No chat titles, messages or passwords, so you can send it to whoever helps.")

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kikumap — A mind map for your Claude and ChatGPT chats</title>
+<title>KIKUmap — A mind map for your Claude and ChatGPT chats</title>
 <meta name="description" content="A free, open-source macOS menu-bar app and desktop widget that shows which Claude and ChatGPT chats are running, done or waiting for you, and lays your pinned chats out as a mind map.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Kikumap — A mind map for your Claude and ChatGPT chats">
+<meta property="og:title" content="KIKUmap — A mind map for your Claude and ChatGPT chats">
 <meta property="og:description" content="A macOS menu-bar app and desktop widget: see which Claude and ChatGPT chats are running, done or waiting for you, and arrange them as a mind map. Free and open source.">
 <meta property="og:url" content="https://tang1693.github.io/KIKUmap/">
 <meta property="og:image" content="https://tang1693.github.io/KIKUmap/social-preview.png">
@@ -28,14 +28,14 @@
   :root {
     --bg: #F7F3EC; --bg2: #EFE7DA; --card: #FFFDF9;
     --ink: #1F1E1D; --ink2: #6B655D; --line: rgba(31, 30, 29, .11);
-    --accent: #D97757; --accent-hover: #C8664A; --on-accent: #FFFFFF;
+    --accent: #187DFE; --accent-hover: #0E68DC; --on-accent: #FFFFFF;
     --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 12px 40px -12px rgba(60, 40, 20, .22);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #1A1918; --bg2: #22201E; --card: #262422;
       --ink: #EDE9E3; --ink2: #A39D94; --line: rgba(255, 255, 255, .1);
-      --accent: #E08566; --accent-hover: #EA9578; --on-accent: #1A1918;
+      --accent: #4D9BFF; --accent-hover: #6EADFF; --on-accent: #0B1220;
       --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 16px 48px -16px rgba(0, 0, 0, .7);
     }
   }
@@ -61,7 +61,7 @@
   h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; letter-spacing: -.02em; text-align: center; }
   .sub { color: var(--ink2); text-align: center; max-width: 620px; margin: 14px auto 0; }
 
-  /* The flower from the app icon */
+  /* The flower from the menu bar, in the icon's colours */
   .kiku { width: 22px; height: 22px; color: var(--accent); flex: none; }
   .kiku.spin { animation: spin 7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -185,7 +185,7 @@
 
   /* Closing */
   .closing { text-align: center; padding-bottom: 72px; }
-  .closing .kiku { width: 44px; height: 44px; margin: 0 auto 18px; }
+  .closing .closing-icon { display: block; width: 84px; height: 84px; margin: 0 auto 18px; filter: drop-shadow(0 8px 14px rgba(40, 25, 10, .22)); }
   footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--ink2); font-size: 14px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
   footer a { color: var(--ink2); }
@@ -209,16 +209,7 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="kiku" viewBox="-12 -12 24 24">
-    <g stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none">
-      <circle r="2.4"/>
-      <path id="ray" d="M0-4.6V-10.6"/>
-      <use href="#ray" transform="rotate(30)"/><use href="#ray" transform="rotate(60)"/><use href="#ray" transform="rotate(90)"/>
-      <use href="#ray" transform="rotate(120)"/><use href="#ray" transform="rotate(150)"/><use href="#ray" transform="rotate(180)"/>
-      <use href="#ray" transform="rotate(210)"/><use href="#ray" transform="rotate(240)"/><use href="#ray" transform="rotate(270)"/>
-      <use href="#ray" transform="rotate(300)"/><use href="#ray" transform="rotate(330)"/>
-    </g>
-  </symbol>
+  <symbol id="kiku" viewBox="-32 -32 64 64"><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(0)" fill="#FEC503"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(60)" fill="#187DFE"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(120)" fill="#FE453A"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(180)" fill="#FEC503"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(240)" fill="#187DFE"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(300)" fill="#FE453A"/></symbol>
   <symbol id="github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol>
   <symbol id="cup" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3v2m4-2v2"/></symbol>
   <symbol id="download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></symbol>
@@ -226,7 +217,7 @@
 
 <header class="nav" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><svg class="kiku spin"><use href="#kiku"/></svg>Kikumap</a>
+    <a class="brand" href="#top"><svg class="kiku spin"><use href="#kiku"/></svg>KIKUmap</a>
     <nav>
       <a href="#features"><span lang="en">Features</span><span lang="zh">功能</span></a>
       <a href="#privacy"><span lang="en">Privacy</span><span lang="zh">隐私</span></a>
@@ -246,13 +237,13 @@
       <img class="app-icon" src="icon.png" alt="">
       <p class="pill"><span lang="en">Native macOS · 2.5 MB · Free and open source</span><span lang="zh">原生 macOS · 2.5 MB · 免费开源</span></p>
       <h1><span lang="en">A mind map for your Claude and ChatGPT chats.</span><span lang="zh">给 Claude 和 ChatGPT 对话的思维导图。</span></h1>
-      <p class="lead" lang="en">Kikumap lives in your Mac's menu bar and keeps track of your Claude and ChatGPT chats: what's running, what's done, what needs your OK. Open it, and your pinned chats become a map you arrange yourself. A desktop widget shows it all at a glance, with your usage.</p>
-      <p class="lead" lang="zh">Kikumap 住在 Mac 的菜单栏里，帮你盯着 Claude 和 ChatGPT 的对话：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的导图。桌面小组件也能一眼看到这些，还有用量。</p>
+      <p class="lead" lang="en">KIKUmap lives in your Mac's menu bar and keeps track of your Claude and ChatGPT chats: what's running, what's done, what needs your OK. Open it, and your pinned chats become a map you arrange yourself. A desktop widget shows it all at a glance, with your usage.</p>
+      <p class="lead" lang="zh">KIKUmap 住在 Mac 的菜单栏里，帮你盯着 Claude 和 ChatGPT 的对话：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的导图。桌面小组件也能一眼看到这些，还有用量。</p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.6</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.6 版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.7</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.7 版</span></p>
       <figure class="shot"><img src="demo/drag.gif" width="1800" height="1185" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
   </section>
@@ -263,7 +254,7 @@
       <p class="sub" lang="en">Narrated, with captions and music. It plays muted until you turn the sound on.</p>
       <p class="sub" lang="zh">英文配音，带字幕和背景音乐。默认静音播放，点按钮打开声音。</p>
       <div class="player shot">
-        <video id="tour-video" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The 2-minute tour of Kikumap">
+        <video id="tour-video" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The 2-minute tour of KIKUmap">
           <track kind="captions" src="demo/kikumap-intro.vtt" srclang="en" label="English" default>
         </video>
         <button class="sound" id="sound" type="button"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 4V5L7 9H3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.8 5.8a9 9 0 0 1 0 12.4"/></svg><span lang="en">Play with sound</span><span lang="zh">打开声音播放</span></button>
@@ -277,9 +268,9 @@
         <div class="text">
           <p class="eyebrow"><span lang="en">Menu bar</span><span lang="zh">菜单栏</span></p>
           <h3><span lang="en">Know what Claude and ChatGPT are doing</span><span lang="zh">随时知道 Claude 和 ChatGPT 在干什么</span></h3>
-          <p lang="en">One icon in the menu bar. While chats run, it shows how many, in a ring with an orange arc going round. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval. With nothing running or unread, it's a little orange flower.</p>
-          <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and Kikumap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
-          <p lang="zh">菜单栏只有一个图标。有对话在跑时，显示在跑几个，数字外面一圈橙色在转；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。都没有时，就是一朵橙色小菊花。</p>
+          <p lang="en">One icon in the menu bar. While chats run, it shows how many, in a ring with an orange arc going round. A red badge counts chats that finished and you haven't read, with <b>!</b> when one needs your approval. With nothing running or unread, it's a little flower in yellow, blue and red.</p>
+          <p lang="en"><b>Hear it instead of checking:</b> a sound plays when a chat finishes or needs you, and KIKUmap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.</p>
+          <p lang="zh">菜单栏只有一个图标。有对话在跑时，显示在跑几个，数字外面一圈橙色在转；红色数字是做完了还没看的对话，带 <b>!</b> 表示有对话在等你批准。都没有时，就是一朵黄蓝红三色的小菊花。</p>
           <p lang="zh"><b>听声音就知道：</b>对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“定价方案做完了”），声音、语速、念的内容都能自己改，也可以换成自己的声音文件。</p>
           <p lang="en">Works with the Claude desktop app, with Claude Code (Terminal, VS Code, the app's Code mode) and with the ChatGPT desktop app: the <b>Codex</b> chats you pin there show next to Claude's chats, marked <b>GPT</b>, in ChatGPT's order. (Ordinary ChatGPT chats are kept online, not on your Mac, so they can't show.) Nothing to set up for ChatGPT.</p>
           <p lang="zh">支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 ChatGPT 桌面 App：你在 ChatGPT 里置顶的 <b>Codex</b> 对话会和 Claude 的对话放在一起，前面标着 <b>GPT</b>，顺序和 ChatGPT 一样。（普通 ChatGPT 聊天存在云端、不在你的 Mac 上，显示不了。）ChatGPT 这边不用任何设置。</p>
@@ -295,8 +286,8 @@
           <p lang="zh">左栏是你在 Claude 里置顶的对话和在 ChatGPT 里置顶的 Codex 对话，<b>顺序和各自的 App 一样</b>，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。</p>
           <p lang="en"><b>Several at once:</b> drag a box on empty space (or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click), or <kbd>⌘</kbd>/<kbd>⇧</kbd>-click in the left column, then drag any one of them. They all come along, in order. Hold <kbd>space</kbd> and move the mouse, or swipe with two fingers, to move around. Hide or resize the left column and the timeline (<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>, <kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>), and make everything bigger with <kbd>⌘</kbd><kbd>+</kbd>.</p>
           <p lang="zh"><b>一次拖好几个：</b>在导图空白处拖出选框（或 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击），或在左栏 <kbd>⌘</kbd>/<kbd>⇧</kbd> 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住<kbd>空格</kbd>移动鼠标、或双指滑动，就能移动导图。左栏和时间线可以隐藏（<kbd>⌃</kbd><kbd>⌘</kbd><kbd>S</kbd>、<kbd>⌃</kbd><kbd>⌘</kbd><kbd>T</kbd>）或拖边缘调宽，<kbd>⌘</kbd><kbd>+</kbd> 让整个窗口变大。</p>
-          <p lang="en">Real conversations carry a small orange mark. Hover one for two buttons: open it in Claude or ChatGPT, or mark it unread again (<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>) so it waits for you until you've opened it.</p>
-          <p lang="zh">真正的对话前面有橙色小标记。鼠标停在上面会出现两个按钮：在 Claude 或 ChatGPT 里打开，或者标回未读（<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>），在你真正打开之前一直提醒你。</p>
+          <p lang="en">Real conversations carry a small flower. Hover one for two buttons: open it in Claude or ChatGPT, or mark it unread again (<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>) so it waits for you until you've opened it.</p>
+          <p lang="zh">真正的对话前面有一朵小菊花。鼠标停在上面会出现两个按钮：在 Claude 或 ChatGPT 里打开，或者标回未读（<kbd>⇧</kbd><kbd>⌘</kbd><kbd>U</kbd>），在你真正打开之前一直提醒你。</p>
         </div>
         <figure class="shot"><img src="demo/group.gif" width="1650" height="900" loading="lazy" alt="Dragging a box on empty space selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></figure>
       </div>
@@ -370,10 +361,10 @@
           <h3><span lang="en">On your desktop</span><span lang="zh">放在桌面上</span></h3>
           <p lang="en">A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time, the last 7 days, and your plan beside its usage. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.</p>
           <p lang="zh">桌面或通知中心的小组件，小、中、大三种尺寸：最近 24 小时 Claude 干了多久（柱状图，每个对话一种颜色）和今天的时长；用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；大号还列出用时最多的对话和最近 7 天，用量旁边写着你的套餐。macOS 只让小组件隔一阵刷新一次（苹果的规定大约是 15 到 60 分钟），所以小组件只放晚一点看也不会错的内容，并标出是几点的数据；正在跑和未读的看菜单栏。点柱状图打开统计，点对话打开对话。</p>
-          <p lang="en">Right-click the desktop → <b>Edit Widgets</b> and search for Kikumap. macOS 14 or later.</p>
-          <p lang="zh">在桌面右键 → <b>编辑小组件</b>，搜 Kikumap。需要 macOS 14 或更新。</p>
+          <p lang="en">Right-click the desktop → <b>Edit Widgets</b> and search for KIKUmap. macOS 14 or later.</p>
+          <p lang="zh">在桌面右键 → <b>编辑小组件</b>，搜 KIKUmap。需要 macOS 14 或更新。</p>
         </div>
-        <figure class="shot"><img lang="en" src="demo/widget.png" width="1632" height="1088" loading="lazy" alt="Four Kikumap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time, the last 7 days and each plan"><img lang="zh" src="demo/widget-zh.png" width="1632" height="1088" loading="lazy" alt="四个 Kikumap 小组件：大、中和两个小的，都有最近 24 小时 Claude 干了多久的分段柱状图和用量；大号还列出用时最多的对话、最近 7 天和套餐"></figure>
+        <figure class="shot"><img lang="en" src="demo/widget.png" width="1632" height="1088" loading="lazy" alt="Four KIKUmap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time, the last 7 days and each plan"><img lang="zh" src="demo/widget-zh.png" width="1632" height="1088" loading="lazy" alt="四个 KIKUmap 小组件：大、中和两个小的，都有最近 24 小时 Claude 干了多久的分段柱状图和用量；大号还列出用时最多的对话、最近 7 天和套餐"></figure>
       </div>
 
       <div class="feature">
@@ -419,7 +410,7 @@
   <section class="privacy" id="privacy">
     <div class="wrap">
       <h2><span lang="en">Stays on your Mac</span><span lang="zh">数据留在你的 Mac 上</span></h2>
-      <p class="sub" lang="en">Everything lives in <code>~/Library/Application Support/ClaudeConsole/</code>. The only network requests are usage checks to <code>api.anthropic.com</code>, and only if you turn usage on; ChatGPT's usage is read from its own files. No sign-up, no tracking. And no surprise prompts: every macOS permission dialog comes after Kikumap has told you what it's for and you've clicked to go ahead.</p>
+      <p class="sub" lang="en">Everything lives in <code>~/Library/Application Support/ClaudeConsole/</code>. The only network requests are usage checks to <code>api.anthropic.com</code>, and only if you turn usage on; ChatGPT's usage is read from its own files. No sign-up, no tracking. And no surprise prompts: every macOS permission dialog comes after KIKUmap has told you what it's for and you've clicked to go ahead.</p>
       <p class="sub" lang="zh">所有数据都在本机 <code>~/Library/Application Support/ClaudeConsole/</code>。唯一的网络请求是向 <code>api.anthropic.com</code> 查询用量，而且只在你开启用量功能之后；ChatGPT 的用量从它自己的文件里读。不用注册，没有统计追踪。也不会突然弹窗：每个系统授权弹窗，都会先告诉你要做什么，你点了同意才出现。</p>
       <div class="perms">
         <div class="perm">
@@ -448,7 +439,7 @@
         </div>
         <div class="perm">
           <b lang="en">Usage and scheduled tasks (optional)</b><b lang="zh">用量和计划任务（可选）</b>
-          <p lang="en">Off by default. Turn it on and Kikumap reads the sign-in Claude Code keeps in your Keychain: read-only, never saved, sent only to Anthropic's usage API.</p>
+          <p lang="en">Off by default. Turn it on and KIKUmap reads the sign-in Claude Code keeps in your Keychain: read-only, never saved, sent only to Anthropic's usage API.</p>
           <p lang="zh">默认关闭。开启后读取 Claude Code 存在钥匙串里的登录：只读、不保存，只发给 Anthropic 的用量接口。</p>
           <span class="tag"><span lang="en">Keychain, only after you say yes</span><span lang="zh">钥匙串，你同意后才问</span></span>
         </div>
@@ -467,18 +458,18 @@
         </li>
         <li>
           <b lang="en">Drag it to Applications</b><b lang="zh">拖进「应用程序」</b>
-          <p lang="en">Open the disk image and drag Kikumap onto the Applications folder.</p>
-          <p lang="zh">打开 DMG，把 Kikumap 拖到「应用程序」文件夹上。</p>
+          <p lang="en">Open the disk image and drag KIKUmap onto the Applications folder.</p>
+          <p lang="zh">打开 DMG，把 KIKUmap 拖到「应用程序」文件夹上。</p>
         </li>
         <li>
           <b lang="en">Allow the first launch</b><b lang="zh">允许第一次打开</b>
-          <p lang="en">The app isn't notarized, so macOS blocks it once: click <b>Done</b> (not Move to Trash), then go to System Settings → Privacy &amp; Security, scroll down and click <b>Open Anyway</b>. A short intro follows; on its last page you can have Kikumap open when you log in.</p>
-          <p lang="zh">没有付费的苹果开发者签名，第一次会被拦住：在提示里点<b>「完成」</b>（不要点「移到废纸篓」），再去「系统设置 → 隐私与安全性」，往下滑，点<b>「仍要打开」</b>。接着是简短的引导，最后一页可以选登录 Mac 时自动打开 Kikumap。</p>
+          <p lang="en">The app isn't notarized, so macOS blocks it once: click <b>Done</b> (not Move to Trash), then go to System Settings → Privacy &amp; Security, scroll down and click <b>Open Anyway</b>. A short intro follows; on its last page you can have KIKUmap open when you log in.</p>
+          <p lang="zh">没有付费的苹果开发者签名，第一次会被拦住：在提示里点<b>「完成」</b>（不要点「移到废纸篓」），再去「系统设置 → 隐私与安全性」，往下滑，点<b>「仍要打开」</b>。接着是简短的引导，最后一页可以选登录 Mac 时自动打开 KIKUmap。</p>
         </li>
         <li>
           <b lang="en">Pin the chats to follow</b><b lang="zh">把要盯的对话置顶</b>
-          <p lang="en">Kikumap follows pinned chats (and Claude Code and Codex sessions): pin a chat in Claude, or a Codex chat in ChatGPT, and it shows in the menu, the map's left column and the widget.</p>
-          <p lang="zh">Kikumap 盯的是置顶的对话（以及 Claude Code、Codex 会话）：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单、导图左栏和小组件里。</p>
+          <p lang="en">KIKUmap follows pinned chats (and Claude Code and Codex sessions): pin a chat in Claude, or a Codex chat in ChatGPT, and it shows in the menu, the map's left column and the widget.</p>
+          <p lang="zh">KIKUmap 盯的是置顶的对话（以及 Claude Code、Codex 会话）：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单、导图左栏和小组件里。</p>
         </li>
       </ol>
       <p class="note" lang="en">Prefer to build it yourself? Clone the repository and open <code>Install.command</code>. It compiles and signs on your Mac, so permissions survive reinstalls.</p>
@@ -495,33 +486,33 @@
       <div class="faq">
         <details>
           <summary><span lang="en">Is this made by Anthropic or OpenAI?</span><span lang="zh">这是 Anthropic 或 OpenAI 官方做的吗？</span></summary>
-          <p lang="en">No. Kikumap is an independent open-source project, not made by or affiliated with Anthropic or OpenAI.</p>
-          <p lang="zh">不是。Kikumap 是个人独立开发的开源项目，与 Anthropic、OpenAI 都无关。</p>
+          <p lang="en">No. KIKUmap is an independent open-source project, not made by or affiliated with Anthropic or OpenAI.</p>
+          <p lang="zh">不是。KIKUmap 是个人独立开发的开源项目，与 Anthropic、OpenAI 都无关。</p>
         </details>
         <details>
           <summary><span lang="en">Can a Claude or ChatGPT update break it?</span><span lang="zh">Claude 或 ChatGPT 更新后会失灵吗？</span></summary>
-          <p lang="en">The Claude app has no public API, so Kikumap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of Kikumap may stop working until it's updated.</p>
-          <p lang="zh">Claude App 没有公开接口，Kikumap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 Kikumap 更新才能恢复。</p>
+          <p lang="en">The Claude app has no public API, so KIKUmap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of KIKUmap may stop working until it's updated.</p>
+          <p lang="zh">Claude App 没有公开接口，KIKUmap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 KIKUmap 更新才能恢复。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with ChatGPT?</span><span lang="zh">支持 ChatGPT 吗？</span></summary>
-          <p lang="en">Yes, with the current ChatGPT desktop app (the one built on Codex), for the chats it keeps on your Mac: the Codex chats you pin in ChatGPT (threads, and the threads in pinned projects) show next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them; Codex sessions in VS Code or the terminal show like Claude Code sessions, while they run and for 12 hours after; they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Ordinary ChatGPT chats are kept online, so they can't show. Kikumap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
-          <p lang="zh">支持新版 ChatGPT 桌面 App（Codex 内核）存在你 Mac 上的对话：你在 ChatGPT 里置顶的 Codex 对话（对话、置顶项目里的对话）会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致；VS Code、终端里的 Codex 会话和 Claude Code 会话一样，运行中和做完后 12 小时内显示；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。普通 ChatGPT 聊天存在云端，显示不了。Kikumap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
+          <p lang="en">Yes, with the current ChatGPT desktop app (the one built on Codex), for the chats it keeps on your Mac: the Codex chats you pin in ChatGPT (threads, and the threads in pinned projects) show next to Claude's chats in ChatGPT's order, with running and unread as ChatGPT shows them; Codex sessions in VS Code or the terminal show like Claude Code sessions, while they run and for 12 hours after; they count in the timeline and statistics, and the widget can show ChatGPT's usage too. Ordinary ChatGPT chats are kept online, so they can't show. KIKUmap only reads what ChatGPT keeps in <code>~/.codex</code>; no permission is needed.</p>
+          <p lang="zh">支持新版 ChatGPT 桌面 App（Codex 内核）存在你 Mac 上的对话：你在 ChatGPT 里置顶的 Codex 对话（对话、置顶项目里的对话）会和 Claude 的对话放在一起，顺序和 ChatGPT 一样，进行中、未读和 ChatGPT 里一致；VS Code、终端里的 Codex 会话和 Claude Code 会话一样，运行中和做完后 12 小时内显示；也算进时间线和统计，小组件也能显示 ChatGPT 的用量。普通 ChatGPT 聊天存在云端，显示不了。KIKUmap 只读 ChatGPT 存在 <code>~/.codex</code> 里的内容，不需要任何权限。</p>
         </details>
         <details>
           <summary><span lang="en">What can't it see?</span><span lang="zh">哪些它看不到？</span></summary>
-          <p lang="en">Kikumap reads what the apps keep on this Mac, so anything running elsewhere is out of its sight: Claude Code or Codex on another computer or a server (over SSH, in VS Code Remote or a dev container, or in the cloud), ordinary ChatGPT chats (kept online), Codex cloud tasks, and Claude chats you haven't pinned. Pinned Claude chats show wherever you started them, as long as the Claude desktop app runs on this Mac. Claude's usage meters need Claude Code signed in here with a Claude subscription (an API key billed per use has none); ChatGPT's come from its own files.</p>
-          <p lang="zh">Kikumap 读的是各个 App 存在这台 Mac 上的东西，所以在别处跑的都看不到：别的电脑或服务器上（SSH、VS Code 远程、开发容器、云端）的 Claude Code 或 Codex、普通 ChatGPT 聊天（存在云端）、Codex 云端任务，以及没置顶的 Claude 对话。置顶的 Claude 对话不管在哪儿开的都能看到，前提是这台 Mac 上开着 Claude 桌面 App。Claude 的用量要在这台 Mac 上用 Claude 订阅登录 Claude Code（按量计费的 API Key 没有用量条）；ChatGPT 的用量读它自己的文件。</p>
+          <p lang="en">KIKUmap reads what the apps keep on this Mac, so anything running elsewhere is out of its sight: Claude Code or Codex on another computer or a server (over SSH, in VS Code Remote or a dev container, or in the cloud), ordinary ChatGPT chats (kept online), Codex cloud tasks, and Claude chats you haven't pinned. Pinned Claude chats show wherever you started them, as long as the Claude desktop app runs on this Mac. Claude's usage meters need Claude Code signed in here with a Claude subscription (an API key billed per use has none); ChatGPT's come from its own files.</p>
+          <p lang="zh">KIKUmap 读的是各个 App 存在这台 Mac 上的东西，所以在别处跑的都看不到：别的电脑或服务器上（SSH、VS Code 远程、开发容器、云端）的 Claude Code 或 Codex、普通 ChatGPT 聊天（存在云端）、Codex 云端任务，以及没置顶的 Claude 对话。置顶的 Claude 对话不管在哪儿开的都能看到，前提是这台 Mac 上开着 Claude 桌面 App。Claude 的用量要在这台 Mac 上用 Claude 订阅登录 Claude Code（按量计费的 API Key 没有用量条）；ChatGPT 的用量读它自己的文件。</p>
         </details>
         <details>
           <summary><span lang="en">Does it work with Claude Code?</span><span lang="zh">支持 Claude Code 吗？</span></summary>
-          <p lang="en">Yes: in Terminal, VS Code and the Claude app's Code mode. Click <i>Connect</i> and Kikumap adds its hooks to <code>~/.claude/settings.json</code>, backing up the old file first.</p>
-          <p lang="zh">支持，终端、VS Code 和 Claude App 的 Code 模式都可以。点「连接」后，Kikumap 会把 hooks 写进 <code>~/.claude/settings.json</code>，原文件会先备份。</p>
+          <p lang="en">Yes: in Terminal, VS Code and the Claude app's Code mode. Click <i>Connect</i> and KIKUmap adds its hooks to <code>~/.claude/settings.json</code>, backing up the old file first.</p>
+          <p lang="zh">支持，终端、VS Code 和 Claude App 的 Code 模式都可以。点「连接」后，KIKUmap 会把 hooks 写进 <code>~/.claude/settings.json</code>，原文件会先备份。</p>
         </details>
         <details>
           <summary><span lang="en">What if I close Claude's window with ⌘W?</span><span lang="zh">用 ⌘W 关了 Claude 的窗口怎么办？</span></summary>
-          <p lang="en">That only hides the window: Claude keeps running, but Kikumap reads Claude's chats from its sidebar, so it can't see them until the window is back (click Claude in the Dock). The same goes for a window on another desktop, full screen included. Behind other windows or minimized, it keeps reading. Meanwhile chats that were running show "running?", and the time Kikumap can't see is estimated and marked ≈ (your typical run's length, never past when the chat is seen finished). With Full Disk Access on (optional), Claude's notifications still say when it needs your approval or an answer, and when a Cowork task finishes. An ordinary chat's finish shows when the window is back: Claude sends no notification for it. Claude Code in Terminal or VS Code and ChatGPT's Codex aren't affected.</p>
-          <p lang="zh">Claude 的 ⌘W 只是把窗口藏起来，App 还在运行；但 Kikumap 是从 Claude 的侧边栏读对话的，所以要等窗口回来（点程序坞里的 Claude）才看得到。窗口在别的桌面上（包括全屏）也一样。被别的窗口挡住或最小化时，照样能读。这期间，在跑的对话显示「在跑？」，看不到的这段时长是估算的，标 ≈（按你一次运行的常见时长算，不超过它被看到做完的时候）。开了「完全磁盘访问」（可选）的话，Claude 要你批准或回答、Cowork 任务做完时，通知照样能收到。普通对话回复完，Claude 不发通知，要等窗口回来才知道。终端或 VS Code 里的 Claude Code、ChatGPT 的 Codex 完全不受影响。</p>
+          <p lang="en">That only hides the window: Claude keeps running, but KIKUmap reads Claude's chats from its sidebar, so it can't see them until the window is back (click Claude in the Dock). The same goes for a window on another desktop, full screen included. Behind other windows or minimized, it keeps reading. Meanwhile chats that were running show "running?", and the time KIKUmap can't see is estimated and marked ≈ (your typical run's length, never past when the chat is seen finished). With Full Disk Access on (optional), Claude's notifications still say when it needs your approval or an answer, and when a Cowork task finishes. An ordinary chat's finish shows when the window is back: Claude sends no notification for it. Claude Code in Terminal or VS Code and ChatGPT's Codex aren't affected.</p>
+          <p lang="zh">Claude 的 ⌘W 只是把窗口藏起来，App 还在运行；但 KIKUmap 是从 Claude 的侧边栏读对话的，所以要等窗口回来（点程序坞里的 Claude）才看得到。窗口在别的桌面上（包括全屏）也一样。被别的窗口挡住或最小化时，照样能读。这期间，在跑的对话显示「在跑？」，看不到的这段时长是估算的，标 ≈（按你一次运行的常见时长算，不超过它被看到做完的时候）。开了「完全磁盘访问」（可选）的话，Claude 要你批准或回答、Cowork 任务做完时，通知照样能收到。普通对话回复完，Claude 不发通知，要等窗口回来才知道。终端或 VS Code 里的 Claude Code、ChatGPT 的 Codex 完全不受影响。</p>
         </details>
         <details>
           <summary><span lang="en">Why is there no usage?</span><span lang="zh">为什么没有用量？</span></summary>
@@ -535,8 +526,8 @@
         </details>
         <details>
           <summary><span lang="en">What does the name mean?</span><span lang="zh">名字是什么意思？</span></summary>
-          <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little orange flower on Kikumap's icon and in your menu bar. Kikumap is the map that grows out of it.</p>
-          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是 Kikumap 图标和菜单栏里那朵橙色小菊花；Kikumap 就是从它长出来的导图。</p>
+          <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little yellow, blue and red flower in your menu bar. KIKUmap is the map that grows out of it.</p>
+          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是菜单栏里那朵黄蓝红三色的小菊花；KIKUmap 就是从它长出来的导图。</p>
         </details>
       </div>
     </div>
@@ -544,7 +535,7 @@
 
   <section class="closing">
     <div class="wrap">
-      <svg class="kiku spin"><use href="#kiku"/></svg>
+      <img class="closing-icon" src="icon.png" alt="">
       <h2><span lang="en">Give your chats a map.</span><span lang="zh">给你的对话一张导图。</span></h2>
       <div class="cta">
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
@@ -565,7 +556,7 @@
 
 <script>
   var root = document.documentElement;
-  var titles = { en: "Kikumap — A mind map for your Claude and ChatGPT chats", zh: "Kikumap · Claude 和 ChatGPT 对话导图" };
+  var titles = { en: "KIKUmap — A mind map for your Claude and ChatGPT chats", zh: "KIKUmap · Claude 和 ChatGPT 对话导图" };
   document.title = titles[root.dataset.lang];
 
   document.getElementById("lang").addEventListener("click", function () {

@@ -280,7 +280,7 @@ enum Theme {
     }
 
     /// How many are running: the number in a ring. With `phase` (0…1, one turn) an arc goes round it clockwise,
-    /// meaning they're running now as far as Kikumap can see; without, the ring stands still. The same in the menu
+    /// meaning they're running now as far as KIKUmap can see; without, the ring stands still. The same in the menu
     /// bar, the window's header and the map's topics.
     static func drawRunCount(_ text: String, in r: NSRect, ink: NSColor, arc: NSColor, font: NSFont, phase: CGFloat?, lineWidth: CGFloat = 1.5) {
         let d = min(r.width, r.height)

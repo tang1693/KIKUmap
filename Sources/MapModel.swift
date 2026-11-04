@@ -112,7 +112,7 @@ final class MapModel {
     var aliases: [String: String] { doc.aliases }
     /// The map on disk couldn't be read: where it was kept (nil: it was read, or there was none yet).
     private(set) var unreadable: String?
-    /// The map on disk is left alone this session (it couldn't be moved aside, or a newer Kikumap wrote it).
+    /// The map on disk is left alone this session (it couldn't be moved aside, or a newer KIKUmap wrote it).
     private(set) var readOnly = false
     /// Why the map can't be saved right now (nil: it can).
     private(set) var saveError: String?
@@ -128,11 +128,11 @@ final class MapModel {
                 let d = try Data(contentsOf: url)
                 struct Version: Decodable { var v: Int? }
                 if let v = (try? JSONDecoder().decode(Version.self, from: d))?.v, v > 1 {
-                    // written by a newer Kikumap: shown empty here, never written over
+                    // written by a newer KIKUmap: shown empty here, never written over
                     doc = MapDoc(root: MapNode(id: "root", title: "Claude"), aliases: [:])
                     readOnly = true
-                    unreadable = "data/map.json" + tr("（新版 Kikumap 存的；现在对导图的改动不会保存）",
-                                                      " (saved by a newer Kikumap; changes you make to the map now won't be saved)")
+                    unreadable = "data/map.json" + tr("（新版 KIKUmap 存的；现在对导图的改动不会保存）",
+                                                      " (saved by a newer KIKUmap; changes you make to the map now won't be saved)")
                     return
                 }
                 doc = try JSONDecoder().decode(MapDoc.self, from: d)

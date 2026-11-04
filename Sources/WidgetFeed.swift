@@ -33,7 +33,7 @@ final class WidgetFeed {
         var claudeNote: String?
         /// The note is about Claude's unread marks alone: what's running is read as usual.
         var claudeUnreadOnly: Bool?
-        /// Seconds of the chart's 24 hours that are estimated (runs out of Kikumap's sight): its total says "≈".
+        /// Seconds of the chart's 24 hours that are estimated (runs out of KIKUmap's sight): its total says "≈".
         var estimated: Double?
         /// The named chats' ids and their time in these 24 hours (legend order), for the large widget's list.
         var legendIDs: [String]?
@@ -63,7 +63,7 @@ final class WidgetFeed {
 
     func update(force: Bool = false) { write(closed: false, force: force) }
 
-    /// Kikumap is quitting: the widget says so, instead of showing chats as still running.
+    /// KIKUmap is quitting: the widget says so, instead of showing chats as still running.
     func closing() { write(closed: true, force: true) }
 
     private func write(closed: Bool, force: Bool) {
@@ -104,7 +104,7 @@ final class WidgetFeed {
                    meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")\($0.asOf ?? "")" }.joined(separator: ","),
                    Prefs.english ? "en" : "zh", closed ? "closed" : ""].joined(separator: "|")
         // at least every five minutes the chart moves on, and every ten the file is written again even if
-        // nothing changed, so the widget always has a fresh "updated" to tell Kikumap is running
+        // nothing changed, so the widget always has a fresh "updated" to tell KIKUmap is running
         let heartbeat = Date().timeIntervalSince(lastBeat) >= 600
         guard force || heartbeat || key != lastKey || Date().timeIntervalSince(lastWrite) >= 300 else { return }
 
@@ -128,7 +128,7 @@ final class WidgetFeed {
         let dayBounds = (-6...1).map { cal.date(byAdding: .day, value: $0, to: today) ?? today }
         let days = zip(dayBounds, store.worked(dayBounds)).map { State.Day(start: Clock.iso($0), seconds: $1.values.reduce(0, +).rounded()) }
 
-        // (one out of Kikumap's sight, not known to run still, is marked so)
+        // (one out of KIKUmap's sight, not known to run still, is marked so)
         func items(_ cs: [Chat]) -> [State.Item] { cs.prefix(6).map { State.Item(id: $0.id, title: store.name($0.id), unsure: store.outOfSight($0.id) ? true : nil) } }
         var state = State(updated: "", english: Prefs.english, closed: closed ? true : nil,
                           running: items(run), unread: items(unread), runningCount: run.count, unreadCount: unread.count,
@@ -160,13 +160,13 @@ final class WidgetFeed {
     /// 70, about every 15 to 60 minutes; spent, the requests are ignored and the widget sits on an old picture. So the
     /// widget shows only what holds up when it's a while old (the record by the hour and the day, and usage, all under
     /// "as of"), and a redraw is asked for when that changes, at most every twenty minutes, the latest always delivered
-    /// in the end. While Kikumap is the app in front, redraws don't count against that, so they go at once (and when
+    /// in the end. While KIKUmap is the app in front, redraws don't count against that, so they go at once (and when
     /// it comes to the front, one catches up).
     private static let pace: TimeInterval = 20 * 60
     private var lastRedraw = Date.distantPast, redrawnKey = "", wantedKey = ""
     private var redrawLater: Timer?
 
-    /// Kikumap came to the front: the widget catches up for free, if it's behind.
+    /// KIKUmap came to the front: the widget catches up for free, if it's behind.
     func caughtUp() {
         guard redrawnKey != wantedKey, !wantedKey.isEmpty else { return }
         redraw(wantedKey, now: true)

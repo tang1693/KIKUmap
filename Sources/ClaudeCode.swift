@@ -34,10 +34,10 @@ enum CodeHooks {
 
     /// Pulls a few top-level fields out of the hook's JSON with grep (no jq needed) and writes one
     /// short line. It never fails, so it can't get in Claude Code's way. The file it writes is started over past
-    /// 10 MB (Kikumap may not run for a long time).
+    /// 10 MB (KIKUmap may not run for a long time).
     static let scriptText = """
     #!/bin/sh
-    # Kikumap (menu-bar app): note what this Claude Code session is doing. Always succeeds.
+    # KIKUmap (menu-bar app): note what this Claude Code session is doing. Always succeeds.
     d="$HOME/Library/Application Support/ClaudeConsole"
     o="$d/code-events.jsonl"
     in=$(tr -d '\\n\\r' | cut -c 1-65536)
@@ -90,7 +90,7 @@ enum CodeHooks {
         return stop.contains(where: ours) && FileManager.default.isExecutableFile(atPath: script.path)
     }
 
-    /// Connected by an older Kikumap: the script and the hook list brought up to date (no prompt: it's the same
+    /// Connected by an older KIKUmap: the script and the hook list brought up to date (no prompt: it's the same
     /// connection you made, just current).
     static func upgradeIfNeeded() {
         guard installed else { return }
@@ -134,7 +134,7 @@ enum CodeHooks {
         }
         if managed.contains(where: { $0["disableAllHooks"] as? Bool == true || $0["allowManagedHooksOnly"] as? Bool == true
             || strict($0["strictPluginOnlyCustomization"]) }) {
-            return tr("你的组织在 Claude Code 里关掉了自定义 hook，会话没法报告给 Kikumap", "Your organization has turned off custom hooks in Claude Code, so sessions can't report to Kikumap")
+            return tr("你的组织在 Claude Code 里关掉了自定义 hook，会话没法报告给 KIKUmap", "Your organization has turned off custom hooks in Claude Code, so sessions can't report to KIKUmap")
         }
         if user?["disableAllHooks"] as? Bool == true {
             return tr("Claude Code 的设置里关掉了所有 hook（~/.claude/settings.json 里的 disableAllHooks）", "Claude Code's settings turn all hooks off (disableAllHooks in ~/.claude/settings.json)")
@@ -154,7 +154,7 @@ enum CodeHooks {
         case .missing: s = [:]
         case .ok(let o):
             s = o
-            // a copy of how it was before Kikumap ever touched it; no copy, no change
+            // a copy of how it was before KIKUmap ever touched it; no copy, no change
             let backup = settings.deletingLastPathComponent().appendingPathComponent("settings.json.before-claude-console")
             if !FileManager.default.fileExists(atPath: backup.path) {
                 do { try FileManager.default.copyItem(at: settings.resolvingSymlinksInPath(), to: backup) }
@@ -280,7 +280,7 @@ final class CodeWatcher {
         var offset = UInt64(UserDefaults.standard.integer(forKey: offsetKey))
         if size < offset { offset = 0 }                       // the file was cleared
         guard size > offset else { return }
-        // a long backlog (Kikumap wasn't running): only its last 2 MB (a line cut in two is skipped)
+        // a long backlog (KIKUmap wasn't running): only its last 2 MB (a line cut in two is skipped)
         if size - offset > 2_000_000 { offset = size - 2_000_000 }
         try? h.seek(toOffset: offset)
         guard let data = try? h.read(upToCount: Int(size - offset)),

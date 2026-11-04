@@ -8,7 +8,7 @@ private func hotKeyHandler(_ next: EventHandlerCallRef?, _ event: EventRef?, _ u
     return OSStatus(noErr)
 }
 
-/// While one of Kikumap's windows is open it's a regular app — the menu bar is its own, and it's in the Dock and
+/// While one of KIKUmap's windows is open it's a regular app — the menu bar is its own, and it's in the Dock and
 /// ⌘-Tab; with all of them closed it lives in the menu bar only again.
 @MainActor
 enum Front {
@@ -47,14 +47,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var widget = WidgetFeed(store: store, usage: usage, gpt: gpt)
     private let todoList = TodoPopover()
     private var shownGPTUsage: GPTUsage?
-    /// A newer copy of Kikumap asked this one to quit.
+    /// A newer copy of KIKUmap asked this one to quit.
     private var handingOver = false
     /// In takeOver(), before anything is loaded.
     private var takingOver = false
-    /// Watches for Kikumaps too old to ask for the handover; the ones stopped so far.
+    /// Watches for KIKUmaps too old to ask for the handover; the ones stopped so far.
     private var launches: NSKeyValueObservation?
     private var stopped = Set<pid_t>()
-    /// Kikumaps that asked for the handover, and ones whose build can't be read being watched (see `watchLaunches`).
+    /// KIKUmaps that asked for the handover, and ones whose build can't be read being watched (see `watchLaunches`).
     private var askers = Set<pid_t>()
     private var watched = Set<pid_t>()
     private let launched = Date()
@@ -161,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let b = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier else { return }
             MainActor.assumeIsolated { self?.store.appCameToFront(b) }
         }
-        // Kikumap in front: the widget's redraws are free then, so a widget left behind catches up
+        // KIKUmap in front: the widget's redraws are free then, so a widget left behind catches up
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.widget.caughtUp() }
         }
@@ -194,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar.onQuit = { [weak self] in self?.store.clearRunning() }
         code.onEvents = { [weak self] evs in
             guard let self = self else { return }
-            // lines written while Kikumap wasn't running update the sessions quietly
+            // lines written while KIKUmap wasn't running update the sessions quietly
             let sounds = self.store.apply(code: evs, quietBefore: self.launched) { id, transcript in
                 // the session's own name (and whether it's linked to the Claude app), read off the main thread, one
                 // read at a time (a read already waiting will see the newest lines anyway)
@@ -256,7 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                           name: NSWorkspace.willSleepNotification, object: nil)
         refreshUI()
         widget.update(force: true)          // the widget may still say "not running" from the last quit
-        // the desktop widget's chart moves on while chats run; and a note of when Kikumap was last alive,
+        // the desktop widget's chart moves on while chats run; and a note of when KIKUmap was last alive,
         // so runs left open by a crash end there
         widgetTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -289,11 +289,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         store.closeRuns(at: Date())
         retrySaves()
-        // handing over to a newer copy: it fills the widget in; don't tell it Kikumap stopped
+        // handing over to a newer copy: it fills the widget in; don't tell it KIKUmap stopped
         if !handingOver { widget.closing() }
     }
 
-    /// One Kikumap at a time: a copy opened while another runs (an update, a second install) takes over, and
+    /// One KIKUmap at a time: a copy opened while another runs (an update, a second install) takes over, and
     /// the older one quits quietly. It waits a moment for that, so the two never write the same files at once.
     /// The newer build always stays: an older copy opened later shows the running one's map and leaves (or, when
     /// it asks to take over, is stopped). An older copy that doesn't know the handover is asked to quit the
@@ -334,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !others.isEmpty else { return }
         let builds = others.map { AppDelegate.build(of: $0.bundleURL) }
         if let i = builds.firstIndex(where: { ($0 ?? 0) > mine }), let url = others[i].bundleURL {
-            // a newer Kikumap is running: it stays, and shows its map once the reopen has reached it (not when this
+            // a newer KIKUmap is running: it stays, and shows its map once the reopen has reached it (not when this
             // copy was started at login); this one leaves untouched
             if !CommandLine.arguments.contains("--background") {
                 let sent = DispatchSemaphore(value: 0)
@@ -357,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         wait(1)
     }
 
-    /// What this Kikumap does when another (build `theirs`; nil: 0.9.5 builds 13 and 14, which don't say) asks it
+    /// What this KIKUmap does when another (build `theirs`; nil: 0.9.5 builds 13 and 14, which don't say) asks it
     /// to quit: the newer build stays, and the older one quits (`.quit`) or, while it starts, is stopped (`.stop`).
     /// Of the same build the copy already running gives way; of two starting at once the higher process number
     /// stays and asks again (`.stay`), in case the other wasn't listening yet when it first asked.
@@ -368,8 +368,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return starting && other < me ? .stay : .quit
     }
 
-    /// A Kikumap's build, read from its bundle each time (nil: unreadable, or somewhere macOS would first ask
-    /// whether Kikumap may look: Desktop, Documents, Downloads, iCloud Drive, a disk image or another volume).
+    /// A KIKUmap's build, read from its bundle each time (nil: unreadable, or somewhere macOS would first ask
+    /// whether KIKUmap may look: Desktop, Documents, Downloads, iCloud Drive, a disk image or another volume).
     static func build(of url: URL?) -> Int? {
         guard let url else { return nil }
         let p = url.standardizedFileURL.path, home = NSHomeDirectory()
@@ -384,7 +384,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Builds before 13 don't know the handover: they neither ask nor listen.
     static func unaware(_ build: Int?) -> Bool { (build ?? .max) < 13 }
 
-    /// Kikumaps from before the handover never ask: one opened while this one runs is stopped as it starts, and
+    /// KIKUmaps from before the handover never ask: one opened while this one runs is stopped as it starts, and
     /// the map it would have shown comes from this one. One whose build can't be read (opened from Downloads or a
     /// disk image, say) is stopped once it has started without asking: every build that knows the handover asks as
     /// it starts (or leaves, when it's the older one).
@@ -421,7 +421,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 self.stopped.insert(app.processIdentifier)
                 app.forceTerminate()
-                self.store.log("\(Clock.iso()) stopped an older Kikumap that didn't ask to take over (\(app.bundleURL?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "?"))\n", file: "app.log")
+                self.store.log("\(Clock.iso()) stopped an older KIKUmap that didn't ask to take over (\(app.bundleURL?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "?"))\n", file: "app.log")
                 self.afterStopping()
             }
         }
@@ -503,10 +503,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         h.liveShort = archive.busy ? [doing + count + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone"), doing + count] : syncShort()
         h.liveHelp = archive.busy
             ? (archive.importing
-               ? tr("Kikumap 正在把导出的对话一个个开成新对话，所以会自己在 Claude 窗口里操作。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
-                    "Kikumap is starting a new chat in Claude for each exported one, so it works in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".")
-               : tr("Kikumap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
-                    "Kikumap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\"."))
+               ? tr("KIKUmap 正在把导出的对话一个个开成新对话，所以会自己在 Claude 窗口里操作。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
+                    "KIKUmap is starting a new chat in Claude for each exported one, so it works in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".")
+               : tr("KIKUmap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
+                    "KIKUmap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\"."))
             : syncHelp()
         var actions: [(String, Bool, () -> Void, String?)] = []
         if archive.busy {
@@ -554,7 +554,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return all.isEmpty ? [] : [all] + (claude.isEmpty ? [] : [claude[0]])
     }
 
-    /// What's off with reading Claude right now, said where Kikumap is glanced at (the menu-bar icon, the widget): nil
+    /// What's off with reading Claude right now, said where KIKUmap is glanced at (the menu-bar icon, the widget): nil
     /// when it reads fine, isn't installed, or is closed (nothing of it runs then).
     func claudeNote() -> String? {
         switch sidebar.status {
@@ -566,15 +566,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Claude's unread marks can't be read right now (a status Kikumap doesn't know, or a finish without a mark it
+    /// Claude's unread marks can't be read right now (a status KIKUmap doesn't know, or a finish without a mark it
     /// knows): which Claude chats you've read in Claude isn't mirrored, and the window says so.
     private var unreadUnsynced: Bool { sidebar.marksMissed }
     /// ChatGPT's files can't be read right now (the left column says why): what it shows of ChatGPT is as last read.
     private var gptUnsynced: Bool { GPTWatcher.enabled && GPTWatcher.available && gpt.readError != nil }
     private var unreadUnsyncedHelp: String {
-        let what = tr("有对话在后台做完了，Claude 却没给它们 Kikumap 认得的未读标记（Claude 可能改了说法）", "Chats finished in the background without an unread mark Kikumap knows (Claude may have reworded it)")
-        return what + tr("，所以分不清哪些对话你已经在 Claude 里看过了。\n现在：Claude 对话的未读点不跟 Claude 同步，在这里打开或标为已读才会消失。\n怎么办：更新 Kikumap；或者写一份诊断报告（设置 → 授权）发给开发者。Kikumap 一认出 Claude 的未读标记，就会自动恢复同步。",
-                         ", so Kikumap can't tell which chats you've read in Claude.\nMeanwhile: unread dots for Claude chats aren't synced with Claude; they clear when you open a chat here or mark it read.\nFix: update Kikumap, or write a diagnostic report (Settings → Access) and send it. Syncing resumes by itself as soon as Kikumap recognises Claude's unread marks again.")
+        let what = tr("有对话在后台做完了，Claude 却没给它们 KIKUmap 认得的未读标记（Claude 可能改了说法）", "Chats finished in the background without an unread mark KIKUmap knows (Claude may have reworded it)")
+        return what + tr("，所以分不清哪些对话你已经在 Claude 里看过了。\n现在：Claude 对话的未读点不跟 Claude 同步，在这里打开或标为已读才会消失。\n怎么办：更新 KIKUmap；或者写一份诊断报告（设置 → 授权）发给开发者。KIKUmap 一认出 Claude 的未读标记，就会自动恢复同步。",
+                         ", so KIKUmap can't tell which chats you've read in Claude.\nMeanwhile: unread dots for Claude chats aren't synced with Claude; they clear when you open a chat here or mark it read.\nFix: update KIKUmap, or write a diagnostic report (Settings → Access) and send it. Syncing resumes by itself as soon as KIKUmap recognises Claude's unread marks again.")
     }
 
     /// On hovering the status: what it means, what it holds up, what to do.
@@ -582,11 +582,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch sidebar.status {
         case .notInstalled: return ""
         case .noAccess:
-            return tr("Kikumap 读不了 Claude 的对话列表：辅助功能关着。Claude 里的对话（进行中、未读、置顶）都没同步，看到的是上次读到的样子。\n怎么办：设置 → 授权 → 辅助功能。",
-                      "Kikumap can't read Claude's chat list: Accessibility is off. Claude's chats (running, unread, pinned) aren't synced; what you see is as last read.\nFix: Settings → Access → Accessibility.")
+            return tr("KIKUmap 读不了 Claude 的对话列表：辅助功能关着。Claude 里的对话（进行中、未读、置顶）都没同步，看到的是上次读到的样子。\n怎么办：设置 → 授权 → 辅助功能。",
+                      "KIKUmap can't read Claude's chat list: Accessibility is off. Claude's chats (running, unread, pinned) aren't synced; what you see is as last read.\nFix: Settings → Access → Accessibility.")
         case .noApp:
             return tr("Claude 桌面 App 没在运行。\n不受影响：Claude Code 会话、导图上已有的内容。\n暂停：Claude App 里对话的进行中、做完、未读和置顶同步。\n怎么办：打开 Claude App，会自动接上。",
-                      "The Claude desktop app isn't running.\nStill works: Claude Code sessions and everything already on your map.\nPaused: running, finished, unread and pins for chats in the Claude app.\nFix: open Claude; Kikumap picks it up by itself.")
+                      "The Claude desktop app isn't running.\nStill works: Claude Code sessions and everything already on your map.\nPaused: running, finished, unread and pins for chats in the Claude app.\nFix: open Claude; KIKUmap picks it up by itself.")
         default:
             if let i = sidebar.syncIssue { return i.help }
             guard sidebar.lastSync != nil else {
@@ -594,10 +594,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if unreadUnsynced { return unreadUnsyncedHelp }
             if gptUnsynced, let e = gpt.readError {
-                return tr("ChatGPT 的数据读不了（\(e)），它的对话停在上次读到的样子。Kikumap 每分钟会再试，读到了就自动恢复。", "ChatGPT's data can't be read (\(e)): its threads stay as last read. Kikumap tries again every minute and picks up by itself.")
+                return tr("ChatGPT 的数据读不了（\(e)），它的对话停在上次读到的样子。KIKUmap 每分钟会再试，读到了就自动恢复。", "ChatGPT's data can't be read (\(e)): its threads stay as last read. KIKUmap tries again every minute and picks up by itself.")
             }
-            return tr("一切正常：Kikumap 刚读过 Claude 的侧边栏，Claude 一有变化就会再读。不需要做什么。",
-                      "All good: Kikumap just read Claude's sidebar and reads it again whenever Claude changes. Nothing to do.")
+            return tr("一切正常：KIKUmap 刚读过 Claude 的侧边栏，Claude 一有变化就会再读。不需要做什么。",
+                      "All good: KIKUmap just read Claude's sidebar and reads it again whenever Claude changes. Nothing to do.")
         }
     }
 
@@ -619,8 +619,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         · Each chat gets one more exchange, which uses a little of your quota
         · The Claude window switches chats while this runs — leave it alone (you can stop from the top bar)
         · Chats that are running, unread or unchanged are skipped
-        """) + (ClaudeExport.canLookInDownloads ? "" : tr("\n\n第一次存到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 Kikumap 存到这里。",
-                                                         "\n\nThe first time it saves into Documents, Desktop or Downloads, macOS asks once whether Kikumap may save there."))
+        """) + (ClaudeExport.canLookInDownloads ? "" : tr("\n\n第一次存到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 KIKUmap 存到这里。",
+                                                         "\n\nThe first time it saves into Documents, Desktop or Downloads, macOS asks once whether KIKUmap may save there."))
         a.addButton(withTitle: tr("开始", "Start"))
         a.addButton(withTitle: tr("取消", "Cancel"))
         NSApp.activate(ignoringOtherApps: true)
@@ -748,8 +748,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lines.append(tr("ChatGPT：读不了（", "ChatGPT: can't read it (") + e + tr("），一会儿再试", "); trying again"))
         } else if !fx.gptInstalled && fx.gptOld, let d = gpt.lastRead {
             // the older ChatGPT app keeps no chats here: only Codex in editors and the terminal shows until it's updated
-            lines.append(tr("ChatGPT：这是旧版 App，Kikumap 读不到它的对话（更新到新版、Codex 内核的才行）；现在只显示编辑器、终端里的 Codex 会话，",
-                            "ChatGPT: this is the older app, whose chats Kikumap can't see (update to the current one, built on Codex); for now only Codex sessions from editors and the terminal show · ") + ago(d) + next(gpt.nextRead))
+            lines.append(tr("ChatGPT：这是旧版 App，KIKUmap 读不到它的对话（更新到新版、Codex 内核的才行）；现在只显示编辑器、终端里的 Codex 会话，",
+                            "ChatGPT: this is the older app, whose chats KIKUmap can't see (update to the current one, built on Codex); for now only Codex sessions from editors and the terminal show · ") + ago(d) + next(gpt.nextRead))
         } else if !fx.gptInstalled, let d = gpt.lastRead {
             // the app is gone (or never was) but ~/.codex is there: only Codex in editors and the terminal shows
             lines.append(tr("ChatGPT：这台 Mac 上没有 ChatGPT App，只显示编辑器、终端里的 Codex 会话，", "ChatGPT: no ChatGPT app on this Mac, so only Codex sessions from editors and the terminal show · ") + ago(d) + next(gpt.nextRead))
@@ -806,7 +806,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var out: [Todo] = []
         let fx = facts
         if sidebar.status == .noAccess {
-            out.append(Todo(id: "accessibility", title: tr("给 Kikumap 开「辅助功能」权限", "Turn on Accessibility for Kikumap"),
+            out.append(Todo(id: "accessibility", title: tr("给 KIKUmap 开「辅助功能」权限", "Turn on Accessibility for KIKUmap"),
                             impact: tr("在那之前读不到 Claude App 里的置顶、进行中和未读。ChatGPT 和 Claude Code 不受影响。",
                                        "Until then, Claude app chats have no pins, running or unread. ChatGPT and Claude Code aren't affected."),
                             action: (tr("去开启", "Turn on"), { [weak self] in self?.perms.openAccessibility() })))
@@ -843,13 +843,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 action: again))
             case .error where (usage.updated.map { Date().timeIntervalSince($0) > 900 } ?? true):
                 out.append(Todo(id: "usage-error", title: usage.hint,
-                                impact: tr("Kikumap 每 5 分钟会自动再试；看看网络是否正常。", "Kikumap tries again every 5 minutes by itself; check that the Mac is online."),
+                                impact: tr("KIKUmap 每 5 分钟会自动再试；看看网络是否正常。", "KIKUmap tries again every 5 minutes by itself; check that the Mac is online."),
                                 action: (tr("现在再试", "Try now"), { [weak self] in self?.usage.refreshNow() })))
             default: break
             }
         }
         if fx.hooks, let why = fx.blocked {
-            out.append(Todo(id: "code-blocked", title: tr("Claude Code 不运行 Kikumap 的 hook", "Claude Code won't run Kikumap's hooks"),
+            out.append(Todo(id: "code-blocked", title: tr("Claude Code 不运行 KIKUmap 的 hook", "Claude Code won't run KIKUmap's hooks"),
                             impact: why + tr("。在那之前终端、VS Code 里的会话不显示进行中和未读。", ". Until then, sessions in Terminal or VS Code don't show running or unread."),
                             action: nil))
         }
@@ -860,8 +860,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let t = Clock.format(a, "HH:mm", "HH:mm")
             // (one id per request: ignoring one doesn't silence the next)
             out.append(Todo(id: "claude-approval-\(Int(a.timeIntervalSince1970))", title: tr("Claude 在等你批准", "Claude is waiting for your approval"),
-                            impact: tr("\(t) Claude 问了一次「允许吗？」，但它的通知没说是哪个对话，Kikumap 又看不到 Claude 的窗口（关了，或在别的桌面）。打开 Claude 看看。",
-                                       "At \(t) Claude asked for an approval, but its notification doesn't say in which chat, and Kikumap can't see Claude's window (closed, or on another desktop). Open Claude to answer."),
+                            impact: tr("\(t) Claude 问了一次「允许吗？」，但它的通知没说是哪个对话，KIKUmap 又看不到 Claude 的窗口（关了，或在别的桌面）。打开 Claude 看看。",
+                                       "At \(t) Claude asked for an approval, but its notification doesn't say in which chat, and KIKUmap can't see Claude's window (closed, or on another desktop). Open Claude to answer."),
                             action: (tr("打开 Claude", "Open Claude"), {
                                 if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
                                     NSWorkspace.shared.openApplication(at: u, configuration: NSWorkspace.OpenConfiguration())
@@ -877,7 +877,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !unreadable.isEmpty {
             out.append(Todo(id: "data-unreadable", title: tr("有数据文件读不了，已另存", "A data file couldn't be read and was kept aside"),
                             impact: tr("读不了的文件已原样留在 ", "The unreadable file was kept as it was in ") + unreadable.joined(separator: ", ")
-                                + tr("。Kikumap 从空白开始记，没有覆盖它。", ". Kikumap started that part afresh without writing over it."),
+                                + tr("。KIKUmap 从空白开始记，没有覆盖它。", ". KIKUmap started that part afresh without writing over it."),
                             action: (tr("打开数据文件夹", "Open data folder"), { [weak self] in
                                 guard let self = self else { return }
                                 NSWorkspace.shared.activateFileViewerSelecting([self.store.dir.appendingPathComponent("data")])
@@ -1004,7 +1004,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var checking = false
 
-    /// What Kikumap can see on this Mac, without anything personal.
+    /// What KIKUmap can see on this Mac, without anything personal.
     private func checkReport() -> String {
         func version(_ id: String) -> String {
             guard let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return "not installed" }
@@ -1024,10 +1024,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let unreadable = store.unreadable + [archive.unreadable].compactMap { $0 }
         let unsaved = store.failed.keys.sorted() + (store.map.saveError == nil ? [] : ["map.json"]) + (archive.saveError == nil ? [] : ["archive.json"])
         return """
-            # Kikumap check \(Clock.iso())
+            # KIKUmap check \(Clock.iso())
             # Send this file when something doesn't work. It has no chat titles, messages or keys.
 
-            Kikumap \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?")) · macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion) · \(arch) · languages \(Locale.preferredLanguages.prefix(3).joined(separator: ", "))
+            KIKUmap \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?")) · macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion) · \(arch) · languages \(Locale.preferredLanguages.prefix(3).joined(separator: ", "))
             App at \(Bundle.main.bundlePath.replacingOccurrences(of: home, with: "~")) · data in \(store.dir.path.replacingOccurrences(of: home, with: "~"))
 
             Claude app: \(version(claudeBundleID)) · \(sidebar.claudePID != 0 ? "running" : "not running")
@@ -1080,14 +1080,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: tr("关于 Kikumap", "About Kikumap"), action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(withTitle: tr("关于 KIKUmap", "About KIKUmap"), action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(showSettings), keyEquivalent: ",")
         appMenu.addItem(withTitle: tr("导出对话…", "Export chats…"), action: #selector(showExport), keyEquivalent: "E")
         appMenu.addItem(withTitle: tr("导出导图 PDF…", "Export map as PDF…"), action: #selector(exportPDF), keyEquivalent: "e")
         appMenu.addItem(.separator())
         // the standard three every Mac app has (⌘H, ⌥⌘H)
-        appMenu.addItem(withTitle: tr("隐藏 Kikumap", "Hide Kikumap"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: tr("隐藏 KIKUmap", "Hide KIKUmap"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let others = appMenu.addItem(withTitle: tr("隐藏其他", "Hide Others"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         others.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(withTitle: tr("全部显示", "Show All"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")

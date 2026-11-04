@@ -1,13 +1,13 @@
 #!/bin/bash
-# Builds "Kikumap.app" for Apple silicon and Intel, signs it and puts it in a disk image in dist/
+# Builds "KIKUmap.app" for Apple silicon and Intel, signs it and puts it in a disk image in dist/
 # for a GitHub release. (No Apple Developer ID: people open it once with "Open Anyway".)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
 OUT=dist
-APP="$OUT/Kikumap.app"
+APP="$OUT/KIKUmap.app"
 # only what this script makes: anything else kept in dist/ (release notes, say) stays
-rm -rf "$APP" "$OUT/Kikumap" "$OUT/raw.dmg" "$OUT/Kikumap.dmg" "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules" "$OUT/dmg-background"
+rm -rf "$APP" "$OUT/KIKUmap" "$OUT/raw.dmg" "$OUT/Kikumap.dmg" "$OUT"/bin-* "$OUT"/wx-* "$OUT/.modules" "$OUT/dmg-background"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 for arch in arm64 x86_64; do
   echo "Building $arch…"
@@ -56,12 +56,12 @@ else
   echo "No local signing certificate: run Install.command once to make one (or ALLOW_ADHOC=1 to sign ad hoc)"; exit 1
 fi
 
-# The disk image: Kikumap and an Applications shortcut side by side over a background picture with an
-# arrow, Kikumap's icon on the volume. (makehybrid builds it straight from the folder, without mounting
+# The disk image: KIKUmap and an Applications shortcut side by side over a background picture with an
+# arrow, KIKUmap's icon on the volume. (makehybrid builds it straight from the folder, without mounting
 # anything; dmg-layout.py --fix then points the window at the picture.)
-STAGE="$OUT/Kikumap"
+STAGE="$OUT/KIKUmap"
 mkdir -p "$STAGE"
-ditto "$APP" "$STAGE/Kikumap.app"
+ditto "$APP" "$STAGE/KIKUmap.app"
 ln -s /Applications "$STAGE/Applications"
 cp "$APP/Contents/Resources/AppIcon.icns" "$STAGE/.VolumeIcon.icns"
 mkdir -p "$STAGE/.background"
@@ -70,7 +70,7 @@ xcrun swiftc -module-cache-path "$OUT/.modules" -o "$OUT/dmg-background" scripts
 rm -rf "$OUT/dmg-background" "$OUT/.modules"
 xattr -wx com.apple.FinderInfo 0000000000000000040000000000000000000000000000000000000000000000 "$STAGE"
 python3 scripts/dmg-layout.py "$STAGE"
-hdiutil makehybrid -quiet -hfs -hfs-volume-name Kikumap -hfs-openfolder "$STAGE" -o "$OUT/raw.dmg" "$STAGE"
+hdiutil makehybrid -quiet -hfs -hfs-volume-name KIKUmap -hfs-openfolder "$STAGE" -o "$OUT/raw.dmg" "$STAGE"
 python3 scripts/dmg-layout.py --fix "$OUT/raw.dmg" "$STAGE"
 hdiutil convert -quiet "$OUT/raw.dmg" -format UDZO -imagekey zlib-level=9 -o "$OUT/Kikumap.dmg"
 rm -rf "$STAGE" "$OUT/raw.dmg"
