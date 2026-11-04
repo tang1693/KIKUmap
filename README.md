@@ -137,12 +137,12 @@ The export can keep itself up to date. **Import** starts a new pinned chat per f
 
 ### On your desktop <sup>new</sup>
 
-A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time and the last 7 days. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.
+A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time, the last 7 days, and your plan beside its usage. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.
 
 Right-click the desktop → **Edit Widgets** and search for Kikumap. macOS 14 or later.
 
 </td>
-<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="Four Kikumap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time and the last 7 days"></td>
+<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="Four Kikumap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time, the last 7 days and each plan"></td>
 </tr>
 <tr>
 <td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: seven days in six-hour bars, a colour per chat, with totals, a legend and the bar-size and range controls"></td>

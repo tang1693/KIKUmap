@@ -54,6 +54,8 @@ final class UsageMonitor: NSObject {
     /// it; with several, the fullest. `modelName` says which.
     private(set) var sonnet: Window?
     private(set) var modelName = "Sonnet"
+    /// The plan, as Claude Code names it ("Max 20x", "Pro"…): from the sign-in the numbers were read with.
+    private(set) var plan: String?
     private(set) var updated: Date?
     private(set) var routines: [Routine] = []
     /// When the scheduled tasks were last read (they're read with the usage, every few minutes).
@@ -68,15 +70,19 @@ final class UsageMonitor: NSObject {
         let expires: Date?
         let scopes: [String]
         let plan: String?
+        /// The plan's usage tier ("default_claude_max_20x"), where the sign-in has it.
+        let tier: String?
         var isExpired: Bool { expires.map { $0 < Date().addingTimeInterval(60) } ?? false }
     }
     private enum Read { case token(Token), missing, denied, locked, failed(OSStatus) }
-    /// Claude Code's account, from ~/.claude.json: which one (account and organization), and its name.
-    private struct Account { let key: String; let label: String; let org: String? }
+    /// Claude Code's account, from ~/.claude.json: which one (account and organization), its name, and its
+    /// organization's usage tier.
+    private struct Account { let key: String; let label: String; let org: String?; let tier: String? }
 
     private var token: Token?
     private var tokenAccount: String?
     private var tokenOrg: String?
+    private var accountTier: String?
     private var lastRead = Date.distantPast
     /// When usage was last asked for: not more than every ten minutes on its own (Claude Code's editor meters ask
     /// the same place with the same sign-in, and Anthropic turns too many away with 429).
@@ -232,11 +238,12 @@ final class UsageMonitor: NSObject {
         busy = false
         guard UsageMonitor.enabled else { return }
         account = acct?.label.isEmpty == false ? acct?.label : nil
+        accountTier = acct?.tier
         // Claude Code signed in to another account (or organization): what was read belongs to the old one. Read
         // again in a moment (its new sign-in may still be being written).
         if (token != nil || updated != nil) && acct?.key != tokenAccount {
-            token = nil; session = nil; weekly = nil; sonnet = nil; routines = []; updated = nil
-            holdUntil = nil; failures = 0                    // a wait Anthropic asked for was the old sign-in's
+            token = nil; session = nil; weekly = nil; sonnet = nil; plan = nil; routines = []; updated = nil
+            holdUntil = nil; failures = 0                   // a wait Anthropic asked for was the old sign-in's
             lastRead = .distantPast
             tokenAccount = acct?.key
             log?("Claude Code's account changed: usage read again")
@@ -279,6 +286,7 @@ final class UsageMonitor: NSObject {
         session = nil
         weekly = nil
         sonnet = nil
+        plan = nil
         routines = []
         updated = nil
         account = nil
@@ -427,7 +435,17 @@ final class UsageMonitor: NSObject {
         else if let s = a["scopes"] as? String { scopes = s.split(separator: " ").map(String.init) }
         else { scopes = [] }
         return Token(access: access, expires: ms.map { Date(timeIntervalSince1970: $0 / 1000) }, scopes: scopes,
-                     plan: (a["subscriptionType"] as? String)?.lowercased())
+                     plan: (a["subscriptionType"] as? String)?.lowercased(), tier: a["rateLimitTier"] as? String)
+    }
+
+    /// A plan by the name Claude Code gives it ("max" is "Max"), with the tier a Max plan has ("Max 20x").
+    /// One Claude Code doesn't know yet keeps its own name ("some_plan" is "Some Plan").
+    nonisolated static func planName(_ type: String?, tier: String?) -> String? {
+        guard let t = type?.trimmingCharacters(in: .whitespaces).lowercased(), !t.isEmpty else { return nil }
+        let known = ["free": "Free", "pro": "Pro", "max": "Max", "team": "Team", "enterprise": "Enterprise"]
+        var name = known[t] ?? t.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+        if let tier, let r = tier.range(of: #"_[0-9]+x$"#, options: .regularExpression) { name += " " + tier[r].dropFirst() }
+        return name
     }
 
     /// Claude Code's account, from ~/.claude.json (no secret in it).
@@ -438,7 +456,8 @@ final class UsageMonitor: NSObject {
               let a = o["oauthAccount"] as? [String: Any] else { return nil }
         let org = a["organizationUuid"] as? String
         let label = [a["emailAddress"] as? String, a["organizationName"] as? String].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        return Account(key: "\(a["accountUuid"] as? String ?? "")/\(org ?? "")", label: label, org: org)
+        return Account(key: "\(a["accountUuid"] as? String ?? "")/\(org ?? "")", label: label, org: org,
+                       tier: a["organizationRateLimitTier"] as? String)
     }
 
     // MARK: requests
@@ -456,6 +475,7 @@ final class UsageMonitor: NSObject {
             guard UsageMonitor.enabled else { return }
             switch code {
             case 200 where self.parse(obj, plan: t.plan):
+                self.plan = UsageMonitor.planName(t.plan, tier: t.tier ?? self.accountTier)
                 self.holdUntil = nil
                 self.failures = 0
                 self.lastNote = ""
@@ -591,7 +611,7 @@ final class UsageMonitor: NSObject {
     private func keep() {
         func w(_ x: Window?) -> [Double]? { x.map { [$0.percent, $0.resets?.timeIntervalSince1970 ?? 0] } }
         var d: [String: Any] = ["account": tokenAccount ?? "", "updated": (updated ?? Date()).timeIntervalSince1970, "model": modelName]
-        d["session"] = w(session); d["weekly"] = w(weekly); d["modelWeek"] = w(sonnet)
+        d["session"] = w(session); d["weekly"] = w(weekly); d["modelWeek"] = w(sonnet); d["plan"] = plan
         UserDefaults.standard.set(d, forKey: UsageMonitor.lastKey)
     }
 
@@ -606,6 +626,7 @@ final class UsageMonitor: NSObject {
         }
         session = w("session"); weekly = w("weekly"); sonnet = w("modelWeek")
         modelName = d["model"] as? String ?? "Sonnet"
+        plan = d["plan"] as? String
         updated = Date(timeIntervalSince1970: at)
         tokenAccount = (d["account"] as? String).flatMap { $0.isEmpty ? nil : $0 }
     }

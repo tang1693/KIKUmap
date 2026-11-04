@@ -40,6 +40,8 @@ final class WidgetFeed {
         var legendSeconds: [Double]?
         /// The last seven days, by the calendar day, today last (so far).
         var days: [Day]?
+        /// Each meter group's plan ("claude": "Max 20x", "gpt": "Pro"), where it's known.
+        var plans: [String: String]?
     }
 
     let store: Store
@@ -92,6 +94,10 @@ final class WidgetFeed {
                 meters.append(meter(GPTWatcher.windowLabel(w.minutes), w.percent, w.resets, "gpt", minutes: w.minutes, asOf: old ? u.at : nil))
             }
         }
+        // whose plan each group's meters are
+        var plans: [String: String] = [:]
+        if meters.contains(where: { $0.group == "claude" }) { plans["claude"] = usage.plan }
+        if meters.contains(where: { $0.group == "gpt" }) { plans["gpt"] = gpt.plan }
         let note = claudeNote?()      // (quitting too: what wasn't known then stays "not known" under its "as of")
         // (what decides a quicker write: the lists and meters, as before; the widget itself goes by `redraw`)
         let key = [run.map { $0.id + (store.outOfSight($0.id) ? "?" : "") }.joined(separator: ","), unread.map(\.id).joined(separator: ","), note?.text ?? "",
@@ -130,7 +136,8 @@ final class WidgetFeed {
                           colours: top.map { id in store.map.branchColorKey(ofChat: id).flatMap { Theme.highlight($0) == nil ? nil : $0 } ?? "" },
                           claudeNote: note?.text, claudeUnreadOnly: note?.unreadOnly == true ? true : nil,
                           estimated: guessed >= 60 ? guessed.rounded() : nil,
-                          legendIDs: Array(top), legendSeconds: top.map { (totals[$0] ?? 0).rounded() }, days: days)
+                          legendIDs: Array(top), legendSeconds: top.map { (totals[$0] ?? 0).rounded() }, days: days,
+                          plans: plans.isEmpty ? nil : plans)
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         guard let body = try? e.encode(state) else { return }

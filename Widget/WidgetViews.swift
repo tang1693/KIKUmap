@@ -38,6 +38,8 @@ struct WidgetState: Codable {
     /// The last seven days by the calendar day, the latest last: seconds Claude worked.
     struct Day: Codable, Hashable { var start: String; var seconds: Double }
     var days: [Day]? = nil
+    /// Each meter group's plan ("claude": "Max 20x", "gpt": "Pro"), where it's known.
+    var plans: [String: String]? = nil
 
     /// The file, read through the real home folder (inside the sandbox, NSHomeDirectory() is the widget's own container).
     static func load() -> WidgetState? {
@@ -85,7 +87,8 @@ struct WidgetState: Codable {
             days: [3.1, 5.4, 0.6, 4.2, 6.8, 2.5, 4.9].enumerated().map { i, h in
                 Day(start: WidgetTime.iso(Calendar.current.date(byAdding: .day, value: i - 6, to: Calendar.current.startOfDay(for: now)) ?? now),
                     seconds: (h * 3600).rounded())
-            })
+            },
+            plans: ["claude": "Pro"])
     }
 }
 
@@ -292,7 +295,7 @@ struct KikumapWidgetView: View {
             }
             if !s.usageOff && !s.meters.isEmpty {
                 Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
-                meters(s, labelWidth: 40, compact: false, limit: 4)
+                meters(s, labelWidth: en || s.meters.contains { $0.label.count > 2 } ? 40 : 26, compact: false, limit: 4)
             }
         }
     }
@@ -354,24 +357,29 @@ struct KikumapWidgetView: View {
         }
     }
 
-    /// The last seven days, a bar each, the latest darker.
+    /// The last seven days: their time all together on a line of its own, then a bar each (the latest darker),
+    /// down to the foot of the list beside it.
     @ViewBuilder private func week(_ s: WidgetState) -> some View {
         let ds = days(s)
         let peak = max(ds.map(\.seconds).max() ?? 0, 1)
-        VStack(alignment: .leading, spacing: 4) {
-            caption(t("7 天 ", "7 days ") + WidgetText.duration(ds.reduce(0) { $0 + $1.seconds }, en))
+        VStack(alignment: .leading, spacing: 2) {
+            caption(t("最近 7 天", "Last 7 days"))
+            Text(WidgetText.duration(ds.reduce(0) { $0 + $1.seconds }, en))
+                .font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
+                .lineLimit(1).minimumScaleFactor(0.7)
             HStack(alignment: .bottom, spacing: 4) {
                 ForEach(ds.indices, id: \.self) { i in
                     VStack(spacing: 3) {
                         UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 2)
                             .fill(Color.primary.opacity(i == ds.count - 1 ? 0.85 : 0.3))
-                            .frame(height: max(2, 44 * CGFloat(ds[i].seconds / peak)))
+                            .frame(height: max(2, 46 * CGFloat(ds[i].seconds / peak)))
                         Text(WidgetText.weekday(ds[i].start, en)).font(.system(size: 8.5)).foregroundStyle(Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
-            .frame(height: 58, alignment: .bottom)
+            .frame(height: 60, alignment: .bottom)
+            .padding(.top, 4)
         }
     }
 
@@ -415,9 +423,15 @@ struct KikumapWidgetView: View {
         // no usage (off, the Free plan, or not read yet): nothing, rather than a note about it
         if !s.usageOff && !s.meters.isEmpty {
             let list = shown(s, limit: limit), tag = tagged(s)
+            // the large widget names each group's plan beside its mark, on the group's first row
+            let plans = size == .large ? s.plans ?? [:] : [:]
+            let planned = list.contains { plans[$0.group ?? "claude"] != nil }
             VStack(alignment: .leading, spacing: compact ? 4 : 5) {
                 ForEach(list.indices, id: \.self) { i in
-                    meter(list[i], labelWidth: labelWidth, compact: compact, marked: tag)
+                    let g = list[i].group ?? "claude"
+                    let first = i == 0 || (list[i - 1].group ?? "claude") != g
+                    meter(list[i], labelWidth: labelWidth, compact: compact, marked: tag,
+                          plan: planned ? .some(first ? plans[g] ?? "" : nil) : .none)
                 }
                 // the medium widget's rows have no room for it either: one line under them says when
                 if let d = metersAsOf(list) {
@@ -447,14 +461,25 @@ struct KikumapWidgetView: View {
         minutes >= 1440 && minutes % 1440 == 0 ? "\(minutes / 1440)d" : "\(max(1, minutes / 60))h"
     }
 
-    /// `marked`: each row shows whose it is (Claude's mark or "GPT") when both are there.
-    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, marked: Bool) -> some View {
+    /// `marked`: each row shows whose it is (Claude's mark or "GPT") when both are there. `plan` (the large widget,
+    /// when a plan is known): a column for whose it is and its plan ("✳ Max 20x"), filled on a group's first row
+    /// (`.some(name)`, "" for a plan not known) and left empty on the rest (`.some(nil)`).
+    private func meter(_ m: WidgetState.Meter, labelWidth: CGFloat?, compact: Bool, marked: Bool, plan: String?? = .none) -> some View {
         let high = m.percent >= 90
         // the small widget: how long the window is ("5h", "7d"), or the two-character Chinese label; a longer one
         // ("Sonnet") by its first letter
         let label = size == .small && (en || m.label.count > 2) ? (m.minutes.map(Self.span) ?? String(m.label.prefix(1))) : m.label
         return HStack(spacing: 6) {
-            if marked {
+            if let p = plan {
+                HStack(spacing: 4) {
+                    if let name = p {
+                        ProviderMark(gpt: m.group == "gpt").frame(width: m.group == "gpt" ? 18 : 10, height: 10, alignment: .leading)
+                        Text(name).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.secondary)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                }
+                .frame(width: 66, alignment: .leading)
+            } else if marked {
                 ProviderMark(gpt: m.group == "gpt").frame(width: 20, height: 10, alignment: .leading)
             }
             Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
@@ -475,8 +500,9 @@ struct KikumapWidgetView: View {
                 .frame(width: 34, alignment: .trailing)
             if !compact {
                 Text(WidgetTime.parse(m.asOf).map { WidgetText.asOf($0, now: date, en) } ?? WidgetText.resets(WidgetTime.parse(m.resets), now: date, en))
-                    .font(.system(size: 10).monospacedDigit()).foregroundStyle(Color.secondary).lineLimit(1)
-                    .frame(width: 118, alignment: .leading)
+                    .font(.system(size: 10).monospacedDigit()).foregroundStyle(Color.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                    .frame(width: plan == nil ? 118 : 96, alignment: .leading)
             }
         }
     }

@@ -119,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stats.onOpen = { [weak self] id in self?.open(id) }
         statusBar.refreshAll = { [weak self] in self?.refreshAll() }
         statusBar.gptUsage = { [weak self] in self?.gptUsageRows() ?? [] }
+        statusBar.gptPlan = { [weak self] in self?.gpt.plan }
         statusBar.claudeNote = { [weak self] in self?.claudeNote() }
         store.openChatID = { [weak self] in self?.sidebar.openChat }
         widget.claudeNote = { [weak self] in

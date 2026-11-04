@@ -105,6 +105,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var refreshAll: (() -> Void)?
     /// ChatGPT's usage windows, shown under Claude's.
     var gptUsage: (() -> [(label: String, window: UsageMonitor.Window?, note: String?)])?
+    /// ChatGPT's plan ("Pro"), while its usage is shown.
+    var gptPlan: (() -> String?)?
     /// What's off with reading Claude right now (nil: nothing).
     var claudeNote: (() -> String?)?
     /// What `claudeNote` says is about Claude's unread marks alone (what's running is read as usual).
@@ -185,7 +187,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         if usage.session != nil { tip += tr("\n当前会话 ", "\nSession ") + used(usage.shownSession) + asOf }
         if usage.weekly != nil { tip += tr("\n本周 ", "\nWeek ") + used(usage.shownWeekly) + asOf }
         if let o = usage.bindingSonnet { tip += tr("\n本周（仅 \(usage.modelName)）已用 ", "\nWeek (\(usage.modelName) only) ") + "\(Int(o.percent.rounded()))%  \(Clock.resets(o.resets))" + asOf }
-        if let a = usage.account, !tip.isEmpty { tip += tr("\nClaude Code 的账号：", "\nClaude Code's account: ") + a }
+        if let a = usage.account, !tip.isEmpty { tip += tr("\nClaude Code 的账号：", "\nClaude Code's account: ") + a + (usage.plan.map { " · " + $0 } ?? "") }
         return tip
     }
 
@@ -425,7 +427,13 @@ final class StatusBar: NSObject, NSMenuDelegate {
             who = usage.account.map { tr("Claude 的用量来自 Claude Code 登录的账号：", "Claude's usage is for the account Claude Code is signed in with: ") + $0 }
         }
         usageHead.toolTip = who
-        rows += (gptUsage?() ?? []).map { ("ChatGPT · " + $0.label, $0.window, $0.note) }
+        let gptRows = gptUsage?() ?? []
+        rows += gptRows.map { ("ChatGPT · " + $0.label, $0.window, $0.note) }
+        // whose plans these are, as Claude Code and Codex name them: "Usage · Claude Max 20x · ChatGPT Pro"
+        var plans: [String] = []
+        if UsageMonitor.enabled && (usage.session != nil || usage.weekly != nil), let p = usage.plan { plans.append("Claude " + p) }
+        if !gptRows.isEmpty, let p = gptPlan?() { plans.append("ChatGPT " + p) }
+        if !plans.isEmpty { usageHead.title = ([tr("用量", "Usage")] + plans).joined(separator: " · ") }
         if !rows.isEmpty {
             let it = NSMenuItem()
             it.view = UsageMenuView(rows: rows)

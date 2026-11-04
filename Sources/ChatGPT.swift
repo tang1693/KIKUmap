@@ -40,6 +40,14 @@ struct GPTUsage: Equatable {
     }
     let windows: [Window]
     let at: Date
+    /// The plan as the answer named it ("pro", "plus"…).
+    var plan: String? = nil
+
+    /// A plan's name as ChatGPT writes it ("pro" is "Pro", "free_workspace" is "Free Workspace").
+    static func planName(_ type: String?) -> String? {
+        guard let t = type?.trimmingCharacters(in: .whitespaces).lowercased(), !t.isEmpty, t != "unknown" else { return nil }
+        return t.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
 }
 
 @MainActor
@@ -138,6 +146,8 @@ final class GPTWatcher {
     var fetchedUsage: GPTUsage?
     /// Whichever is newer.
     var usage: GPTUsage? { [loggedUsage, fetchedUsage].compactMap { $0 }.max { $0.at < $1.at } }
+    /// The plan, as the newest answer that named it said ("Pro").
+    var plan: String? { GPTUsage.planName([loggedUsage, fetchedUsage].compactMap { $0 }.sorted { $0.at > $1.at }.lazy.compactMap(\.plan).first) }
     /// When its files were last read, and when they will be next at the latest (also whenever they change).
     private(set) var lastRead: Date?
     var nextRead: Date? { timer?.fireDate }
@@ -633,7 +643,7 @@ final class GPTWatcher {
             if resets == nil, let s = (w["resets_in_seconds"] as? NSNumber)?.doubleValue { resets = at.addingTimeInterval(s) }
             return GPTUsage.Window(percent: pct, minutes: (w["window_minutes"] as? NSNumber)?.intValue ?? 0, resets: resets)
         }
-        return .usage(GPTUsage(windows: windows.sorted { $0.minutes < $1.minutes }, at: at))
+        return .usage(GPTUsage(windows: windows.sorted { $0.minutes < $1.minutes }, at: at, plan: r["plan_type"] as? String))
     }
 
     /// From the window state ChatGPT keeps in ~/.codex: the threads it shows a dot for, and what's pinned in

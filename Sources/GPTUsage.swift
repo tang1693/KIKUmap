@@ -168,14 +168,16 @@ final class GPTUsageMonitor {
                 return GPTUsage.Window(percent: pct, minutes: minutes, resets: resets)
             }
         }
+        // the plan: beside the windows, or among them as Codex logs it
+        func plan(_ r: [String: Any]) -> String? { (o["plan_type"] ?? o["planType"] ?? r["plan_type"] ?? r["planType"]) as? String }
         // (present but null: a plan without limits)
         if let k = ["rate_limit", "rateLimit"].first(where: o.keys.contains) {
             let r = o[k] as? [String: Any] ?? [:]
-            return GPTUsage(windows: windows(r, ["primary_window", "secondary_window", "primaryWindow", "secondaryWindow"]).sorted { $0.minutes < $1.minutes }, at: at)
+            return GPTUsage(windows: windows(r, ["primary_window", "secondary_window", "primaryWindow", "secondaryWindow"]).sorted { $0.minutes < $1.minutes }, at: at, plan: plan(r))
         }
         if let k = ["rate_limits", "rateLimits"].first(where: o.keys.contains) {
             let r = o[k] as? [String: Any] ?? [:]
-            return GPTUsage(windows: windows(r, ["primary", "secondary"]).sorted { $0.minutes < $1.minutes }, at: at)
+            return GPTUsage(windows: windows(r, ["primary", "secondary"]).sorted { $0.minutes < $1.minutes }, at: at, plan: plan(r))
         }
         return nil
     }
