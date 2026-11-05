@@ -777,11 +777,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !reading && shownList.isEmpty {
             // only promise what's true: "pin it and it shows up" for the apps actually being read
             if claudeReadable && gptReadable {
-                lines.append(tr("在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在这里。", "Pin a chat in Claude, or a Codex chat in ChatGPT, and it shows up here."))
+                lines.append(tr("在 Claude 或 ChatGPT 里置顶对话，它就会出现在这里。", "Pin a chat in Claude or ChatGPT and it shows up here."))
             } else if claudeReadable {
                 lines.append(tr("在 Claude 里置顶一个对话，它就会出现在这里。", "Pin a chat in Claude and it shows up here."))
             } else if gptReadable {
-                lines.append(tr("在 ChatGPT 里置顶一个 Codex 对话，它就会出现在这里。", "Pin a Codex chat in ChatGPT and it shows up here."))
+                lines.append(tr("在 ChatGPT 里置顶一个对话，它就会出现在这里。", "Pin a chat in ChatGPT and it shows up here."))
             }
         }
         return (title, lines)

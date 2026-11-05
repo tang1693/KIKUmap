@@ -180,8 +180,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         switch p {
         case .welcome:
             titleL.stringValue = "KIKUmap"
-            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 里把要盯的对话置顶，或在 ChatGPT 里置顶 Codex 对话，这个菜单栏小工具就告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
-                                   "Many Claude and ChatGPT chats going at once? Pin the ones to watch in Claude, or Codex chats in ChatGPT, and this menu-bar app tells you which are still running and which finished unread — and lets you sort them into a mind map.")
+            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 或 ChatGPT 里把要盯的对话置顶，这个菜单栏小工具就告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
+                                   "Many Claude and ChatGPT chats going at once? Pin the ones to watch in Claude or ChatGPT, and this menu-bar app tells you which are still running and which finished unread — and lets you sort them into a mind map.")
             let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
             seg.selectedSegment = Prefs.english ? 1 : 0
             center(seg)
@@ -197,8 +197,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
             titleL.stringValue = tr("导图：把对话归好类", "A map for your chats")
             let open = Prefs.hotKeyEnabled ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) for the map. ")
                                            : tr("点菜单栏图标 →「打开导图」。", "Click the menu-bar icon → Open map. ")
-            bodyL.stringValue = open + tr("左栏是你在 Claude 和 ChatGPT（Codex 对话）里置顶的对话，还有编辑器里的 Claude Code、Codex 会话，拖到主题上就归好了。键盘操作和 MindNode 一样。",
-                                          "The left column holds the chats you pinned in Claude and ChatGPT (its Codex chats), and Claude Code / Codex sessions from your editors; drag them onto a topic. Keys work like MindNode.")
+            bodyL.stringValue = open + tr("左栏是你在 Claude 和 ChatGPT 里置顶的对话，还有编辑器里的 Claude Code、Codex 会话，拖到主题上就归好了。键盘操作和 MindNode 一样。",
+                                          "The left column holds the chats you pinned in Claude and ChatGPT, and Claude Code / Codex sessions from your editors; drag them onto a topic. Keys work like MindNode.")
             art.painter = { r, t in Onboarding.paintMap(r, t) }
             art.settled = 3
         case .timeline:
@@ -215,8 +215,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.settled = 5
         case .sources:
             titleL.stringValue = tr("KIKUmap 能看到什么", "What KIKUmap can see")
-            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的 Codex 对话。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及普通 ChatGPT 聊天，它看不到。",
-                                   "It reads what's on this Mac: chats you pin in the Claude app (pinned on your phone or the web too), Claude Code and Codex run on this Mac, and Codex chats you pin in the ChatGPT app. Claude Code or Codex running on another computer, a server or in the cloud (SSH, remote), and ordinary ChatGPT chats, are out of its sight.")
+            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的对话（Codex 对话还能看到进行中、未读）。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及没在 ChatGPT App 里置顶的 ChatGPT 对话，它看不到。",
+                                   "It reads what's on this Mac: chats you pin in the Claude app (pinned on your phone or the web too), Claude Code and Codex run on this Mac, and chats you pin in the ChatGPT app (Codex chats with running and unread too). Claude Code or Codex running on another computer, a server or in the cloud (SSH, remote), and ChatGPT chats not pinned in the app, are out of its sight.")
             art.painter = { r, t in Onboarding.paintSources(r, t) }
             art.settled = 0.4
         case .accessibility where perms.sidebar.status == .notInstalled && !AXIsProcessTrusted():
@@ -237,8 +237,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         case .done:
             sawDone = true
             titleL.stringValue = tr("准备好了", "You're set")
-            bodyL.stringValue = tr("下一步：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单和左栏里。KIKUmap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
-                                   "Next: pin a chat in Claude, or a Codex chat in ChatGPT, and it shows up in the menu and the left column. KIKUmap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
+            bodyL.stringValue = tr("下一步：在 Claude 或 ChatGPT 里置顶对话，它就会出现在菜单和左栏里。KIKUmap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
+                                   "Next: pin a chat in Claude or ChatGPT, and it shows up in the menu and the left column. KIKUmap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
             bodyL.frame = NSRect(x: 90, y: 150, width: (extra.superview?.bounds.width ?? 720) - 180, height: 62)
             extra.frame = NSRect(x: 40, y: 70, width: (extra.superview?.bounds.width ?? 720) - 80, height: 74)
             let looks = Prefs.Appearance.allCases
@@ -577,7 +577,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         let here: [(String, String, String)] = [
             ("sparkle", tr("Claude App", "Claude app"), tr("置顶的对话", "chats you pin")),
             ("terminal", tr("终端 · 编辑器", "Terminal · editors"), "Claude Code · Codex"),
-            ("gpt", tr("ChatGPT App", "ChatGPT app"), tr("置顶的 Codex 对话", "Codex chats you pin")),
+            ("gpt", tr("ChatGPT App", "ChatGPT app"), tr("置顶的对话", "chats you pin")),
         ]
         for (i, (sym, name, sub)) in here.enumerated() {
             let row = NSRect(x: mac.minX + 16, y: mac.minY + 40 + CGFloat(i) * 78, width: 196, height: 58)
@@ -607,7 +607,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         text(tr("别处", "Elsewhere"), lf, Theme.muted, NSPoint(x: away.minX + 2, y: away.minY + 12))
         let there: [(String, String, String)] = [
             ("server.rack", tr("别的电脑、服务器", "Another computer"), tr("远程的 Claude Code、Codex", "Claude Code, Codex over SSH")),
-            ("iphone", tr("网页、手机", "Web and phone"), tr("普通 ChatGPT 聊天", "ordinary ChatGPT chats")),
+            ("iphone", tr("网页、手机", "Web and phone"), tr("没置顶的 ChatGPT 对话", "ChatGPT chats not pinned")),
             ("cloud", tr("云端", "Cloud"), tr("云端运行的会话", "sessions run in the cloud")),
         ]
         for (i, (sym, name, sub)) in there.enumerated() {

@@ -864,8 +864,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     return Perm(text: on, on: true, enabled: false)
                 }, { p.connectCode() }),
             row("ChatGPT",
-                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的 Codex 对话（含 VS Code、终端里的 Codex）：列表、置顶、未读和用量（~/.codex，只读）→ 在 ChatGPT 里置顶的对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。普通 ChatGPT 聊天存在云端，不在这里。不改任何东西，不上传。",
-                   "Reads the Codex chats the ChatGPT desktop app keeps on this Mac (and Codex in VS Code or the terminal): list, pins, unread dots and usage (~/.codex, read-only) → those pinned in ChatGPT show as running / unread too, and the widget can show ChatGPT's usage. Ordinary ChatGPT chats live online and aren't here. Changes nothing, uploads nothing."),
+                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的东西（~/.codex，只读）：在 App 里置顶的对话，以及 Codex 对话（含 VS Code、终端里的 Codex）的列表、未读和用量 → Codex 对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。普通对话的「进行中 / 未读」不存在本机，所以只显示、可打开。不改任何东西，不上传。",
+                   "Reads what the ChatGPT desktop app keeps on this Mac (~/.codex, read-only): the chats pinned in the app, and Codex chats' list, unread dots and usage (Codex in VS Code or the terminal too) → Codex chats show as running / unread too, and the widget can show ChatGPT's usage. Ordinary chats' running and unread aren't kept on this Mac, so they show and open, without status. Changes nothing, uploads nothing."),
                 tr("连接", "Connect"), {
                     guard GPTWatcher.enabled else { return Perm(text: off, on: false, enabled: true) }
                     guard GPTWatcher.available else { return Perm(text: tr("已开启 · 还没找到它的数据", "On · its data isn't there yet"), on: false, enabled: true) }

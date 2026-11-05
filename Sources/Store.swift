@@ -1303,12 +1303,13 @@ final class Store {
             }
             guard let i = index[id] else {
                 // already there before KIKUmap saw it: not unread (unless ChatGPT's own list says so)
-                chats.append(Chat(id: id, title: t.title, updated_at: Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
+                // (an ordinary chat has no time of its own here: none is shown rather than a guess)
+                chats.append(Chat(id: id, title: t.title, updated_at: t.isChat ? "" : Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
                                   last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd,
                                   app: t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID))
                 chats[chats.count - 1].pinIndex = t.order
                 if t.scripted { chats[chats.count - 1].headless = true }
-                seen[id] = Clock.iso(t.finished ?? t.updated)
+                if !t.isChat { seen[id] = Clock.iso(t.finished ?? t.updated) }
                 if t.running { running.insert(id) }
                 reindex()
                 changed = true; seenChanged = true

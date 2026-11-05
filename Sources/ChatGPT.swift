@@ -4,9 +4,12 @@ import SQLite3
 // The ChatGPT desktop app (built on Codex) keeps its threads on this Mac in ~/.codex: a SQLite list
 // (title, archived, last change), a log per thread whose last "task started / complete" line says
 // whether it's working and whose answers carry the plan limits, and the window state with its pins
-// and unread dots. KIKUmap only reads them; nothing is changed or sent anywhere.
+// and unread dots. Ordinary chats pinned in the app (its ChatGPT side, kept online) come from the window state
+// too, with no status: running and unread aren't kept on this Mac for them. KIKUmap only reads them; nothing is
+// changed or sent anywhere.
 
 struct GPTThread {
+    /// An ordinary chat's id starts with "chat-" (see `GPTWatcher.chat(_:)`).
     let id: String
     var title: String
     var pinned: Bool
@@ -27,6 +30,8 @@ struct GPTThread {
     var quiet = false
     /// When its task log was last written.
     var lastActive: Date? = nil
+    /// An ordinary ChatGPT chat pinned in the app, not a Codex thread: no status, and no time of its own.
+    var isChat: Bool { id.hasPrefix("chat-") }
     /// Started by a script (`codex exec`, the Codex SDK, Codex as an MCP server), not by someone at the keyboard.
     var scripted = false
 }
@@ -186,6 +191,8 @@ final class GPTWatcher {
     private struct Window {
         var unread: Set<String>?
         var pins = Pins()
+        /// Ordinary chats pinned in the app's sidebar, in its order.
+        var chats: [GPTThread] = []
         /// The file was read and lists its pins: what's pinned is known (an empty list means nothing is pinned).
         var read = false
     }
@@ -307,7 +314,8 @@ final class GPTWatcher {
             let (k, pinnedAt) = GPTWatcher.pick(loaded, was: was)
             let names = pinnedAt > 0 || loaded.count < 2 ? [:] : GPTWatcher.sessionNames(in: codex)
             let merged = reason == nil ? GPTWatcher.merge(loaded.map(\.rows), main: k, pins: window.pins, byPins: pinnedAt > 0, names: names) : []
-            let threads = app ? merged : GPTWatcher.appGone(merged)
+            // (an ordinary chat lives in the app: without it, nothing of it is pinned)
+            let threads = app ? merged + window.chats : GPTWatcher.appGone(merged)
             let dbPins = loaded.indices.contains(k) && loaded[k].rows.dbPins
             let newest = loaded.flatMap(\.rows.newest).sorted { $0.1 > $1.1 }.prefix(5).map(\.0)
             let usage = GPTWatcher.limits(Array(newest), &c.limits)
@@ -651,10 +659,10 @@ final class GPTWatcher {
     /// keeps a copy of them that isn't updated when they're unpinned.
     nonisolated private static func windowState(_ path: String, _ cache: inout (stamp: Date, window: Window)?) -> Window {
         guard let stamp = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date else {
-            return Window(unread: nil, pins: cache?.window.pins ?? Pins())
+            return Window(unread: nil, pins: cache?.window.pins ?? Pins(), chats: cache?.window.chats ?? [])
         }
         if let c = cache, c.stamp == stamp { return c.window }
-        var w = Window(unread: nil, pins: cache?.window.pins ?? Pins())
+        var w = Window(unread: nil, pins: cache?.window.pins ?? Pins(), chats: cache?.window.chats ?? [])
         if let data = FileManager.default.contents(atPath: path),
            let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
             // it says what's pinned only if it lists pins at all (a version that stopped writing them says nothing)
@@ -665,10 +673,33 @@ final class GPTWatcher {
                 w.unread = Set(byAccount.values.flatMap { $0.filter { $0.key.hasPrefix("local") }.values.joined() })
             }
             w.pins = pins(o)
+            if let chats = pinnedChats(o["electron-persisted-atom-state"] as? [String: Any] ?? [:]) { w.chats = chats }
         }
         cache = (stamp, w)
         return w
     }
+
+    /// The ordinary chats pinned in the app's sidebar, from its newest sidebar state ("chatgpt-sidebar-state-vN", by
+    /// account), after the Codex threads. nil: it has none (an app version without them keeps the last ones read).
+    nonisolated private static func pinnedChats(_ atoms: [String: Any]) -> [GPTThread]? {
+        let prefix = "chatgpt-sidebar-state-v"
+        guard let key = atoms.keys.filter({ $0.hasPrefix(prefix) && Int($0.dropFirst(prefix.count)) != nil })
+                .max(by: { Int($0.dropFirst(prefix.count))! < Int($1.dropFirst(prefix.count))! }),
+              let byAccount = atoms[key] as? [String: Any] else { return nil }
+        var out: [GPTThread] = [], ids = Set<String>()
+        for case let account as [String: Any] in byAccount.sorted(by: { $0.key < $1.key }).map(\.value) {
+            for case let pin as [String: Any] in account["pinnedConversations"] as? [Any] ?? [] {
+                guard let c = pin["conversation"] as? [String: Any], let id = c["id"] as? String, !id.isEmpty, ids.insert(id).inserted else { continue }
+                let title = (c["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                out.append(GPTThread(id: chat(id), title: title.isEmpty ? "ChatGPT" : title, pinned: true, updated: .distantPast,
+                                     cwd: "", running: false, finished: nil, order: 1_000_000 + out.count))
+            }
+        }
+        return out
+    }
+
+    /// An ordinary chat's id among the threads.
+    nonisolated static func chat(_ conversationID: String) -> String { "chat-" + conversationID }
 
     /// Threads pinned in ChatGPT's sidebar, and the projects pinned there with what's filed in them: threads
     /// assigned to one, and threads working in its folders that weren't assigned elsewhere or moved out.
@@ -702,10 +733,13 @@ final class GPTWatcher {
         return f
     }()
 
-    /// Opens the thread in the ChatGPT app (or whatever opens its links); says why not when nothing can.
+    /// Opens the thread in the ChatGPT app (or whatever opens its links); says why not when nothing can. An ordinary
+    /// chat opens by its address, handed to the app itself, never to a browser.
     static func open(_ threadID: String) {
-        guard let u = URL(string: "codex://threads/" + threadID) else { return }
-        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) ?? NSWorkspace.shared.urlForApplication(toOpen: u) {
+        let chat = threadID.hasPrefix("chat-") ? String(threadID.dropFirst(5)) : nil
+        let address = chat.map { "https://chatgpt.com/c/" + ($0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0) }
+        guard let u = URL(string: address ?? "codex://threads/" + threadID) else { return }
+        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) ?? (chat == nil ? NSWorkspace.shared.urlForApplication(toOpen: u) : nil) {
             NSWorkspace.shared.open([u], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
         } else {
             Permissions.alert(tr("打不开：这台 Mac 上没有 ChatGPT", "Can't open it: ChatGPT isn't on this Mac"),
