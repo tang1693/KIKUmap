@@ -758,6 +758,8 @@ final class Store {
 
     func timeLabel(_ c: Chat) -> String {
         if running.contains(c.id) { return outOfSight(c.id) ? tr("在跑？", "running?") : tr("进行中", "running") }
+        // an ordinary ChatGPT chat: the app keeps neither its status nor its last change on this Mac
+        if c.id.hasPrefix("gpt-chat-") { return tr("状态未知", "status unknown") }
         // a Codex task that went quiet without finishing: since when, not a finish time it doesn't have
         if gptQuiet.contains(c.id), let a = gptActive[c.id] { return tr("\(UsageMonitor.stamp(a)) 起没动静", "quiet since \(UsageMonitor.stamp(a))") }
         // stopped on an error: Claude's own words

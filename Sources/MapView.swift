@@ -33,6 +33,8 @@ final class VNode {
     var shift = CGVector.zero
     var isCode = false
     var isGPT = false
+    /// A Codex session from an editor or a terminal (marked like a Claude Code session, with "GPT").
+    var isSession = false
     /// Filed here but no longer pinned (or deleted): drawn quietly, still yours to move or take off the map.
     var dim = false
     var dir: CGFloat = 1
@@ -145,7 +147,10 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// The room the mark before a real conversation takes: a "Claude" or "GPT" tag, or a terminal for Claude Code.
     private static let claudeTagW = Theme.claudeTag(.black, height: 11).size.width
     private static let gptTagW = GPTWatcher.mark(.black, height: 11).size.width
-    private func iconW(_ v: VNode) -> CGFloat { v.isCode ? 17 : (v.isGPT ? MapView.gptTagW : MapView.claudeTagW) + 5 }
+    private func iconW(_ v: VNode) -> CGFloat {
+        let tag = (v.isGPT ? MapView.gptTagW : MapView.claudeTagW) + 5
+        return v.isCode || v.isSession ? 17 + tag : tag
+    }
 
     init(store: Store) {
         self.store = store
@@ -346,6 +351,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                 k.done = c?.title.contains("🟢") ?? false
                 k.isCode = c?.isCode ?? false
                 k.isGPT = c?.isGPT ?? id.hasPrefix("gpt-")
+                k.isSession = c?.isCodexSession ?? false
                 k.parent = v
                 register(k)
                 v.kids.append(k)
@@ -781,18 +787,20 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// Marks a real conversation, so it reads apart from a plain topic: a "Claude" tag for the Claude app's, a "GPT"
     /// tag for a ChatGPT thread, or a terminal for a Claude Code session. `r` is where the mark starts.
     private func drawChatMark(_ v: VNode, _ r: NSRect, on solid: Bool) {
-        if !v.isCode {
-            let c = solid ? Theme.bg : Theme.muted
-            let img = v.isGPT ? GPTWatcher.mark(c, height: 11) : Theme.claudeTag(c, height: 11)
-            img.draw(in: NSRect(x: r.minX, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
-        } else {
+        let c = solid ? Theme.bg : Theme.muted
+        var x = r.minX
+        // a session in an editor or a terminal: a terminal first, then whose AI it is
+        if v.isCode || v.isSession {
             let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
-            guard let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return }
-            let c = solid ? Theme.bg : Theme.muted
-            let tinted = NSImage(size: img.size, flipped: false) { b in img.draw(in: b); c.set(); b.fill(using: .sourceAtop); return true }
-            let s = img.size
-            tinted.draw(in: NSRect(x: r.midX - s.width / 2, y: r.midY - s.height / 2, width: s.width, height: s.height))
+            if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) {
+                let tinted = NSImage(size: img.size, flipped: false) { b in img.draw(in: b); c.set(); b.fill(using: .sourceAtop); return true }
+                let s = img.size
+                tinted.draw(in: NSRect(x: x, y: r.midY - s.height / 2, width: s.width, height: s.height))
+            }
+            x += 17
         }
+        let img = v.isGPT ? GPTWatcher.mark(c, height: 11) : Theme.claudeTag(c, height: 11)
+        img.draw(in: NSRect(x: x, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
     }
 
     private func drawTags(_ v: VNode, x: CGFloat, midY: CGFloat) {
@@ -1698,6 +1706,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                         v.time = store.timeLabel(c)
                         v.isCode = c.isCode
                         v.isGPT = c.isGPT
+                        v.isSession = c.isCodexSession
                     }
                     register(v)
                     moving.append(v)

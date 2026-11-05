@@ -618,18 +618,14 @@ final class SidebarView: NSView, NSDraggingSource {
             let tf = Theme.ui(13, state > 0 ? .semibold : .regular)
             // where it lives, before the name: Claude's mark, a terminal for Claude Code, "GPT" for ChatGPT
             var nameX = r.minX + 12
-            if c.isCode, let img = SidebarView.terminal(faded) {
+            // a session in an editor or a terminal: a terminal first; then whose AI it is, for every chat
+            if c.isCode || c.isCodexSession, let img = SidebarView.terminal(faded) {
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: 14, height: 12))
                 nameX += 19
-            } else if c.isGPT {
-                let img = GPTWatcher.mark(faded, height: 12)
-                img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
-                nameX += img.size.width + 5
-            } else {
-                let img = Theme.claudeTag(faded, height: 12)
-                img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
-                nameX += img.size.width + 5
             }
+            let tag = c.isGPT ? GPTWatcher.mark(faded, height: 12) : Theme.claudeTag(faded, height: 12)
+            tag.draw(in: NSRect(x: nameX, y: r.midY - 6, width: tag.size.width, height: 12))
+            nameX += tag.size.width + 5
             let time = store.timeLabel(c)
             let timeF = Theme.ui(11.5)
             let tw = ceil(time.size(timeF).width)
