@@ -924,7 +924,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let c = store.chat(id), c.isGPT {
             store.markSeen([id])
             // a Codex session from VS Code opens its folder there, like a Claude Code session
-            if c.isCodexSession { openCode(c) } else { GPTWatcher.open(String(id.dropFirst(4))) }
+            if c.isCodexSession { openCode(c) } else { GPTWatcher.open(String(id.dropFirst(4)), title: c.title, logs: store.logsDir) }
             return
         }
         // a Claude Code session: bring up the app it runs in (VS Code opens its folder)

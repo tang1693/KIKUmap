@@ -734,12 +734,12 @@ final class GPTWatcher {
     }()
 
     /// Opens the thread in the ChatGPT app (or whatever opens its links); says why not when nothing can. An ordinary
-    /// chat opens by its address, handed to the app itself, never to a browser.
-    static func open(_ threadID: String) {
-        let chat = threadID.hasPrefix("chat-") ? String(threadID.dropFirst(5)) : nil
-        let address = chat.map { "https://chatgpt.com/c/" + ($0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0) }
-        guard let u = URL(string: address ?? "codex://threads/" + threadID) else { return }
-        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) ?? (chat == nil ? NSWorkspace.shared.urlForApplication(toOpen: u) : nil) {
+    /// chat (`title`: its name in ChatGPT) has no link the app opens in place (its chatgpt.com address opens in the
+    /// app's own browser), so it's opened the way you would: see `openChat`.
+    static func open(_ threadID: String, title: String = "", logs: URL? = nil) {
+        if threadID.hasPrefix("chat-") { openChat(title: title, logs: logs); return }
+        guard let u = URL(string: "codex://threads/" + threadID) else { return }
+        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) ?? NSWorkspace.shared.urlForApplication(toOpen: u) {
             NSWorkspace.shared.open([u], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
         } else {
             Permissions.alert(tr("打不开：这台 Mac 上没有 ChatGPT", "Can't open it: ChatGPT isn't on this Mac"),
@@ -748,6 +748,120 @@ final class GPTWatcher {
         }
     }
 
+    /// An ordinary chat: ChatGPT to the front (started if it isn't running), then a click on the chat's row in its
+    /// sidebar, read with Accessibility, tried for a few seconds while ChatGPT starts up. Not found: ChatGPT stays in
+    /// front, a note says where to click, and a log of its window's layout (no text) is written for fixing the reader.
+    private static func openChat(title: String, logs: URL?) {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            Permissions.alert(tr("打不开：这台 Mac 上没有 ChatGPT", "Can't open it: ChatGPT isn't on this Mac"),
+                              tr("这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。", "This chat is in the ChatGPT desktop app, so it opens only there."))
+            return
+        }
+        if let r = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first { r.activate() }
+        else { NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration()) }
+        guard AXIsProcessTrusted(), !title.isEmpty else { return }
+        let id = bundleID
+        DispatchQueue.global(qos: .userInitiated).async {
+            var found = false, pid: pid_t = 0
+            for _ in 0..<12 {
+                if let p = NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.processIdentifier {
+                    pid = p
+                    if GPTSidebar.press(pid: p, title: title) { found = true; break }
+                }
+                Thread.sleep(forTimeInterval: 0.5)
+            }
+            if !found, pid != 0, let logs { GPTSidebar.writeLog(pid: pid, title: title, to: logs.appendingPathComponent("chatgpt-sidebar.txt")) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard !found else { return }
+                    Permissions.alert(tr("在 ChatGPT 的侧栏里没找到「\(title)」", "Couldn't find \"\(title)\" in ChatGPT's sidebar"),
+                                      tr("ChatGPT 已经打开了：展开它的侧栏，在「置顶」里点这个对话。\n（logs/chatgpt-sidebar.txt 记下了窗口的结构，不含任何文字，可以发给开发者。）",
+                                         "ChatGPT is open: show its sidebar and click the chat under Pinned.\n(logs/chatgpt-sidebar.txt has the window's layout, without any text, for the developer.)"))
+                }
+            }
+        }
+    }
+
     /// A small "GPT" tag that marks ChatGPT threads, as "Claude" marks the Claude app's.
     static func mark(_ color: NSColor, height: CGFloat = 12) -> NSImage { Theme.appTag("GPT", color, height: height) }
+}
+
+/// ChatGPT's window, read with Accessibility, to open an ordinary chat by clicking its row (the app opens no link to
+/// one in place).
+enum GPTSidebar {
+    /// Roles a chat's row can be pressed through.
+    private static let rows: Set<String> = ["AXLink", "AXButton", "AXRow", "AXCell", "AXGroup", "AXRadioButton"]
+
+    private static func norm(_ s: String) -> String {
+        s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    /// The elements named `title` in the window, top to bottom (the sidebar's Pinned section comes first).
+    private static func named(_ title: String, in app: AXUIElement) -> [AXUIElement] {
+        let want = norm(title)
+        var out: [AXUIElement] = []
+        for w in AXScan.list(AXScan.attr(app, "AXWindows")) {
+            var stack: [(AXUIElement, Int)] = [(w, 0)], visited = 0
+            while let (el, d) = stack.popLast(), visited < 8000 {
+                visited += 1
+                if ["AXTitle", "AXDescription", "AXValue"].contains(where: { norm(AXScan.str(el, $0)) == want }) { out.append(el) }
+                if d < 60 { for c in AXScan.children(el).reversed() { stack.append((c, d + 1)) } }
+            }
+        }
+        return out
+    }
+
+    /// The row an element sits in, if it can be pressed (not a text field: a title being edited isn't a row).
+    private static func row(of el: AXUIElement) -> AXUIElement? {
+        var e: AXUIElement? = el
+        for _ in 0..<6 {
+            guard let x = e else { return nil }
+            let role = AXScan.str(x, "AXRole")
+            if role == "AXTextField" || role == "AXTextArea" || role == "AXWindow" || role == "AXWebArea" { return nil }
+            var names: CFArray?
+            if rows.contains(role), AXUIElementCopyActionNames(x, &names) == .success,
+               (names as? [String] ?? []).contains(kAXPressAction as String) { return x }
+            e = AXScan.element(AXScan.attr(x, "AXParent"))
+        }
+        return nil
+    }
+
+    /// Presses the first row named `title` in ChatGPT's windows. false: none found.
+    nonisolated static func press(pid: pid_t, title: String) -> Bool {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 2.0)
+        // (an Electron app builds its accessibility tree only once asked)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        for el in named(title, in: app) {
+            if let r = row(of: el), AXUIElementPerformAction(r, kAXPressAction as CFString) == .success { return true }
+        }
+        return false
+    }
+
+    /// The window's layout, for fixing the reader: each element's role, subrole and actions, with every text left out
+    /// (only its length, and whether it's the chat's name).
+    nonisolated static func writeLog(pid: pid_t, title: String, to url: URL) {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 2.0)
+        let want = norm(title)
+        var lines = ["# ChatGPT window layout \(Clock.iso())  (texts left out: #n is a text's length, \"=chat\" the chat's name)"]
+        for w in AXScan.list(AXScan.attr(app, "AXWindows")) {
+            var stack: [(AXUIElement, Int)] = [(w, 0)], visited = 0
+            while let (el, d) = stack.popLast(), visited < 6000 {
+                visited += 1
+                var names: CFArray?
+                _ = AXUIElementCopyActionNames(el, &names)
+                let acts = (names as? [String] ?? []).filter { $0 == "AXPress" || $0 == "AXShowMenu" }.joined(separator: ",")
+                let texts = ["AXTitle", "AXDescription", "AXValue"].map { k -> String in
+                    let t = AXScan.str(el, k)
+                    return t.isEmpty ? "" : norm(t) == want ? " \(k.dropFirst(2))=chat" : " \(k.dropFirst(2))#\(t.count)"
+                }.joined()
+                lines.append(String(repeating: " ", count: min(d, 60)) + AXScan.str(el, "AXRole") + "/" + AXScan.str(el, "AXSubrole")
+                             + texts + (acts.isEmpty ? "" : " [\(acts)]"))
+                if d < 60 { for c in AXScan.children(el).reversed() { stack.append((c, d + 1)) } }
+            }
+        }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? lines.joined(separator: "\n").data(using: .utf8)?.write(to: url)
+    }
 }
