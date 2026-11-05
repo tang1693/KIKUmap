@@ -617,6 +617,23 @@ final class Store {
         markSeen([c.id])
     }
 
+    /// The folder a Claude Code session was started in: of `cwd` and the folders it's in, the one Claude Code files the
+    /// session's transcript under (~/.claude/projects/<the path, each character but a letter or digit as "-">/…).
+    /// That's the folder its editor window has open; a `cd` in the session moves `cwd`, not this. nil: not one of them.
+    static func sessionFolder(cwd: String, transcript: String) -> String? {
+        let key = (transcript as NSString).deletingLastPathComponent.components(separatedBy: "/").last ?? ""
+        guard !cwd.isEmpty, key.hasPrefix("-") else { return nil }
+        func code(_ p: String, ascii: Bool) -> String {
+            String(p.map { c -> Character in (ascii ? c.isASCII : true) && (c.isLetter || c.isNumber) ? c : "-" })
+        }
+        var u = URL(fileURLWithPath: cwd).standardizedFileURL
+        while true {
+            if code(u.path, ascii: true) == key || code(u.path, ascii: false) == key { return u.path }
+            if u.path == "/" { return nil }
+            u.deleteLastPathComponent()
+        }
+    }
+
     /// A window's title names this folder or one it's in: VS Code's "Store.swift — Claude", Terminal's
     /// "Claude — zsh — 80×24" or "you@Mac: ~/Desktop/Claude".
     static func window(_ title: String, shows cwd: String) -> Bool {
@@ -1136,17 +1153,22 @@ final class Store {
         let wasRunning = running
         for e in evs {
             let id = "cc-" + e.session
+            // the session's own folder (where it was started), not where a `cd` in it has gone since
+            let home = Store.sessionFolder(cwd: e.cwd, transcript: e.transcript)
             if index[id] == nil {
                 guard e.name != "SessionEnd" else { continue }
-                let folder = (e.cwd as NSString).lastPathComponent
+                let cwd = home ?? e.cwd
+                let folder = (cwd as NSString).lastPathComponent
                 chats.append(Chat(id: id, title: folder.isEmpty ? "Claude Code" : folder, updated_at: "", path: nil,
-                                  source: "code", last_note: nil, cwd: e.cwd.isEmpty ? nil : e.cwd, app: e.app.isEmpty ? nil : e.app))
+                                  source: "code", last_note: nil, cwd: cwd.isEmpty ? nil : cwd, app: e.app.isEmpty ? nil : e.app))
                 reindex()
                 changed = true
             }
             guard let i = index[id] else { continue }
             if !e.app.isEmpty && chats[i].app != e.app { chats[i].app = e.app; changed = true }
-            if !e.cwd.isEmpty && chats[i].cwd != e.cwd { chats[i].cwd = e.cwd; changed = true }
+            // (not known from the transcript: the first folder seen stays)
+            if let h = home, chats[i].cwd != h { chats[i].cwd = h; changed = true }
+            else if home == nil, chats[i].cwd == nil, !e.cwd.isEmpty { chats[i].cwd = e.cwd; changed = true }
             if e.name == "UserPromptSubmit" && !e.entry.isEmpty {
                 let scripted: Bool? = e.entry.hasPrefix("sdk-") ? true : nil
                 if chats[i].headless != scripted { chats[i].headless = scripted; changed = true }

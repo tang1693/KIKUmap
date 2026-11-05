@@ -291,8 +291,10 @@ struct KikumapWidgetView: View {
             chart(s, compact: false)
             HStack(alignment: .top, spacing: 14) {
                 topChats(s).frame(maxWidth: .infinity, alignment: .topLeading)
-                week(s).frame(width: 118)
+                week(s).frame(width: 118).frame(maxHeight: .infinity)
             }
+            // as tall as the taller of the two (the list, as a rule), the week stretching to match
+            .fixedSize(horizontal: false, vertical: true)
             if !s.usageOff && !s.meters.isEmpty {
                 Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
                 meters(s, labelWidth: en || s.meters.contains { $0.label.count > 2 } ? 40 : 26, compact: false, limit: 4)
@@ -358,7 +360,7 @@ struct KikumapWidgetView: View {
     }
 
     /// The last seven days: their time all together on a line of its own, then a bar each (the latest darker),
-    /// down to the foot of the list beside it.
+    /// stretched down to the foot of the list beside it, however tall its rows come out.
     @ViewBuilder private func week(_ s: WidgetState) -> some View {
         let ds = days(s)
         let peak = max(ds.map(\.seconds).max() ?? 0, 1)
@@ -367,18 +369,23 @@ struct KikumapWidgetView: View {
             Text(WidgetText.duration(ds.reduce(0) { $0 + $1.seconds }, en))
                 .font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(Color.primary)
                 .lineLimit(1).minimumScaleFactor(0.7)
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(ds.indices, id: \.self) { i in
-                    VStack(spacing: 3) {
-                        UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 2)
-                            .fill(Color.primary.opacity(i == ds.count - 1 ? 0.85 : 0.3))
-                            .frame(height: max(2, 46 * CGFloat(ds[i].seconds / peak)))
-                        Text(WidgetText.weekday(ds[i].start, en)).font(.system(size: 8.5)).foregroundStyle(Color.secondary)
+            GeometryReader { g in
+                // the tallest bar takes what's left above the day names
+                let tall = max(4, g.size.height - 14)
+                HStack(alignment: .bottom, spacing: 4) {
+                    ForEach(ds.indices, id: \.self) { i in
+                        VStack(spacing: 3) {
+                            UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 2)
+                                .fill(Color.primary.opacity(i == ds.count - 1 ? 0.85 : 0.3))
+                                .frame(height: max(2, tall * CGFloat(ds[i].seconds / peak)))
+                            Text(WidgetText.weekday(ds[i].start, en)).font(.system(size: 8.5)).foregroundStyle(Color.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(width: g.size.width, height: g.size.height, alignment: .bottom)
             }
-            .frame(height: 60, alignment: .bottom)
+            .frame(minHeight: 44)
             .padding(.top, 4)
         }
     }

@@ -36,7 +36,7 @@
 
 **原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码（线条图标来自 [Lucide](https://lucide.dev)，ISC 许可）。安装包很小，主要靠系统通知等变化（每半分钟轻量检查一次），窗口一隐藏就完全停止绘制。
 
-https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
+<p align="center"><a href="https://tang1693.github.io/KIKUmap/?lang=zh#tour"><img src="docs/demo/intro-poster-zh.jpg" width="100%" alt="观看 KIKUmap 介绍视频"></a></p>
 
 > [!NOTE]
 > **须知。** Claude App 没有公开接口，KIKUmap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 KIKUmap 更新才能恢复。本项目由个人独立开发，与 Anthropic、OpenAI 都无关。

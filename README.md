@@ -36,7 +36,7 @@ You pinned a dozen chats in Claude, and a few Codex chats in ChatGPT. One is pla
 
 **Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code (its line icons are from [Lucide](https://lucide.dev), ISC). A small download that mostly waits for changes (with a light check every half minute), and stops drawing entirely when its window is hidden.
 
-https://github.com/user-attachments/assets/abd1dc24-4bc4-433a-8bf0-ad95262d4902
+<p align="center"><a href="https://tang1693.github.io/KIKUmap/#tour"><img src="docs/demo/intro-poster.jpg" width="100%" alt="Watch the KIKUmap tour"></a></p>
 
 > [!NOTE]
 > **Good to know.** The Claude app has no public API, so KIKUmap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of KIKUmap may stop working until it's updated. KIKUmap is an independent project, not made by or affiliated with Anthropic or OpenAI.

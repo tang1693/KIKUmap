@@ -957,6 +957,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let folder = c.cwd.map { URL(fileURLWithPath: $0) }
         if !bundle.isEmpty, let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
             if let f = folder, bundle.lowercased().contains("vscode") || bundle.lowercased().contains("cursor") {
+                // a window with the session's folder (or one it's in) already open comes to the front; only without one
+                // is the folder opened (the editor opens a new window for a folder no window has)
+                if AppDelegate.raiseWindow(of: bundle, showing: f.path) { return }
                 NSWorkspace.shared.open([f], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
             } else {
                 NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
@@ -964,6 +967,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let f = folder {
             NSWorkspace.shared.activateFileViewerSelecting([f])
         }
+    }
+
+    /// Brings to the front the window of the running app `bundle` whose title names `folder` (or else a folder it's
+    /// in), read with Accessibility. false: the app isn't running, no window shows it, or no Accessibility.
+    private static func raiseWindow(of bundle: String, showing folder: String) -> Bool {
+        guard AXIsProcessTrusted(), let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first else { return false }
+        let ax = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(ax, 1.0)
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(ax, kAXWindowsAttribute as CFString, &v) == .success, let wins = v as? [AXUIElement] else { return false }
+        let shown = wins.compactMap { w -> (AXUIElement, String)? in
+            var t: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &t) == .success, let title = t as? String,
+                  Store.window(title, shows: folder) else { return nil }
+            return (w, title)
+        }
+        let name = (folder as NSString).lastPathComponent
+        guard let w = (shown.first { $0.1.contains(name) } ?? shown.first)?.0 else { return false }
+        AXUIElementSetAttributeValue(w, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        AXUIElementPerformAction(w, kAXRaiseAction as CFString)
+        app.activate()
+        return true
     }
 
     private func openURL(_ id: String) {
