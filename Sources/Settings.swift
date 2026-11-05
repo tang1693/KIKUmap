@@ -616,6 +616,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         g.rowSpacing = 14
         g.columnSpacing = 14
         g.column(at: 0).xPlacement = .trailing
+        // the labels' column one width, so the controls start in the same place on every page and in either language
+        // (left to itself, the column takes whatever room the controls leave, which differs with the language)
+        g.column(at: 0).width = 140
         g.rowAlignment = .firstBaseline
         g.setContentHuggingPriority(.required, for: .vertical)
         return g
