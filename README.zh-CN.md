@@ -5,10 +5,7 @@
 
 <p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
 
-<p align="center">
-  在菜单栏或桌面上一眼看到哪个对话还在跑、哪个在等你。<br>
-  把它们整理成一张导图，想带走时一键导出。
-</p>
+<p align="center">住在 Mac 菜单栏里的思维导图，管理 Claude 和 ChatGPT 的对话。<br>哪个在跑、哪个做完了、哪个在等你，一眼就知道。</p>
 
 <p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-zh.svg" height="56" alt="下载 KIKUmap macOS 版"></a></p>
 
@@ -30,303 +27,226 @@
   <a href="#支持">支持 ❤️</a>
 </p>
 
-<p align="center"><img src="docs/demo/drag.gif" width="100%" alt="把 Work 主题拖过导图：它带着实时连线跟着鼠标走，其他主题让开空出位置，松手后落进空位"></p>
-
-你在 Claude 里置顶了一堆对话，在 ChatGPT 里也置顶了几个 Codex 对话：一个在规划旅行，一个在修测试，还有一个十分钟前就做完了你还没看。**KIKUmap** 住在菜单栏里帮你同时盯着两边：哪个在跑、哪个做完了、哪个在等你批准。打开它，置顶对话就是一张由你自己整理的思维导图，用法像 MindNode。桌面小组件也能一眼看到这些，还有 Claude 和 ChatGPT 的用量。
-
-**原生，轻到几乎感觉不到。** 纯 Swift + AppKit：没有 Electron、没有网页套壳、没有后台助手进程、没有任何第三方代码（线条图标来自 [Lucide](https://lucide.dev)，ISC 许可）。安装包很小，主要靠系统通知等变化（每半分钟轻量检查一次），窗口一隐藏就完全停止绘制。
+<p align="center"><img src="docs/demo/drag.gif" width="100%" alt="把 Work 主题拖过导图：其他主题让开空出位置，松手后落进空位"></p>
 
 <p align="center"><a href="https://tang1693.github.io/KIKUmap/?lang=zh#tour"><img src="docs/demo/intro-poster-zh.jpg" width="100%" alt="观看 KIKUmap 介绍视频"></a></p>
-
-> [!NOTE]
-> **须知。** Claude App 没有公开接口，KIKUmap 是通过 macOS「辅助功能」读它的窗口；ChatGPT 的对话来自它的桌面 App 存在你 Mac 上的文件。任一边改版后，部分功能可能要等 KIKUmap 更新才能恢复。本项目由个人独立开发，与 Anthropic、OpenAI 都无关。
 
 ## 功能
 
 <table>
 <tr>
-<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="菜单栏图标：Claude 干活时显示在跑几个，数字外圈在转；做完后出现红色未读数字，需要批准时带感叹号"></td>
+<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="菜单栏图标：转动的圆环数着在跑的对话，然后出现红色未读角标，有对话等批准时加上感叹号"></td>
 <td>
 
-### 随时知道 Claude 和 ChatGPT 在干什么
-
-菜单栏只有一个图标。有置顶的对话在跑时，显示在跑几个，数字外面一圈橙色在转；红色数字是做完了还没看的对话，带 **!** 表示有对话在等你批准。都没有时，就是一朵黄蓝红三色的小菊花。
-
-**听声音就知道，不用去查。** 对话做完或在等你时会响提示音，还可以接着念出是哪个对话（“定价方案做完了”）。声音、语速、念的内容都能自己改，也可以换成自己的声音文件。
-
-支持 Claude 桌面 App、Claude Code（终端、VS Code、App 的 Code 模式），以及 ChatGPT 桌面 App。ChatGPT 这边显示在你 Mac 上运行的对话：你在 ChatGPT 里置顶的 **Codex** 对话（置顶的对话和置顶项目里的对话）会和 Claude 的对话放在一起，前面标着 **GPT**，顺序和 ChatGPT 一样；进行中、未读跟 ChatGPT 自己的小圆点一致。VS Code、终端里的 Codex 会话和 Claude Code 会话一样显示：运行中、未读，以及做完后 12 小时内。普通 ChatGPT 聊天存在云端、不在你的 Mac 上，置顶了也不会显示。不用任何设置：KIKUmap 读 ChatGPT 存在你 Mac 上的内容。
+### 1. 菜单栏看状态
+圆环里是在跑的对话数；红色角标是做完还没看的对话数，有对话等你批准时带 **!**。可以开提示音，或者用语音说出是哪个对话做完了。
 
 </td>
 </tr>
 <tr>
 <td>
 
-### 对话变成一张导图
-
-左栏是你在 Claude 里置顶的对话和在 ChatGPT 里置顶的 Codex 对话，**顺序和各自的 App 一样**，还有你的 Claude Code 会话。导图一开始是空的，放什么由你决定。把它们拖到自己的主题下：拖动时节点带着实时连线跟着走，其他节点会让开，空出它要落下的位置。你不动，布局就不会自己变。
-
-**一次拖好几个：** 在导图空白处拖出选框（或 ⌘/⇧ 点击），或在左栏 ⌘/⇧ 点击，然后拖其中任意一个，选中的会按顺序一起过去。按住空格移动鼠标、或双指滑动，就能移动导图。左栏和时间线可以隐藏（⌃⌘S、⌃⌘T），也能拖边缘调宽窄；⌘+ / ⌘- 让整个窗口的字一起变大变小。
-
-真正的对话前面有一朵小菊花。鼠标停在上面会出现两个按钮：在 Claude 或 ChatGPT 里打开，或者标回未读（⇧⌘U），在你真正打开之前一直提醒你。
+### 2. 对话变成导图
+Claude 和 ChatGPT（Codex）里置顶的对话、Claude Code 会话，都会列在左栏。把它们拖到自己的主题下。每个对话都标着 **Claude** 或 **GPT**。
 
 </td>
-<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="在空白处拖出选框选中 Home 下的两个对话，⌘ 点击再加一个，拖其中一个，三个一起移到 Side projects"></td>
+<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="选中三个对话，一起拖到 Side projects 下"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="右键 Launch 主题，依次换成方块、圆圈、三角、菱形、交叉、星星，再换分支颜色"></td>
+<td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="点「进行中」标签，高亮带这个标签的对话；再把标签拖到一个对话上"></td>
 <td>
 
-### 按你的习惯整理
-
-右键任意主题，换分支颜色、选图形：方块、圆圈、三角、菱形、交叉、星星。颜色会顺着分支往下，时间线和菜单里也跟着用。
+### 3. 颜色、形状、标签
+给主题设颜色和形状。给对话打标签，点一下标签就高亮所有带它的对话。
 
 </td>
 </tr>
 <tr>
 <td>
 
-### 什么都能打标签
-
-比如「进行中」「等别人」「幻灯片」。右键菜单里勾选，或者从左下角的标签栏直接拖到对话上。
-
-点一下标签，带这个标签的都会高亮，其他的淡下去。再点一下取消。
+### 4. 键盘就能搞定
+⇥ 子主题 · ⏎ 同级 · ⌥↑↓ 移动 · ⌘Z 撤销 · ⌘F 搜索 · 空格打开对话。
 
 </td>
-<td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="点「进行中」标签，带这个标签的对话高亮；再把标签拖到 Q4 planning deck 上"></td>
+<td width="55%"><img src="docs/demo/keys.gif" width="100%" alt="Tab 加子主题，回车加同级，Option-上移动，Command-Z 撤销"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/keys.gif" width="100%" alt="⇥ 在 Home 下新建子主题，⏎ 新建同级，⌥↑ 上移，⌘Z 撤销"></td>
+<td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="时间轴：过去的运行和时间，以及带倒计时的定时任务"></td>
 <td>
 
-### 键盘就能搞定
-
-和专业导图软件一样：⇥ 新建子主题，⏎ 同级主题，⌥↑↓ 调整顺序，⌘Z 撤销。还有 ⌫ 删除、⌥. 折叠、⌘F 搜索，⌘↓（或轻按空格）在对应的 App 里打开对话，和访达一样。
+### 5. 时间轴
+每个对话什么时候在跑，接下来有哪些定时任务，带倒计时。
 
 </td>
 </tr>
 <tr>
 <td>
 
-### 做过什么，接下来做什么
-
-底部的时间线显示 Claude 和 ChatGPT 什么时候在做哪个对话，用你的分支颜色；同时在跑的对话各占一行。往后拖，就能看到接下来的计划任务（需开启用量），每个都带实时倒计时。点一下就能打开。
+### 6. 导出和导入
+每个对话导出成文件：总结、提示词、完整对话和产出物。也能导入到另一个 Claude 账号。
 
 </td>
-<td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="鼠标停在时间线上过去的运行记录上显示时长；往后拖出现计划任务和倒计时"></td>
+<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="导出窗口，以及导出的 Markdown 文件和产出物文件夹"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="导出窗口：勾选 Launch、Copy 和 Work，点导出，得到一个装着 Markdown 和 artifacts 的文件夹"></td>
+<td width="55%"><img src="docs/demo/widget-zh.png" width="100%" alt="三种尺寸的 KIKUmap 小组件：最近 24 小时的工作时长、用量；大号还有用时最多的对话和最近 7 天"></td>
 <td>
 
-### 全部带走
-
-勾选主题，下面所有对话（置顶的、没置顶的都算）一次导出，每个对话一个文件夹：
-
-- `memory.md`：Claude 在对话里写的交接总结
-- `prompts.md` 和 `conversation.md`
-- `artifacts/` 和 `attachments/`
-
-导出可以自动保持最新。**导入**会为每个文件夹开一个新的置顶对话（比如换到新的 Claude 账号），把总结和 artifacts 作为附件发进去，接着做就行。
+### 7. 桌面小组件
+最近 24 小时和最近 7 天的工作时长，以及 Claude、ChatGPT 的用量和套餐名。三种尺寸，需要 macOS 14 及以上。
 
 </td>
 </tr>
 <tr>
 <td>
 
-### 放在桌面上 <sup>新</sup>
-
-桌面或通知中心的小组件，小、中、大三种尺寸：最近 24 小时 Claude 干了多久（柱状图，每个对话一种颜色）和今天的时长；用量：Claude 的（5 小时会话和本周）、ChatGPT 的，或两个都有，每一行都标着是谁的；大号还列出用时最多的对话和最近 7 天，用量旁边写着你的套餐。macOS 只让小组件隔一阵刷新一次（苹果的规定大约是 15 到 60 分钟），所以小组件只放晚一点看也不会错的内容，并标出是几点的数据；正在跑和未读的看菜单栏。点柱状图打开统计，点对话打开对话。
-
-在桌面右键 → **编辑小组件**，搜 KIKUmap。需要 macOS 14 或更新。
+### 8. 统计
+每个对话的用时，可以看 7、14、30 或 90 天。⌘Y。
 
 </td>
-<td width="55%"><img src="docs/demo/widget-zh.png" width="100%" alt="四个 KIKUmap 小组件：大、中和两个小的，都有最近 24 小时 Claude 干了多久的分段柱状图和用量；大号还列出用时最多的对话、最近 7 天和套餐"></td>
-</tr>
-<tr>
-<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="统计：最近 7 天，每 6 小时一根柱，每个对话一种颜色，带总计、图例，以及柱子时长和范围的切换"></td>
-<td>
-
-### 干了多少活 <sup>新</sup>
-
-Claude 和 ChatGPT 干了多久，按对话分段；每根柱子可以是 1、3、6、12、24 或 48 小时，看最近 7、14、30 或 90 天。鼠标停上去看详情，点一段就打开那个对话。显示 → 统计（⌘Y），或窗口顶上的图表按钮。
-
-</td>
+<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="统计：七天里每个对话用时的柱状图"></td>
 </tr>
 </table>
-
-### 还有更多
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="做完的对话会亮"><br><b>做完的对话会亮</b><br>做完还没看的对话，在导图上变成实心，还带一个红点。</td>
-<td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="搜索"><br><b>搜索</b><br>⌘F 搜主题、对话和标签，⏎ 跳到下一个。</td>
+<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="做完的对话会亮起"><br><b>做完的对话</b>会在导图上亮起。</td>
+<td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="搜索"><br><b>搜索</b>主题、对话和标签。</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="今日回顾"><br><b>今日回顾</b><br>今天 Claude 和 ChatGPT 做了哪些对话、各用了多久，菜单里就能看。</td>
-<td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="用量"><br><b>用量</b><br>当前会话和本周用量，和 claude.ai 一样，还有接下来的计划任务。</td>
+<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="菜单里的今天"><br><b>今天</b>哪些对话干了活、干了多久。</td>
+<td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="菜单里的用量"><br>当前会话和本周的<b>用量</b>。</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/pdf.gif" width="100%" alt="导出 PDF"><br><b>导出 PDF</b><br>整张导图导出成一页浅色 PDF，打印、分享都行。</td>
-<td width="50%" valign="top"><img src="docs/demo/backups.gif" width="100%" alt="每日备份"><br><b>每日备份</b><br>每天第一次改动之前，自动存一份导图。</td>
+<td width="50%" valign="top"><img src="docs/demo/pdf.gif" width="100%" alt="导出 PDF"><br>整张导图导出 <b>PDF</b>。</td>
+<td width="50%" valign="top"><img src="docs/demo/backups.gif" width="100%" alt="每日备份"><br>导图<b>每日备份</b>。</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="浅色和深色"><br><b>浅色和深色</b><br>跟随系统，或者点月亮按钮切换。</td>
-<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English · 中文"><br><b>English · 中文</b><br>所有文字、菜单和标签，中英文都有。</td>
+<td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="浅色或深色"><br><b>浅色、深色</b>都有。</td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="中文和英文"><br><b>中文 · English。</b></td>
 </tr>
 </table>
 
-## 能看到什么，看不到什么
+**支持：** Claude 桌面 App · Claude Code（终端、VS Code、Cursor、App 里的 Code 模式）· ChatGPT 桌面 App（Codex 对话）· VS Code 或终端里的 Codex。
 
-KIKUmap 读的是各个 App 存在这台 Mac 上的东西。它从不登录你的账号；开了用量后，只用这台 Mac 上 Claude Code 的登录，向 Anthropic 查你的用量和计划任务的时间。
-
-| 能看到 | 看不到 |
-|---|---|
-| 你在 Claude 里置顶的对话，不管在哪儿开的（手机、网页上置顶的会同步过来），前提是这台 Mac 上开着 Claude 桌面 App | 没置顶的对话；只在浏览器或别的设备上用 Claude、这台 Mac 上没开 Claude App |
-| 在这台 Mac 上跑的 Claude Code：终端、VS Code、Cursor、Claude App 的 Code 模式（连接 hook 之后） | 在别的电脑或服务器上跑的 Claude Code：SSH、VS Code 远程、开发容器、云端（它的 hook 在那边运行，不在这台 Mac 上） |
-| 你在 ChatGPT 桌面 App 里置顶的 Codex 对话，以及这台 Mac 上 VS Code、终端里的 Codex 会话 | 普通 ChatGPT 聊天（存在云端）、别的电脑或服务器上的 Codex、Codex 云端任务 |
-| Claude 的计划任务：名字和运行时间，显示在时间线上（开了用量后） | 计划任务或云端任务运行时具体在做什么 |
-| Claude 的用量（通过这台 Mac 上 Claude Code 的登录，需要 Claude 订阅）；ChatGPT 的用量（读它自己的文件） | 按量计费的 API Key 的用量，以及没在这台 Mac 上登录的账号的用量 |
-
-进行中、做完了也都来自这台 Mac：Claude 窗口开在你正在用的桌面上时的侧边栏、Claude Code 的 hook、ChatGPT 的文件。开了「完全磁盘访问」（并且 macOS 里允许 Claude 发通知），Claude 的通知还会告诉它：Claude 要你批准或回答了、Claude App 里的 Cowork 任务做完了；普通对话回复完，Claude 不发通知。（App 里的 Code 会话靠 Claude Code 连接。）首次启动的介绍里有一页图示。
+**原生、轻量：** 纯 Swift + AppKit。没有 Electron，没有网页套壳，没有第三方代码（线条图标来自 [Lucide](https://lucide.dev)，ISC 许可）。
 
 ## 安装
 
-**[下载 Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)**（Apple 芯片和 Intel 通用，macOS 13 及以上），打开后把 **KIKUmap** 拖进「应用程序」。
-
-第一次打开时 macOS 会拦住它，因为它没有付费的苹果开发者签名：
-
-1. 在弹出的提示里点 **完成**（不要点「移到废纸篓」），然后打开 **系统设置 → 隐私与安全性**。
-2. 往下滑，在 KIKUmap 旁边点 **仍要打开**。（macOS 13–14 也可以右键应用 → 打开。）
-3. 接下来的简短引导只要你开一个权限：「辅助功能」，让 KIKUmap 能看 Claude App 的对话列表。其他都是可选的。最后一页可以选登录 Mac 时自动打开 KIKUmap（随时可以在 设置 → 通用 里改）。
-4. **把要盯的对话置顶。** KIKUmap 盯的是置顶的对话（以及 Claude Code、Codex 会话）：在 Claude 里置顶对话，或在 ChatGPT 里置顶 Codex 对话，它就会出现在菜单、左栏和小组件里。
-
-保持 Claude App 的侧边栏展开、停在 Chat、Pinned 区展开。ChatGPT 不用设置：KIKUmap 读它的桌面 App 存在你 Mac 上的内容。以后要删掉 KIKUmap：先关掉 设置 → 通用 → *登录时自动启动*，连过 Claude Code 的话再在 设置 → 授权 里点 *断开 Claude Code*，然后把 App 拖进废纸篓。
+1. [下载 Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)（macOS 13 及以上，Apple 芯片和 Intel 都支持），把 KIKUmap 拖到「应用程序」。
+2. 第一次打开时，macOS 会提示无法检查这个 App（它没有经过公证）：点「完成」，再到 **系统设置 → 隐私与安全性**，点「仍要打开」。
+3. 引导页请求**辅助功能**权限时，允许它。其他权限都可选。
+4. 在 Claude 或 ChatGPT 里置顶对话，KIKUmap 就会跟踪它们。
 
 <details>
-<summary><b>从源码编译</b></summary>
+<summary>从源码构建</summary>
 
-需要 Xcode 命令行工具（macOS 会提示安装）。
+需要 Xcode 命令行工具。
 
 ```bash
 git clone https://github.com/tang1693/KIKUmap.git
 cd KIKUmap
-open Install.command        # 或者在 Finder 里双击它
+open Install.command
 ```
 
-`Install.command` 用 `swiftc` 编译（需要 Swift 5.10 或更新），装到 `~/Applications`，并问你要不要开机启动。它会在登录钥匙串里建一个本地签名证书（只建一次），这样你开过的权限在以后重新编译后依然有效。`scripts/build-release.sh` 用来打包通用版 DMG。
+`Install.command` 用 `swiftc` 编译，装到 `~/Applications`，并用本地证书签名，所以重新编译后权限还在。`scripts/build-release.sh` 生成安装包。
 </details>
 
 ## 隐私
 
-所有数据都在本机 `~/Library/Application Support/ClaudeConsole/`。唯一的网络请求是向 `api.anthropic.com` 查询用量，而且只在你开启用量功能之后（默认关闭）。ChatGPT 的用量从它自己的文件里读，不联网。
+- 所有数据都留在本机，放在 `~/Library/Application Support/ClaudeConsole/`。
+- 必需的权限只有一个：**辅助功能**，用来读 Claude App 的对话列表。每个权限都会先说明用途，再由 macOS 弹窗请求。
+- 不联网。唯一的例外是可选的用量查询（默认关闭）：开启后，会借用 Claude Code 和 Codex 已经存在本机的登录，向 Anthropic 和 OpenAI 查用量，登录信息不会被保存。这两家都没有说明允许应用这样查询，以后可能会被限制。
 
-不会突然弹窗：每个系统授权弹窗，都会先告诉你要做什么，你点了同意才出现。
+<details>
+<summary>每个数据来源和权限的用途</summary>
 
-| 显示什么 | 从哪里来 | 权限 |
+| 显示的内容 | 来源 | 权限 |
 |---|---|---|
-| 要你批准或回答、Cowork 任务做完了，Claude 窗口关着也知道（可选） | 通知中心里 Claude 的通知（只读；要在 macOS 里允许 Claude 发通知） | 完全磁盘访问 |
-| 进行中、未读、置顶对话 | 通过「辅助功能」读 Claude 的侧边栏 | 辅助功能 |
-| Claude Code 会话 | 点「连接」时写进 `~/.claude/settings.json` 的 hooks（原文件会备份） | 不需要 |
-| ChatGPT 的 Codex 对话 | ChatGPT 桌面 App 存在 `~/.codex` 里的内容：对话列表和置顶、哪些未读、最近一次回答带的套餐用量（只读，不改任何东西）；可在 设置 → 授权 里关掉 | 不需要 |
-| 桌面小组件 | KIKUmap 专门写给它的一个文件（`widget.json`）；小组件在沙盒里，只能读这一个文件 | 不需要 |
-| 用量、计划任务（可选，默认关闭；Claude 付费套餐） | Anthropic 用量接口，用 Claude Code 已存在钥匙串里的登录：只读、不保存 | 钥匙串，你开启后才问 |
-| ChatGPT 用量（可选，默认关闭，试验性） | OpenAI 的用量接口（Codex 用的那个），用 Codex 存在 `~/.codex/auth.json` 里的 ChatGPT 登录：只读、不保存 | 不需要 |
+| Claude 置顶对话：在跑、未读 | Claude App 的侧栏 | 辅助功能 |
+| 等你批准、Cowork 任务做完，Claude 窗口关着时也能收到（可选） | 通知中心里 Claude 的通知 | 完全磁盘访问 |
+| Claude Code 会话 | `~/.claude/settings.json` 里的 Claude Code hook（改之前会先备份原文件） | 不需要 |
+| ChatGPT 的 Codex 对话 | ChatGPT App 存在 `~/.codex` 里的文件（只读） | 不需要 |
+| 桌面小组件 | KIKUmap 专门为它写的一个文件（`widget.json`） | 不需要 |
+| Claude 用量和定时任务（可选） | Anthropic 的用量接口，借用 Claude Code 的登录 | 钥匙串 |
+| ChatGPT 用量（可选，试验性） | OpenAI 的用量接口，借用 Codex 的登录 | 不需要 |
 
-**关于两个用量选项：** Anthropic 不允许第三方应用收集 Claude 的登录令牌，OpenAI 也没说允许应用使用 Codex 查用量的那个接口。KIKUmap 只读取你 Mac 上已有的登录、不保存、只查你自己的用量，但两者仍可能不被允许、被限制，所以都默认关闭，你开了才用。
+不会显示：没置顶的对话、普通 ChatGPT 对话（存在云端），以及在别的电脑、服务器或云端运行的任何东西。
+</details>
 
-**日志：** 同一目录下的 `logs/` 只记出问题时用得上的简短信息，每个日志约 2 MB 封顶。通知日志只记 Claude 的通知什么时候来、属于哪个对话，从不记内容；1.0 之前记过内容的旧日志会在第一次启动时删掉。
-
-**关于导出：** 交接总结是 Claude 在每个对话里写的，所以每个对话会多一轮问答，运行时 Claude 窗口会自己切换对话。提示词、完整对话和 artifacts 来自 Claude 官方的数据导出（Claude → 设置 → 隐私 → 导出数据），在导出窗口里选这个 zip 就行（开了完全磁盘访问的话，放在「下载」里会自动找到）。导入同样会操作 Claude 窗口；图片等二进制文件无法带过去。
-
-## 导图快捷键
+<details>
+<summary>全部快捷键</summary>
 
 | | |
 |---|---|
-| ⇥ / ⌥⇥ | 新建子主题 / 新建父主题 |
-| ⏎ / ⌥⏎ / ⇧⏎ | 在下方 / 上方新建同级主题 / 新建一级主题 |
-| ⌘⏎、双击 | 改名（对话名只在本机生效） |
-| ⌫ | 删除；置顶的对话回到左栏 |
+| ⇥ / ⌥⇥ | 新建子主题 / 父主题 |
+| ⏎ / ⌥⏎ / ⇧⏎ | 在下方 / 上方新建同级 / 新建主主题 |
+| ⌘⏎、双击 | 重命名 |
+| ⌫ | 删除（置顶对话会回到左栏） |
 | ⌥. | 折叠 / 展开 |
-| ↑ ↓ ← → | 选中那个方向最近的条目，不限层级 |
-| ⌥↑ ⌥↓ | 往上或往下移过一个条目，可以移进别的主题 |
-| ⌥← ⌥→ | 换一级：往外移进它上面的主题，往中心移出它所在的主题 |
-| ⌘↓ / ⌘↑ | 在它的 App 里打开对话 / 回到所在的主题（和访达一样） |
-| 在空白处拖动、⇧/⌘ 点击 | 多选；拖其中任意一个，全部一起移动 |
-| 按住空格、双指滑动 | 移动导图（轻按空格是打开对话） |
-| ⌃⌘S / ⌃⌘T | 显示或隐藏左栏 / 时间线 |
+| ↑ ↓ ← → | 选中那个方向最近的条目 |
+| ⌥↑ ⌥↓ / ⌥← ⌥→ | 上下移动 / 移动一级 |
+| ⌘↓、轻按空格 | 在对应的 App 里打开对话 |
+| ⌘↑ | 回到所在的主题 |
+| 在空白处拖框、⇧/⌘ 点击 | 多选 |
+| 按住空格、双指滑动 | 移动导图 |
+| ⌃⌘S / ⌃⌘T | 左栏 / 时间轴 |
 | ⌘Y | 统计 |
-| ⌘R、⟳ | 刷新：马上重新读 Claude、ChatGPT 和用量 |
-| ⌘A、⌫ | 全选；删除选中的 |
+| ⌘R | 刷新 |
 | ⌘Z / ⇧⌘Z | 撤销 / 重做 |
 | ⌘F | 搜索 |
-| ⌘E / ⇧⌘E | 导出导图 PDF / 导出对话 |
-| ⌘↓、轻按空格、鼠标停在对话上 → ↗ | 在 Claude 或 ChatGPT 里打开 |
-| ⇧⌘U、鼠标停在对话上 → ✉ | 标为未读 / 已读 |
-| ⌘+ / ⌘- | 整个窗口放大 / 缩小（80–160%） |
-| 双指捏合、⌘0 | 缩放导图、适应窗口 |
-| ⌃⌥C（可改） | 在任何地方呼出 / 收起导图 |
+| ⌘E / ⇧⌘E | 导图导出 PDF / 导出对话 |
+| ⇧⌘U | 标为未读 / 已读 |
+| ⌘+ / ⌘- / 双指捏合 / ⌘0 | 放大 / 缩小 / 缩放 / 适应窗口 |
+| ⌃⌥C（可改） | 随时显示或隐藏导图 |
+</details>
 
 ## 常见问题
 
 <details>
-<summary><b>用 ⌘W 关了 Claude 的窗口怎么办？</b></summary>
+<summary><b>这是 Anthropic 或 OpenAI 做的吗？</b></summary>
 
-Claude 的 ⌘W 只是把窗口藏起来，App 还在运行；但 KIKUmap 是从 Claude 的侧边栏读对话的，所以要等窗口回来（点程序坞里的 Claude）才看得到。窗口在别的桌面上（包括全屏）也一样。被别的窗口挡住或最小化时，照样能读。这期间，在跑的对话显示「在跑？」，看不到的这段时长是估算的，标 ≈（按你一次运行的常见时长算，不超过它被看到做完的时候）。开了「完全磁盘访问」（可选）的话，Claude 要你批准或回答、Cowork 任务做完时，通知照样能收到（做完的时长算到通知那一刻）。普通对话回复完，Claude 不发通知，要等窗口回来才知道。终端或 VS Code 里的 Claude Code、ChatGPT 的 Codex 完全不受影响。
-
-</details>
-
-<details>
-<summary><b>这是 Anthropic 或 OpenAI 官方做的吗？</b></summary>
-
-不是。KIKUmap 是个人独立开发的开源项目。Claude 是 Anthropic 的商标，ChatGPT 是 OpenAI 的商标。
-</details>
-
-<details>
-<summary><b>为什么需要「辅助功能」？</b></summary>
-
-Claude App 没有“哪些对话在跑”的接口，所以 KIKUmap 像你一样去看它的对话列表，macOS 把这叫「辅助功能」。这是 KIKUmap 唯一需要的权限。「完全磁盘访问」是可选的：开了能读 Claude 的通知，Claude 要你批准或回答时、Cowork 任务做完时，窗口关着也知道。KIKUmap 只用它们读取；只有你让它在 Claude 里操作时（打开对话、导出和导入，会在 Claude 窗口里输入）才会点按。数据不会离开你的 Mac。
+不是。KIKUmap 是独立的开源项目。Claude App 没有公开接口，KIKUmap 通过「辅助功能」读它的窗口；Claude 或 ChatGPT 改版后，部分功能可能要等 KIKUmap 更新才能恢复。
 </details>
 
 <details>
 <summary><b>为什么要点「仍要打开」？</b></summary>
 
-苹果的开发者签名和公证每年要 99 美元。KIKUmap 是免费的，所以没有公证。不放心下载的版本的话，可以从源码编译：纯 Swift，没有任何依赖。
+公证需要付费的 Apple 开发者账号，而 KIKUmap 是免费的。也可以从源码自己编译：纯 Swift，没有依赖。
 </details>
 
 <details>
-<summary><b>有东西没显示出来</b></summary>
+<summary><b>Claude 的窗口关了会怎样？</b></summary>
 
-- **顶栏的「▸ 待办」**：列出还没做的事（开权限、打开 Claude、为用量登录……），每一件没做会影响什么，以及一个直接去做的按钮。用不着的可以忽略，之后不会再提醒，想要时再找回来。左栏空着时，也会写出正在读什么、上次什么时候读的、下次什么时候读。
-- **有东西不正常**：设置 → 授权 → *诊断报告*，会生成 `kikumap-check.txt`：KIKUmap 在这台 Mac 上能看到什么、怎么读 Claude 的侧边栏。里面没有对话标题、内容和密码，可以直接附到 issue 里。
-- **没有任何对话显示“进行中”**：KIKUmap 只盯置顶的对话，先在 Claude 里把它置顶。再保持 Claude 的侧边栏展开（停在 Chat、Pinned 区展开）；还不行就生成诊断报告。
-- **重启后 KIKUmap 没有自己打开**：在「应用程序」里的那份 KIKUmap 中打开 设置 → 通用 → *登录时自动启动*（顶栏「▸ 待办」也会提示）。开了还是不行的话，看看 系统设置 → 通用 → 登录项 里是否允许了 KIKUmap。
-- **系统设置里开了权限，这里却显示没开**：先退出并重新打开 KIKUmap（「完全磁盘访问」要重新打开才生效）；还不行就在系统设置的列表里把 KIKUmap 删掉（−）再加回来。从 0.9.1 起，每个版本都用同一张证书签名，更新后权限会保留。
-- **Claude Code 会话没显示**：设置 → 授权 → Claude Code → *连接*，然后开一个新会话。如果显示 hook 被关掉了，是你（或你组织）的 Claude Code 设置关掉了 hook（`disableAllHooks`，或托管设置）。用 `CLAUDE_CONFIG_DIR` 启动的 Claude Code 用的是另一个设置文件，KIKUmap 连不到它。
-- **ChatGPT 对话没显示**：KIKUmap 读的是新版 ChatGPT 桌面 App（Codex 内核），而且只读它存在你 Mac 上的 Codex 对话；普通 ChatGPT 聊天存在云端，显示不了。看一下 设置 → 授权 → ChatGPT。和 Claude 的对话一样，Codex 对话在 ChatGPT 里置顶（或放进置顶项目）后才会显示。
-- **小组件库里找不到 KIKUmap**：需要 macOS 14 或更新，并且 KIKUmap 在「应用程序」里。先打开一次 KIKUmap，再在桌面右键 → *编辑小组件*，搜 KIKUmap。还是没有的话，在终端运行 `pluginkit -m -v -i ninja.tang.claudeconsole.widget`，把输出发到 issue 里。
-- **没有用量**：用量默认关闭，先在 设置 → 授权 → Claude 用量 → *连接* 打开。它借用 Claude Code 的登录读取，所以这台 Mac 上要有 Claude Code，并用 Claude 付费套餐（Pro、Max、Team 或 Enterprise）登录：装好 Claude Code，在终端运行 `claude`，输入 `/login`，选你的 Claude 账号。免费套餐和 API key 没有用量可看。标着「…时的数据」的是上次读到的数，Claude Code 的登录恢复后会自动更新。ChatGPT 的用量来自 Codex 在本机的记录，用 Codex 跑过任务才有；想直接向 OpenAI 查，打开 设置 → 授权 → ChatGPT 用量（试验性）。
+⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面才能看到；在那之前，原来在跑的对话显示「在跑？」。Claude Code 和 ChatGPT 不受影响。
 </details>
 
 <details>
-<summary><b>名字是什么意思？</b></summary>
+<summary><b>有东西没显示</b></summary>
 
-*Kiku*（菊）是日语里的菊花，就是菜单栏里那朵黄蓝红三色的小菊花；KIKUmap 就是从它长出来的导图。
+- 顶栏的 **▸ 待办** 会列出缺了什么，每一项都有按钮可以直接处理。
+- Claude 对话：先置顶，并让 Claude 的侧栏开着，停在 Chat，Pinned 展开。
+- Claude Code：设置 → 授权 → Claude Code → **连接**，然后开一个新会话。
+- 小组件：需要 macOS 14 及以上，KIKUmap 装在「应用程序」里。在桌面右键 → **编辑小组件**。
+- 还是不行：设置 → 授权 → **诊断报告**（里面没有对话标题和内容），然后[提交 issue](https://github.com/tang1693/KIKUmap/issues)。
+</details>
+
+<details>
+<summary><b>名字的由来？</b></summary>
+
+*Kiku*（菊）是日语里的菊花，就是菜单栏里那朵小花。
 </details>
 
 ## 参与贡献
 
-欢迎提 issue 和 pull request，尤其是 Claude 或 ChatGPT 更新后有东西坏掉的时候：[提个 issue](https://github.com/tang1693/KIKUmap/issues)，说说你看到了什么。
-
-代码是纯 Swift + AppKit，没有 Xcode 工程，也没有依赖。各文件的作用见[英文 README](README.md#contributing)。
+欢迎提 issue 和 pull request，尤其是 Claude 或 ChatGPT 更新后出了问题的时候。代码是纯 Swift + AppKit，在 `Sources/` 里（小组件在 `Widget/`），没有 Xcode 工程，也没有依赖。
 
 ## 支持
 
-KIKUmap 是免费的，以后也会一直免费。如果它每天帮你省下一点翻找标签页的时间，请我喝杯咖啡，它就能一直做下去 ❤️
+KIKUmap 免费。觉得有用的话，请我喝杯咖啡 ❤️
 
-<p><a href="https://ko-fi.com/vegligi"><img src="docs/kofi-zh.svg" height="64" alt="在 Ko-fi 请我喝杯咖啡"></a></p>
-
-在 GitHub 点个 ⭐，或者反馈一个问题，也一样有帮助。
+<p><a href="https://ko-fi.com/vegligi"><img src="docs/kofi-zh.svg" height="64" alt="在 Ko-fi 请我喝咖啡"></a></p>
 
 ## 协议
 
-[MIT](LICENSE)。Claude 是 Anthropic 的商标，ChatGPT 是 OpenAI 的商标；本项目独立开发，未获两家认可。
+[MIT](LICENSE)。Claude 是 Anthropic 的商标，ChatGPT 是 OpenAI 的商标；本项目独立开发，未获任何一方背书。

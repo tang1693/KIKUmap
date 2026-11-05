@@ -5,10 +5,7 @@
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-<p align="center">
-  See which chats are running and which are waiting for you, from the menu bar or your desktop.<br>
-  Sort them into a map. Take them with you.
-</p>
+<p align="center">A mind map for your Claude and ChatGPT chats, in the Mac menu bar.<br>See what's running, what's done and what needs you.</p>
 
 <p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-en.svg" height="56" alt="Download KIKUmap for macOS"></a></p>
 
@@ -30,319 +27,225 @@
   <a href="#support">Support ❤️</a>
 </p>
 
-<p align="center"><img src="docs/demo/drag.gif" width="100%" alt="Dragging the Work topic across the map: it follows the pointer on a live branch, the other topics slide apart to make room, and it lands where the gap was"></p>
-
-You pinned a dozen chats in Claude, and a few Codex chats in ChatGPT. One is planning your trip, one is fixing a test, one finished ten minutes ago and you haven't looked. **KIKUmap** sits in your menu bar and keeps track of both: what's running, what's done, what needs your OK. Open it and your pinned chats are laid out as a mind map that you arrange, MindNode-style. A desktop widget shows the same at a glance, with your Claude and ChatGPT usage.
-
-**Native and featherlight.** Swift and AppKit only: no Electron, no web view, no helper processes, no third-party code (its line icons are from [Lucide](https://lucide.dev), ISC). A small download that mostly waits for changes (with a light check every half minute), and stops drawing entirely when its window is hidden.
+<p align="center"><img src="docs/demo/drag.gif" width="100%" alt="Dragging the Work topic across the map: the other topics slide apart to make room, and it lands where the gap was"></p>
 
 <p align="center"><a href="https://tang1693.github.io/KIKUmap/#tour"><img src="docs/demo/intro-poster.jpg" width="100%" alt="Watch the KIKUmap tour"></a></p>
-
-> [!NOTE]
-> **Good to know.** The Claude app has no public API, so KIKUmap reads its window through macOS Accessibility; ChatGPT's threads come from the files its desktop app keeps on your Mac. When either app changes, parts of KIKUmap may stop working until it's updated. KIKUmap is an independent project, not made by or affiliated with Anthropic or OpenAI.
 
 ## Features
 
 <table>
 <tr>
-<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon counting running chats in a ring that turns, then a red unread badge, then an exclamation mark when a chat needs approval"></td>
+<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon counting running chats in a turning ring, then a red unread badge, then an exclamation mark when a chat needs approval"></td>
 <td>
 
-### Know what Claude and ChatGPT are doing
-
-One icon in the menu bar. While pinned chats run, it shows how many, in a ring with an orange arc going round. A red badge counts chats that finished and you haven't read, with **!** when one needs your approval. With nothing running or unread, it's a little flower in yellow, blue and red.
-
-**Hear it instead of checking.** A sound plays when a chat finishes or needs you, and KIKUmap can then say which one ("Pricing plan is done") in the voice, speed and words you choose. Or use your own sound file.
-
-Works with the Claude desktop app, Claude Code (Terminal, VS Code, the app's Code mode) and the ChatGPT desktop app. From ChatGPT, KIKUmap shows the chats that run on your Mac: the **Codex** chats you pin in the ChatGPT app (pinned threads and the threads in pinned projects) show next to Claude's, marked **GPT**, in ChatGPT's order, and running and unread follow ChatGPT's own dots. Codex sessions in VS Code or the terminal show like Claude Code sessions: while they run, while unread, and for 12 hours after. Ordinary ChatGPT chats are kept online, not on your Mac, so they can't show, pinned or not. Nothing to set up: KIKUmap reads what ChatGPT keeps on your Mac.
+### 1. Status in the menu bar
+A ring counts running chats. A red badge counts finished, unread ones, with **!** when one needs approval. An optional sound or voice says which chat is done.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### Your chats, as a map
-
-The left column mirrors the chats you pinned in Claude and the Codex chats you pinned in ChatGPT, **in each app's order**, and your Claude Code sessions. The map starts empty: nothing goes on it until you put it there. Drag them onto your own topics. While you drag, the item rides a live branch and the rest of the map slides aside to show where it will land. The map never rearranges itself on its own.
-
-**Several at once:** drag a box on empty space (or ⌘/⇧-click), or ⌘/⇧-click in the left column, then drag any one of them. They all come along, in order. Hold space and move the mouse, or swipe with two fingers, to move around the map. The left column and the timeline can be hidden (⌃⌘S, ⌃⌘T) or resized by dragging their edge, and ⌘+ / ⌘- make everything in the window bigger or smaller.
-
-Real conversations carry a small flower, so they stand apart from plain topics. Hover one for two buttons: open it in Claude or ChatGPT, or mark it unread again (⇧⌘U) so it waits for you until you've opened it.
+### 2. Chats as a map
+Pinned chats from Claude and ChatGPT (Codex), plus Claude Code sessions, line up in the left column. Drag them onto your own topics. Each chat is tagged **Claude** or **GPT**.
 
 </td>
-<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Dragging a box on empty space selects two chats under Home, Command-click adds the Q4 deck, and dragging one carries all three onto Side projects"></td>
+<td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Selecting three chats and dragging them onto Side projects together"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/shapes.gif" width="100%" alt="Right-clicking the Launch topic and stepping through shapes (square, circle, triangle, diamond, cross, star), then branch colours"></td>
+<td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="Clicking the In progress tag highlights the chats that have it; the tag is then dragged onto a chat"></td>
 <td>
 
-### Make it yours
-
-Right-click any topic for a branch colour and a shape: square, circle, triangle, diamond, cross or star. Colours flow down the branch, into the timeline and the menu.
+### 3. Colours, shapes and tags
+Give a topic a colour and a shape. Tag chats, and click a tag to highlight every chat that has it.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### Tag anything
-
-Tags like *In progress*, *Waiting on others* or *Slides*. Pick them from the right-click menu, or drag one from the shelf straight onto a chat.
-
-Click a tag to highlight everything that has it; the rest of the map fades back. Click again to clear.
+### 4. Keyboard-first
+⇥ subtopic · ⏎ sibling · ⌥↑↓ move · ⌘Z undo · ⌘F search · space opens a chat.
 
 </td>
-<td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="Clicking the In progress tag highlights the chats that have it; the tag is then dragged onto the Q4 planning deck"></td>
+<td width="55%"><img src="docs/demo/keys.gif" width="100%" alt="Tab adds a subtopic, Return adds a sibling, Option-Up moves it, Command-Z undoes"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/keys.gif" width="100%" alt="Tab adds a subtopic under Home, Return adds a sibling, Option-Up moves it, Command-Z undoes"></td>
+<td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="The timeline: past runs with their times, and scheduled tasks with countdowns"></td>
 <td>
 
-### Keyboard-first
-
-Like a real mind-map app: ⇥ new subtopic, ⏎ sibling, ⌥↑↓ reorder, ⌘Z undo. Also ⌫ delete, ⌥. fold, ⌘F search, and ⌘↓ (or a tap on space) to open a chat in its app, as in Finder.
+### 5. Timeline
+When each chat ran, and the scheduled tasks coming up, with countdowns.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### What ran, and what's next
-
-The timeline shows when Claude and ChatGPT worked on each chat, in your branch colours; chats running at the same time get rows of their own. Drag ahead to see your scheduled tasks (with usage turned on), each with a live countdown. Click anything to open it.
+### 6. Export and import
+Each chat as files: a summary, prompts, the conversation and artifacts. Import them into another Claude account.
 
 </td>
-<td width="55%"><img src="docs/demo/timeline.gif" width="100%" alt="Hovering past runs on the timeline shows their times; dragging ahead reveals scheduled tasks with countdowns"></td>
+<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window and the folder of Markdown files and artifacts it writes"></td>
 </tr>
 <tr>
-<td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window: ticking Launch, Copy and Work, clicking Export, and the folder of Markdown files and artifacts that comes out"></td>
+<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="KIKUmap widgets in three sizes: time worked in the last 24 hours, usage, and in the large one the busiest chats and the last 7 days"></td>
 <td>
 
-### Take everything with you
-
-Tick topics and export every chat under them, pinned or not, one folder per chat:
-
-- `memory.md`: a hand-off summary Claude writes inside the chat
-- `prompts.md` and `conversation.md`
-- `artifacts/` and `attachments/`
-
-The export can keep itself up to date. **Import** starts a new pinned chat per folder (in a new Claude account, say), with the summary and the artifacts attached, so you pick up where you left off.
+### 7. Desktop widget
+Time worked in the last 24 hours and the last 7 days, plus Claude and ChatGPT usage with plan names. Three sizes, macOS 14 or later.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### On your desktop <sup>new</sup>
-
-A widget for the desktop or Notification Center, in three sizes: how long Claude worked in the last 24 hours (as bars, a colour per chat) and today; your usage, Claude's (the 5-hour session and the week), ChatGPT's, or both, each row marked with whose it is; and in the large one, the chats that took the most time, the last 7 days, and your plan beside its usage. macOS redraws widgets only so often (Apple allows about every 15 to 60 minutes), so the widget keeps to what still holds when it's a while old, and says from when it is; what's running or unread right now is in the menu bar. Click the chart for statistics, a chat to open it.
-
-Right-click the desktop → **Edit Widgets** and search for KIKUmap. macOS 14 or later.
+### 8. Statistics
+Time per chat over 7, 14, 30 or 90 days. ⌘Y.
 
 </td>
-<td width="55%"><img src="docs/demo/widget.png" width="100%" alt="Four KIKUmap widgets: large, medium and two small ones, each with how long Claude worked in the last 24 hours as stacked bars and usage; the large one also lists the chats with the most time, the last 7 days and each plan"></td>
-</tr>
-<tr>
-<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: seven days in six-hour bars, a colour per chat, with totals, a legend and the bar-size and range controls"></td>
-<td>
-
-### How much got done <sup>new</sup>
-
-How long Claude and ChatGPT worked, split by chat, in bars of 1, 3, 6, 12, 24 or 48 hours over the last 7, 14, 30 or 90 days. Hover for the details, click a segment to open the chat. View → Statistics (⌘Y), or the chart button at the top of the window.
-
-</td>
+<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: time per chat in bars over seven days"></td>
 </tr>
 </table>
-
-### And a lot more
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b><br>A chat that's done but unread turns solid on the map, with a red dot.</td>
-<td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="Find anything"><br><b>Find anything</b><br>⌘F searches topics, chats and tags; ⏎ jumps to the next match.</td>
+<td width="50%" valign="top"><img src="docs/demo/unread.gif" width="100%" alt="Finished chats light up"><br><b>Finished chats light up</b> on the map.</td>
+<td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="Search"><br><b>Search</b> topics, chats and tags.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="Your day at a glance"><br><b>Your day at a glance</b><br>Which chats Claude and ChatGPT worked on today, and for how long, in the menu.</td>
-<td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="Usage in the menu"><br><b>Usage in the menu</b><br>This session and this week, like claude.ai, plus what's scheduled next.</td>
+<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="Today in the menu"><br><b>Today</b>: which chats worked, and how long.</td>
+<td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="Usage in the menu"><br><b>Usage</b> for the session and the week.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/pdf.gif" width="100%" alt="The map as a PDF"><br><b>The map as a PDF</b><br>The whole map on one light page, ready to print or share.</td>
-<td width="50%" valign="top"><img src="docs/demo/backups.gif" width="100%" alt="Daily backups"><br><b>Daily backups</b><br>A copy of your map every day, before your first change.</td>
+<td width="50%" valign="top"><img src="docs/demo/pdf.gif" width="100%" alt="The map as a PDF"><br><b>PDF</b> of the whole map.</td>
+<td width="50%" valign="top"><img src="docs/demo/backups.gif" width="100%" alt="Daily backups"><br><b>Daily backups</b> of the map.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="Light or dark"><br><b>Light or dark</b><br>Follows your Mac, or flip it with the moon.</td>
-<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English · 中文"><br><b>English · 中文</b><br>Every label, menu and tag in either language.</td>
+<td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="Light or dark"><br><b>Light or dark.</b></td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English and Chinese"><br><b>English · 中文.</b></td>
 </tr>
 </table>
 
-## What it can and can't see
+**Works with:** the Claude desktop app · Claude Code (Terminal, VS Code, Cursor, the app's Code mode) · the ChatGPT desktop app (Codex chats) · Codex in VS Code or the terminal.
 
-KIKUmap reads what the apps keep on this Mac. It never signs in to your accounts; with usage on, it asks Anthropic only for your usage and your scheduled tasks' times, using the sign-in Claude Code keeps here.
-
-| Shows | Doesn't show |
-|---|---|
-| Chats you pin in Claude, wherever you started them (pins sync from your phone and the web), while the Claude desktop app runs on this Mac | Chats you haven't pinned; Claude used only in a browser or on another device, with no Claude app running here |
-| Claude Code sessions run on this Mac: Terminal, VS Code, Cursor, the Claude app's Code mode (once its hooks are connected) | Claude Code running on another computer or a server: over SSH, in VS Code Remote or a dev container, or in the cloud (its hooks run there, not here) |
-| Codex chats you pin in the ChatGPT desktop app, and Codex sessions in VS Code or the terminal on this Mac | Ordinary ChatGPT chats (kept online), Codex on another computer or a server, Codex cloud tasks |
-| Claude's scheduled tasks, by name and run times, on the timeline (with usage on) | What a scheduled or cloud task does while it runs |
-| Claude's usage, through the sign-in Claude Code keeps on this Mac (a Claude subscription); ChatGPT's, from its own files | Usage of an API key billed per use, or of an account not signed in on this Mac |
-
-Running and finished come from this Mac too: Claude's sidebar while its window is open on the desktop you're using, Claude Code's hooks, and ChatGPT's files. With Full Disk Access, and Claude's notifications allowed in macOS, Claude's notifications add when it needs your approval or an answer, and when a Cowork task in the Claude app finishes; Claude sends none when an ordinary chat's reply finishes. (Code sessions in the app come through the Claude Code connection.) The intro shows this as a picture.
+**Native and light:** Swift and AppKit only. No Electron, no web view, no third-party code (line icons from [Lucide](https://lucide.dev), ISC).
 
 ## Install
 
-**[Download Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg)** (Apple silicon and Intel, macOS 13 or later), open it and drag **KIKUmap** to **Applications**.
-
-The first time you open it, macOS says it can't check the app, because it isn't signed with a paid Apple Developer ID:
-
-1. In that message, click **Done** (not *Move to Trash*), then open **System Settings → Privacy & Security**.
-2. Scroll down and click **Open Anyway** next to KIKUmap. (On macOS 13–14 you can also right-click the app → Open.)
-3. A short intro asks for one permission, Accessibility, so KIKUmap can look at the Claude app's chat list. Everything else is optional. On its last page you can have KIKUmap open when you log in (change it any time in Settings → General).
-4. **Pin the chats you want to follow.** KIKUmap follows pinned chats (and Claude Code and Codex sessions): pin a chat in Claude, or a Codex chat in ChatGPT, and it shows in the menu, the left column and the widget.
-
-Keep the Claude app's sidebar open, on Chat, with its Pinned section unfolded. ChatGPT needs nothing: KIKUmap reads what its desktop app keeps on your Mac. To remove KIKUmap later: first turn off Settings → General → *Start at login* and, if you connected it, click Settings → Access → *Disconnect Claude Code*; then drag the app to the Trash.
+1. [Download Kikumap.dmg](https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg) (macOS 13 or later, Apple silicon and Intel) and drag KIKUmap to Applications.
+2. On first launch, macOS can't check the app (it isn't notarized). Click **Done**, then **System Settings → Privacy & Security → Open Anyway**.
+3. Allow **Accessibility** when the intro asks. Everything else is optional.
+4. Pin chats in Claude or ChatGPT to follow them.
 
 <details>
-<summary><b>Build from source</b></summary>
+<summary>Build from source</summary>
 
-Needs the Xcode Command Line Tools (macOS offers to install them).
+Needs the Xcode Command Line Tools.
 
 ```bash
 git clone https://github.com/tang1693/KIKUmap.git
 cd KIKUmap
-open Install.command        # or double-click it in Finder
+open Install.command
 ```
 
-`Install.command` builds with `swiftc` (Swift 5.10 or later), installs to `~/Applications` and asks whether to start at login. It signs the app with a certificate it creates once in your login keychain, so the permissions you grant survive later rebuilds. `scripts/build-release.sh` builds the universal disk image.
+`Install.command` builds with `swiftc`, installs to `~/Applications` and signs with a local certificate, so permissions survive rebuilds. `scripts/build-release.sh` builds the disk image.
 </details>
 
 ## Privacy
 
-Everything stays on your Mac, in `~/Library/Application Support/ClaudeConsole/`. The only network requests are usage checks to `api.anthropic.com`, and only if you turn usage on. ChatGPT's usage is read from its own files, with no request.
+- Everything stays on the Mac, in `~/Library/Application Support/ClaudeConsole/`.
+- One permission is required: **Accessibility**, to read the Claude app's chat list. Every permission is explained before macOS asks.
+- No network requests, except the optional usage lookups (off by default) to Anthropic and OpenAI. Those read the sign-ins Claude Code and Codex already keep on the Mac, and never save them. Neither company has said apps may do this, so these lookups could be blocked.
 
-No surprise prompts: every macOS permission dialog comes after KIKUmap has told you what it's for and you've clicked to go ahead.
+<details>
+<summary>What each source and permission is for</summary>
 
-| What it shows | Where it comes from | Permission |
+| Shows | Comes from | Permission |
 |---|---|---|
-| Needs your approval or an answer, Cowork tasks finished, also with Claude's window closed (optional) | The Claude app's notifications in Notification Center (read-only; they must be allowed for Claude in macOS) | Full Disk Access |
-| Running, unread, pinned chats | The Claude app's sidebar, through Accessibility | Accessibility |
-| Claude Code sessions | Claude Code hooks, added to `~/.claude/settings.json` when you click *Connect* (the old file is backed up) | none |
-| ChatGPT's Codex chats | What the ChatGPT desktop app keeps in `~/.codex`: its thread list and pins, which ones are unread, and the plan usage of its last answer (read-only; nothing is changed). Turn it off in Settings → Access | none |
-| Desktop widget | One file KIKUmap writes for it (`widget.json`); the widget is sandboxed and can read only that file | none |
-| Usage, scheduled tasks (optional, off by default; paid Claude plans) | Anthropic's usage API, with the sign-in Claude Code already keeps in your Keychain: read-only, never saved | Keychain, asked only after you turn it on |
-| ChatGPT usage (optional, off by default, experimental) | OpenAI's usage interface (the one Codex uses), with the ChatGPT sign-in Codex keeps in `~/.codex/auth.json`: read-only, never saved | none |
+| Running, unread, pinned Claude chats | The Claude app's sidebar | Accessibility |
+| Approval requests and finished Cowork tasks, also with Claude's window closed (optional) | Claude's notifications in Notification Center | Full Disk Access |
+| Claude Code sessions | Claude Code hooks in `~/.claude/settings.json` (backed up first) | none |
+| ChatGPT's Codex chats | The ChatGPT app's files in `~/.codex` (read-only) | none |
+| Desktop widget | One file KIKUmap writes for it (`widget.json`) | none |
+| Claude usage and scheduled tasks (optional) | Anthropic's usage API, with Claude Code's sign-in | Keychain |
+| ChatGPT usage (optional, experimental) | OpenAI's usage interface, with Codex's sign-in | none |
 
-**About the two usage options:** Anthropic doesn't allow third-party apps to collect Claude sign-in tokens, and OpenAI hasn't said apps may use the interface Codex reads its usage from. KIKUmap only reads the sign-ins already on your Mac, never saves them and only looks up your own usage, but either may still not be allowed and could be blocked. That's why both are off until you turn them on.
+Not shown: unpinned chats, ordinary ChatGPT chats (they're kept online), and anything running on another computer, a server or in the cloud.
+</details>
 
-**Logs:** `logs/` in that folder holds short notes for when something goes wrong, each log capped at about 2 MB. The notification log says when a Claude notification came and for which chat, never what it said; logs from before 1.0, which did, are deleted on the first start.
-
-**Exporting:** summaries are written by Claude inside each chat, so each adds one exchange and the Claude window switches chats while it runs. Prompts, conversations and artifacts come from Claude's own data export (Claude → Settings → Privacy → Export data); pick the zip in the export window (with Full Disk Access, a zip left in Downloads is found by itself). Import works the Claude window the same way; images and other binary files can't be carried over.
-
-## Keys in the map
+<details>
+<summary>All keyboard shortcuts</summary>
 
 | | |
 |---|---|
 | ⇥ / ⌥⇥ | new child / new parent topic |
 | ⏎ / ⌥⏎ / ⇧⏎ | new sibling below / above / new main topic |
-| ⌘⏎, double-click | rename (chat names are local) |
-| ⌫ | delete; pinned chats go back to the left column |
+| ⌘⏎, double-click | rename |
+| ⌫ | delete (pinned chats go back to the left column) |
 | ⌥. | fold / unfold |
-| ↑ ↓ ← → | select the nearest item that way, at any level |
-| ⌥↑ ⌥↓ | move it past the item above or below, into other topics too |
-| ⌥← ⌥→ | move it a level: away from the centre into the topic above it, toward the centre out of its topic |
-| ⌘↓ / ⌘↑ | open the chat in its app / up to the topic it's in (as in Finder) |
-| drag on empty space, ⇧/⌘-click | select several; drag any one to move them all |
-| hold space, two-finger swipe | move around the map (a quick tap on space opens the chat) |
-| ⌃⌘S / ⌃⌘T | show or hide the left column / the timeline |
+| ↑ ↓ ← → | select the nearest item that way |
+| ⌥↑ ⌥↓ / ⌥← ⌥→ | move up or down / move a level |
+| ⌘↓, tap space | open the chat in its app |
+| ⌘↑ | up to the topic it's in |
+| drag on empty space, ⇧/⌘-click | select several |
+| hold space, two-finger swipe | move around the map |
+| ⌃⌘S / ⌃⌘T | left column / timeline |
 | ⌘Y | statistics |
-| ⌘R, ⟳ | refresh: read Claude, ChatGPT and usage again now |
-| ⌘A, ⌫ | select everything; delete what's selected |
+| ⌘R | refresh |
 | ⌘Z / ⇧⌘Z | undo / redo |
 | ⌘F | search |
-| ⌘E / ⇧⌘E | export the map as PDF / export chats |
-| ⌘↓, tap space, hover a chat → ↗ | open it in Claude or ChatGPT |
-| ⇧⌘U, hover a chat → ✉ | mark a chat unread / read |
-| ⌘+ / ⌘- | everything in the window bigger / smaller (80–160 %) |
-| pinch, ⌘0 | zoom the map, fit it to the window |
-| ⌃⌥C (changeable) | show / hide the map from anywhere |
+| ⌘E / ⇧⌘E | map as PDF / export chats |
+| ⇧⌘U | mark unread / read |
+| ⌘+ / ⌘- / pinch / ⌘0 | bigger / smaller / zoom / fit |
+| ⌃⌥C (changeable) | show or hide the map from anywhere |
+</details>
 
 ## FAQ
 
 <details>
-<summary><b>What if I close Claude's window with ⌘W?</b></summary>
-
-That only hides the window: Claude keeps running, but KIKUmap reads Claude's chats from its sidebar, so it can't see them until the window is back (click Claude in the Dock). The same goes for a window on another desktop, full screen included. Behind other windows or minimized, it keeps reading. Meanwhile chats that were running show "running?", and the time KIKUmap can't see is estimated and marked ≈ (your typical run's length, never past when the chat is seen finished). With Full Disk Access on (optional), Claude's notifications still say when it needs your approval or an answer, and when a Cowork task finishes (its time then counts up to that moment). An ordinary chat's finish shows when the window is back: Claude sends no notification for it. Claude Code in Terminal or VS Code and ChatGPT's Codex aren't affected at all.
-
-</details>
-
-<details>
 <summary><b>Is this made by Anthropic or OpenAI?</b></summary>
 
-No. KIKUmap is an independent, open-source project. Claude is a trademark of Anthropic; ChatGPT is a trademark of OpenAI.
-</details>
-
-<details>
-<summary><b>Why does it need Accessibility?</b></summary>
-
-The Claude app has no API for "which chats are running", so KIKUmap looks at its chat list, the way you would; macOS calls that Accessibility. It's the one permission KIKUmap needs. Full Disk Access is optional: it lets KIKUmap read Claude's notifications, so it knows when Claude asks for your approval or an answer, and when a Cowork task finishes, even with Claude's window closed. KIKUmap only reads with them, except when you ask it to act in Claude (opening a chat, export and import, which type into Claude's window). Nothing leaves your Mac.
+No. KIKUmap is an independent, open-source project. The Claude app has no public API, so KIKUmap reads its window through Accessibility; an update to Claude or ChatGPT can break parts of it until KIKUmap catches up.
 </details>
 
 <details>
 <summary><b>Why "Open Anyway"?</b></summary>
 
-Apple charges $99 a year to sign and notarize apps. KIKUmap is free, so it isn't notarized. If you'd rather not trust a downloaded build, build it from source: it's plain Swift with no dependencies.
+Notarizing needs a paid Apple developer account, and KIKUmap is free. Building from source works too: plain Swift, no dependencies.
+</details>
+
+<details>
+<summary><b>Claude's window is closed. What happens?</b></summary>
+
+⌘W only hides it. KIKUmap reads Claude's chats from the window, so it can't see them until the window is back on the current desktop; meanwhile running chats show "running?". Claude Code and ChatGPT aren't affected.
 </details>
 
 <details>
 <summary><b>Something isn't showing</b></summary>
 
-- **▸ To-do in the top bar** lists what's left to do (a permission, opening Claude, signing in for usage…), what each one affects until it's done, and a button that does it. Ignore any you don't need; they stay out of the way until you ask for them back. The empty left column also says what it's reading, when it last did and when it reads next.
-- **Something doesn't work:** Settings → Access → *Diagnostic report* writes `kikumap-check.txt`: what KIKUmap can see on this Mac and how it reads Claude's sidebar. It has no chat titles, messages or passwords, so you can attach it to an issue.
-- **Nothing shows as running:** KIKUmap follows pinned chats only, so pin the chat in Claude first. Then keep Claude's sidebar open (on Chat, Pinned unfolded); if it still doesn't show, write the diagnostic report.
-- **KIKUmap isn't running after a restart:** turn on Settings → General → *Start at login* in the copy in Applications (▸ To-do offers it too). If it's on and KIKUmap still doesn't start, check that KIKUmap is allowed in System Settings → General → Login Items.
-- **Access shows as off but it's on in System Settings:** quit and reopen KIKUmap first (Full Disk Access only applies after a reopen); if it's still off, remove KIKUmap from the list there (−) and add it again. Releases from 0.9.1 on are signed with the same certificate, so updates keep your permissions.
-- **Claude Code sessions don't show:** Settings → Access → Claude Code → *Connect*, then start a new session. If it says the hooks are off, your Claude Code settings (or your organization's) turn hooks off (`disableAllHooks`, or managed settings). A Claude Code started with `CLAUDE_CONFIG_DIR` uses another settings file, which KIKUmap doesn't connect.
-- **ChatGPT chats don't show:** KIKUmap reads the current ChatGPT desktop app (the one built on Codex), and only the Codex chats it keeps on your Mac: ordinary ChatGPT chats are kept online and can't show. Check Settings → Access → ChatGPT. Like Claude's chats, a Codex chat shows once you pin it in ChatGPT (or file it in a pinned project).
-- **The widget isn't in the widget gallery:** it needs macOS 14 or later and KIKUmap in Applications. Open KIKUmap once, then right-click the desktop → *Edit Widgets* and search for KIKUmap. Still missing? Run `pluginkit -m -v -i ninja.tang.claudeconsole.widget` in Terminal and open an issue with what it prints.
-- **No usage:** it's off until you turn it on: Settings → Access → Claude usage → *Connect*. It's read through Claude Code's sign-in, so it needs Claude Code on this Mac, signed in with a paid Claude plan (Pro, Max, Team or Enterprise): install Claude Code, run `claude` in Terminal, type `/login` and choose your Claude account. The Free plan and API keys have no usage to show. Numbers marked "as of" are from the last read; they update once Claude Code's sign-in works again. ChatGPT's usage comes from Codex's logs on this Mac, so it shows after you've run a Codex task; to get it straight from OpenAI, turn on Settings → Access → ChatGPT usage (experimental).
+- **▸ To-do** in the top bar lists what's missing, with a button for each.
+- Claude chats: pin them, and keep Claude's sidebar open on Chat with Pinned unfolded.
+- Claude Code: Settings → Access → Claude Code → **Connect**, then start a new session.
+- Widget: macOS 14 or later, with KIKUmap in Applications. Right-click the desktop → **Edit Widgets**.
+- Still stuck: Settings → Access → **Diagnostic report** (no chat titles or messages in it) and [open an issue](https://github.com/tang1693/KIKUmap/issues).
 </details>
 
 <details>
 <summary><b>Why the name?</b></summary>
 
-*Kiku* (菊) is Japanese for chrysanthemum: the little yellow, blue and red flower in your menu bar. KIKUmap is the map that grows out of it.
+*Kiku* (菊) is Japanese for chrysanthemum: the little flower in the menu bar.
 </details>
 
 ## Contributing
 
-Issues and pull requests are welcome, especially when a Claude or ChatGPT update breaks something: [open an issue](https://github.com/tang1693/KIKUmap/issues) with what you see.
-
-The code is plain Swift and AppKit, no Xcode project and no dependencies.
-
-| File | What |
-|---|---|
-| `App.swift` | wiring, global shortcut, opening chats |
-| `Watchers.swift` | Notification Center and Claude-sidebar readers |
-| `ClaudeCode.swift` | Claude Code hooks and session names |
-| `ChatGPT.swift` | ChatGPT desktop app threads (read from `~/.codex`) |
-| `Stats.swift` | the statistics window |
-| `WidgetFeed.swift`, `Widget/` | the desktop widget and the file it reads |
-| `Store.swift` | chats, read state, running intervals |
-| `MapModel.swift` / `MapView.swift` | the mind map, dragging, tags, colours, shapes |
-| `Timeline.swift` | the time strip |
-| `StatusBar.swift` | menu-bar icon and drop-down |
-| `Archive.swift` / `ClaudeExport.swift` / `ExportWindow.swift` | export and import |
-| `Usage.swift` | usage and scheduled tasks |
-| `Settings.swift` / `Onboarding.swift` | settings, permissions, first-launch intro |
-| `Theme.swift` / `Logo.swift` | colours, language, the mark and app icon |
+Issues and pull requests are welcome, especially when a Claude or ChatGPT update breaks something. The code is plain Swift and AppKit in `Sources/` (the widget in `Widget/`), with no Xcode project and no dependencies.
 
 ## Support
 
-KIKUmap is free, and it always will be. If it saves you a little tab-hunting every day, a coffee keeps it going ❤️
+KIKUmap is free. If it helps, a coffee keeps it going ❤️
 
 <p><a href="https://ko-fi.com/vegligi"><img src="docs/kofi-en.svg" height="64" alt="Buy me a coffee on Ko-fi"></a></p>
-
-A ⭐ on GitHub or a bug report helps just as much.
 
 ## License
 
