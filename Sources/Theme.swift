@@ -265,6 +265,24 @@ enum Theme {
     /// How often a turning ring is redrawn.
     static let turnFrame = 1.0 / 24
 
+    /// A small boxed tag saying where a chat lives: "Claude" for the Claude app's, "GPT" for ChatGPT's (a terminal
+    /// marks Claude Code sessions).
+    static func appTag(_ text: String, _ color: NSColor, height: CGFloat = 12) -> NSImage {
+        let font = NSFont.systemFont(ofSize: height * 0.62, weight: .heavy)
+        let s = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color, .kern: -0.2])
+        let w = ceil(s.size().width) + 4
+        return NSImage(size: NSSize(width: w, height: height), flipped: false) { r in
+            color.setStroke()
+            let box = NSBezierPath(roundedRect: r.insetBy(dx: 0.6, dy: 0.6), xRadius: 2.5, yRadius: 2.5)
+            box.lineWidth = 1
+            box.stroke()
+            let ts = s.size()
+            s.draw(at: NSPoint(x: (r.width - ts.width) / 2, y: (r.height - ts.height) / 2 + 0.3))
+            return true
+        }
+    }
+    static func claudeTag(_ color: NSColor, height: CGFloat = 12) -> NSImage { appTag("Claude", color, height: height) }
+
     /// A running chat's outline: a stretch of `color` going slowly round it, clockwise on screen, like the arc round
     /// a running count. `perimeter` is the outline's length; the stretch is at most a third of it.
     static func drawSnake(_ p: NSBezierPath, perimeter: CGFloat, color: NSColor, lineWidth: CGFloat, length: CGFloat = 70, speed: CGFloat = 40) {

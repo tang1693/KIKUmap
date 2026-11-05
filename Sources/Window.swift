@@ -341,7 +341,7 @@ final class HeaderView: NSView {
         let fullest: [[Row]] = all.isEmpty ? [] : [all.compactMap { c in c.max { ($0.m.1 ?? -1) < ($1.m.1 ?? -1) } }]
         let marked = !gptMeters.isEmpty
         let lf = Theme.ui(11, .medium), pf = Theme.mono(11, .medium), bf = Theme.mono(11, .bold)
-        let markW: CGFloat = marked ? 27 : 0
+        let markW: CGFloat = marked ? ceil(max(Theme.claudeTag(Theme.muted, height: 10).size.width, GPTWatcher.mark(Theme.muted, height: 10).size.width)) + 5 : 0
         func value(_ m: (String, Double?, String), _ when: Int) -> String {
             let p = m.1.map { "\(Int($0.rounded()))%" } ?? "–"
             // (numbers from an earlier read never pass for current ones: "as of …", or where that won't fit "old",
@@ -365,12 +365,8 @@ final class HeaderView: NSView {
                 let (m, gpt) = row
                 let cy = rs.count == 1 ? mid : rs.count == 2 ? mid + (i == 0 ? -8 : 8) : mid + CGFloat(i - 1) * 12
                 if marked {
-                    if gpt {
-                        let img = GPTWatcher.mark(Theme.muted, height: 10)
-                        img.draw(in: NSRect(x: x, y: cy - 5, width: img.size.width, height: 10))
-                    } else {
-                        Logo.draw(in: NSRect(x: x + 1, y: cy - 5, width: 10, height: 10), color: Theme.muted)
-                    }
+                    let img = gpt ? GPTWatcher.mark(Theme.muted, height: 10) : Theme.claudeTag(Theme.muted, height: 10)
+                    img.draw(in: NSRect(x: x, y: cy - 5, width: img.size.width, height: 10))
                 }
                 let lx = x + markW
                 if fit.labels {
@@ -595,8 +591,9 @@ final class SidebarView: NSView, NSDraggingSource {
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
                 nameX += img.size.width + 5
             } else {
-                Logo.draw(in: NSRect(x: nameX + 0.5, y: r.midY - 6.5, width: 13, height: 13), color: Theme.muted)
-                nameX += 19
+                let img = Theme.claudeTag(Theme.muted, height: 12)
+                img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
+                nameX += img.size.width + 5
             }
             let time = store.timeLabel(c)
             let timeF = Theme.ui(11.5)

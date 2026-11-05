@@ -714,19 +714,6 @@ final class GPTWatcher {
         }
     }
 
-    /// A small "GPT" tag that marks ChatGPT threads, the way the terminal marks Claude Code sessions.
-    static func mark(_ color: NSColor, height: CGFloat = 12) -> NSImage {
-        let font = NSFont.systemFont(ofSize: height * 0.62, weight: .heavy)
-        let s = NSAttributedString(string: "GPT", attributes: [.font: font, .foregroundColor: color, .kern: -0.2])
-        let w = ceil(s.size().width) + 4
-        return NSImage(size: NSSize(width: w, height: height), flipped: false) { r in
-            color.setStroke()
-            let box = NSBezierPath(roundedRect: r.insetBy(dx: 0.6, dy: 0.6), xRadius: 2.5, yRadius: 2.5)
-            box.lineWidth = 1
-            box.stroke()
-            let ts = s.size()
-            s.draw(at: NSPoint(x: (r.width - ts.width) / 2, y: (r.height - ts.height) / 2 + 0.3))
-            return true
-        }
-    }
+    /// A small "GPT" tag that marks ChatGPT threads, as "Claude" marks the Claude app's.
+    static func mark(_ color: NSColor, height: CGFloat = 12) -> NSImage { Theme.appTag("GPT", color, height: height) }
 }

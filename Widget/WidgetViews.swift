@@ -268,7 +268,7 @@ struct KikumapWidgetView: View {
                         // a longer label ("Sonnet", "5 小时") gets the room it needs in Chinese too
                         meters(s, labelWidth: en ? 44 : s.meters.contains { $0.label.count > 2 } ? 40 : 26, compact: true, limit: 3)
                     }
-                    .frame(width: tagged(s) ? 174 : 150)
+                    .frame(width: tagged(s) ? 184 : 150)
                 }
             }
             chart(s, compact: false)
@@ -451,7 +451,7 @@ struct KikumapWidgetView: View {
 
     private func asOfLine(_ d: Date, mark group: String?) -> some View {
         HStack(spacing: 6) {
-            if let g = group { ProviderMark(gpt: g == "gpt").frame(width: 20, height: 10, alignment: .leading) }
+            if let g = group { ProviderMark(gpt: g == "gpt").frame(width: 30, height: 10, alignment: .leading) }
             Text(WidgetText.asOf(d, now: date, en)).font(.system(size: 10)).foregroundStyle(Color.secondary).lineLimit(1)
         }
     }
@@ -473,14 +473,14 @@ struct KikumapWidgetView: View {
             if let p = plan {
                 HStack(spacing: 4) {
                     if let name = p {
-                        ProviderMark(gpt: m.group == "gpt").frame(width: m.group == "gpt" ? 18 : 10, height: 10, alignment: .leading)
+                        ProviderMark(gpt: m.group == "gpt").fixedSize()
                         Text(name).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.secondary)
                             .lineLimit(1).minimumScaleFactor(0.7)
                     }
                 }
-                .frame(width: 66, alignment: .leading)
+                .frame(width: 78, alignment: .leading)
             } else if marked {
-                ProviderMark(gpt: m.group == "gpt").frame(width: 20, height: 10, alignment: .leading)
+                ProviderMark(gpt: m.group == "gpt").frame(width: 30, height: 10, alignment: .leading)
             }
             Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color.secondary)
                 .frame(width: labelWidth ?? (en ? 16 : 22), alignment: .leading)
@@ -530,33 +530,15 @@ struct KikumapWidgetView: View {
     }
 }
 
-/// Whose meter it is: Claude's mark, or ChatGPT's "GPT" tag — as in KIKUmap's sidebar.
+/// Whose meter it is: a small "Claude" or "GPT" tag, as KIKUmap marks the chats in its sidebar.
 struct ProviderMark: View {
     let gpt: Bool
 
     var body: some View {
-        if gpt {
-            Text("GPT").font(.system(size: 6.5, weight: .heavy)).kerning(-0.2).foregroundStyle(Color.secondary)
-                .padding(.horizontal, 2).frame(height: 10)
-                .overlay(RoundedRectangle(cornerRadius: 2.2).stroke(Color.secondary, lineWidth: 0.9))
-        } else {
-            Flower().fill(Color.secondary).frame(width: 10, height: 10)
-        }
-    }
-}
-
-/// KIKUmap's flower: six oval petals round an open centre (Sources/Logo.swift draws the same mark in the app).
-struct Flower: Shape {
-    func path(in r: CGRect) -> Path {
-        // the flower's own units, as Logo.draw: petals 8.6 × 12.6 from 6.4 to 31.6 off the centre
-        let s = min(r.width, r.height) / 63.2
-        let rx = 8.6 * s, ry = 12.6 * s, d = 6.4 * s + ry
-        var p = Path()
-        for i in 0..<6 {
-            let petal = Path(ellipseIn: CGRect(x: -rx, y: -d - ry, width: 2 * rx, height: 2 * ry))
-            p.addPath(petal, transform: CGAffineTransform(rotationAngle: .pi / 3 * CGFloat(i)).concatenating(CGAffineTransform(translationX: r.midX, y: r.midY)))
-        }
-        return p
+        Text(gpt ? "GPT" : "Claude").font(.system(size: 6.5, weight: .heavy)).kerning(-0.2).foregroundStyle(Color.secondary)
+            .lineLimit(1).fixedSize()
+            .padding(.horizontal, 2).frame(height: 10)
+            .overlay(RoundedRectangle(cornerRadius: 2.2).stroke(Color.secondary, lineWidth: 0.9))
     }
 }
 

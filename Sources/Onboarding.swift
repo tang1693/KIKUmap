@@ -584,7 +584,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
             chip(row, dashed: false)
             let icon = NSRect(x: row.minX + 12, y: row.midY - 9, width: 18, height: 18)
             switch sym {
-            case "sparkle": Logo.draw(in: icon.insetBy(dx: 1, dy: 1), color: Theme.ink)
+            case "sparkle": let c = Theme.claudeTag(Theme.ink, height: 11); c.draw(in: NSRect(x: icon.minX - 2, y: icon.midY - 5.5, width: c.size.width, height: 11))
             case "gpt": let g = GPTWatcher.mark(Theme.ink, height: 11); g.draw(in: NSRect(x: icon.minX - 2, y: icon.midY - 5.5, width: g.size.width, height: 11))
             default: symbol(sym, in: icon, Theme.ink)
             }

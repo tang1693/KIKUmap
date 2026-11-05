@@ -142,8 +142,10 @@ final class MapView: NSView, NSTextFieldDelegate {
     private let countF = Theme.geo(12)
     private let badgeF = Theme.geo(11, bold: true)
     private let maxLabel: CGFloat = 330
-    /// The little mark before a real conversation (Claude burst, or a terminal for Claude Code).
-    private let iconW: CGFloat = 17
+    /// The room the mark before a real conversation takes: a "Claude" or "GPT" tag, or a terminal for Claude Code.
+    private static let claudeTagW = Theme.claudeTag(.black, height: 11).size.width
+    private static let gptTagW = GPTWatcher.mark(.black, height: 11).size.width
+    private func iconW(_ v: VNode) -> CGFloat { v.isCode ? 17 : (v.isGPT ? MapView.gptTagW : MapView.claudeTagW) + 5 }
 
     init(store: Store) {
         self.store = store
@@ -402,7 +404,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             let pad: CGFloat = v.state == 0 ? 4 : 10
             let dot: CGFloat = v.state > 0 && v.colored ? 8 : 0
             // same height whether idle, waiting or running, so nothing below it shifts
-            v.size = NSSize(width: pad + dot + iconW + v.labelW + 8 + tw + pad, height: max(textH(chatF), textH(pillF)) + 10)
+            v.size = NSSize(width: pad + dot + iconW(v) + v.labelW + 8 + tw + pad, height: max(textH(chatF), textH(pillF)) + 10)
         }
     }
 
@@ -734,9 +736,9 @@ final class MapView: NSView, NSTextFieldDelegate {
             let pad: CGFloat = v.state == 0 ? 4 : (v.colored ? 18 : 10)
             let midY = v.state == 0 ? r.minY + 3 + textH(f) / 2 : r.midY
             drawChatMark(v, NSRect(x: r.minX + pad, y: midY - 6, width: 12, height: 12), on: v.state == 1)
-            if !isEditing { drawText(v.title, f, textC, x: r.minX + pad + iconW, midY: midY, width: v.labelW) }
+            if !isEditing { drawText(v.title, f, textC, x: r.minX + pad + iconW(v), midY: midY, width: v.labelW) }
             let t = v.time + (v.state == 2 ? String(repeating: "·", count: phase / 2) : "")
-            let tx = r.minX + pad + iconW + v.labelW + 8
+            let tx = r.minX + pad + iconW(v) + v.labelW + 8
             drawText(t, timeF, timeC, x: tx, midY: midY + 1)
             drawTags(v, x: tx + ceil((v.time + (v.state == 2 ? "···" : "")).size(timeF).width) + 6, midY: midY)
             if v.state == 1 {
@@ -776,21 +778,20 @@ final class MapView: NSView, NSTextFieldDelegate {
         if (v.kind == .main || v.kind == .sub) && v.hasKids && (v.collapsed || sel == v.key) { drawFold(v) }
     }
 
-    /// Marks a real conversation, so it reads apart from a plain topic: the little Claude burst, or a
-    /// terminal for a Claude Code session, a "GPT" tag for a ChatGPT thread.
+    /// Marks a real conversation, so it reads apart from a plain topic: a "Claude" tag for the Claude app's, a "GPT"
+    /// tag for a ChatGPT thread, or a terminal for a Claude Code session. `r` is where the mark starts.
     private func drawChatMark(_ v: VNode, _ r: NSRect, on solid: Bool) {
-        if v.isGPT {
-            let img = GPTWatcher.mark(solid ? Theme.bg : Theme.muted, height: 11)
-            img.draw(in: NSRect(x: r.midX - img.size.width / 2, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
-        } else if v.isCode {
+        if !v.isCode {
+            let c = solid ? Theme.bg : Theme.muted
+            let img = v.isGPT ? GPTWatcher.mark(c, height: 11) : Theme.claudeTag(c, height: 11)
+            img.draw(in: NSRect(x: r.minX, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
+        } else {
             let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
             guard let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return }
             let c = solid ? Theme.bg : Theme.muted
             let tinted = NSImage(size: img.size, flipped: false) { b in img.draw(in: b); c.set(); b.fill(using: .sourceAtop); return true }
             let s = img.size
             tinted.draw(in: NSRect(x: r.midX - s.width / 2, y: r.midY - s.height / 2, width: s.width, height: s.height))
-        } else {
-            Logo.draw(in: r)
         }
     }
 
@@ -930,7 +931,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         let midY = v.frame.midY
         // a chat is wider as a pill (unread, running): measure that, so the buttons don't move when it changes
         let tw = ceil((v.time + "···").size(timeF).width)
-        let pill = 10 + (v.colored ? 8 : 0) + iconW + min(maxLabel, ceil(v.title.size(pillF).width)) + 8 + tw + 10 + tagW(v)
+        let pill = 10 + (v.colored ? 8 : 0) + iconW(v) + min(maxLabel, ceil(v.title.size(pillF).width)) + 8 + tw + 10 + tagW(v)
         let width = max(v.size.width, pill)
         var x = v.dir > 0 ? v.frame.minX + width + 8 : v.frame.maxX - width - 8 - w
         return acts.map { a in
@@ -1290,7 +1291,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         case .main: return NSRect(x: v.frame.minX + 11 + glyphW(v), y: v.frame.midY - h / 2, width: w, height: h)
         case .sub: return NSRect(x: v.frame.minX + 2 + glyphW(v), y: v.frame.minY + 1, width: w, height: h)
         case .chat:
-            let pad: CGFloat = (v.state == 0 ? 2 : (v.colored ? 16 : 8)) + iconW
+            let pad: CGFloat = (v.state == 0 ? 2 : (v.colored ? 16 : 8)) + iconW(v)
             let y = v.state == 0 ? v.frame.minY + 1 : v.frame.midY - h / 2
             return NSRect(x: v.frame.minX + pad, y: y, width: w, height: h)
         }
