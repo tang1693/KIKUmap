@@ -49,7 +49,7 @@ A ring counts running chats. A red badge counts finished, unread ones, with **!*
 <td>
 
 ### 2. Chats as a map
-Pinned chats from Claude and ChatGPT (Codex), plus Claude Code sessions, line up in the left column. Drag them onto your own topics. Each chat is tagged **Claude** or **GPT**.
+Chats pinned in Claude and in the ChatGPT app, plus Claude Code sessions, line up in the left column. Drag them onto your own topics. Each chat is tagged **Claude** or **GPT**.
 
 </td>
 <td width="55%"><img src="docs/demo/group.gif" width="100%" alt="Selecting three chats and dragging them onto Side projects together"></td>
@@ -129,7 +129,7 @@ Time per chat over 7, 14, 30 or 90 days. ⌘Y.
 </tr>
 </table>
 
-**Works with:** the Claude desktop app · Claude Code (Terminal, VS Code, Cursor, the app's Code mode) · the ChatGPT desktop app (Codex chats) · Codex in VS Code or the terminal.
+**Works with:** the Claude desktop app · Claude Code (Terminal, VS Code, Cursor, the app's Code mode) · the ChatGPT desktop app · Codex in VS Code or the terminal.
 
 **Native and light:** Swift and AppKit only. No Electron, no web view, no third-party code (line icons from [Lucide](https://lucide.dev), ISC).
 
@@ -168,12 +168,12 @@ open Install.command
 | Running, unread, pinned Claude chats | The Claude app's sidebar | Accessibility |
 | Approval requests and finished Cowork tasks, also with Claude's window closed (optional) | Claude's notifications in Notification Center | Full Disk Access |
 | Claude Code sessions | Claude Code hooks in `~/.claude/settings.json` (backed up first) | none |
-| ChatGPT's Codex chats | The ChatGPT app's files in `~/.codex` (read-only) | none |
+| ChatGPT chats | The ChatGPT app's files in `~/.codex` (read-only) | none |
 | Desktop widget | One file KIKUmap writes for it (`widget.json`) | none |
 | Claude usage and scheduled tasks (optional) | Anthropic's usage API, with Claude Code's sign-in | Keychain |
 | ChatGPT usage (optional, experimental) | OpenAI's usage interface, with Codex's sign-in | none |
 
-Not shown: unpinned chats, ordinary ChatGPT chats (they're kept online), and anything running on another computer, a server or in the cloud.
+Not shown: unpinned chats, running and unread for ChatGPT chats other than Codex ones (the app doesn't keep that on the Mac), and anything running on another computer, a server or in the cloud.
 </details>
 
 <details>

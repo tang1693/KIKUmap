@@ -49,7 +49,7 @@
 <td>
 
 ### 2. 对话变成导图
-Claude 和 ChatGPT（Codex）里置顶的对话、Claude Code 会话，都会列在左栏。把它们拖到自己的主题下。每个对话都标着 **Claude** 或 **GPT**。
+Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左栏。把它们拖到自己的主题下。每个对话都标着 **Claude** 或 **GPT**。
 
 </td>
 <td width="55%"><img src="docs/demo/group.gif" width="100%" alt="选中三个对话，一起拖到 Side projects 下"></td>
@@ -129,7 +129,7 @@ Claude 和 ChatGPT（Codex）里置顶的对话、Claude Code 会话，都会列
 </tr>
 </table>
 
-**支持：** Claude 桌面 App · Claude Code（终端、VS Code、Cursor、App 里的 Code 模式）· ChatGPT 桌面 App（Codex 对话）· VS Code 或终端里的 Codex。
+**支持：** Claude 桌面 App · Claude Code（终端、VS Code、Cursor、App 里的 Code 模式）· ChatGPT 桌面 App · VS Code 或终端里的 Codex。
 
 **原生、轻量：** 纯 Swift + AppKit。没有 Electron，没有网页套壳，没有第三方代码（线条图标来自 [Lucide](https://lucide.dev)，ISC 许可）。
 
@@ -168,12 +168,12 @@ open Install.command
 | Claude 置顶对话：在跑、未读 | Claude App 的侧栏 | 辅助功能 |
 | 等你批准、Cowork 任务做完，Claude 窗口关着时也能收到（可选） | 通知中心里 Claude 的通知 | 完全磁盘访问 |
 | Claude Code 会话 | `~/.claude/settings.json` 里的 Claude Code hook（改之前会先备份原文件） | 不需要 |
-| ChatGPT 的 Codex 对话 | ChatGPT App 存在 `~/.codex` 里的文件（只读） | 不需要 |
+| ChatGPT 的对话 | ChatGPT App 存在 `~/.codex` 里的文件（只读） | 不需要 |
 | 桌面小组件 | KIKUmap 专门为它写的一个文件（`widget.json`） | 不需要 |
 | Claude 用量和定时任务（可选） | Anthropic 的用量接口，借用 Claude Code 的登录 | 钥匙串 |
 | ChatGPT 用量（可选，试验性） | OpenAI 的用量接口，借用 Codex 的登录 | 不需要 |
 
-不会显示：没置顶的对话、普通 ChatGPT 对话（存在云端），以及在别的电脑、服务器或云端运行的任何东西。
+不会显示：没置顶的对话、ChatGPT 里非 Codex 对话的「进行中 / 未读」（App 没把它存在本机），以及在别的电脑、服务器或云端运行的任何东西。
 </details>
 
 <details>
