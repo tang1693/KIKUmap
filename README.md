@@ -239,7 +239,7 @@ Notarizing needs a paid Apple developer account, and KIKUmap is free. Building f
 
 ## Contributing
 
-Issues and pull requests are welcome, especially when a Claude or ChatGPT update breaks something. The code is plain Swift and AppKit in `Sources/` (the widget in `Widget/`), with no Xcode project and no dependencies.
+Issues and pull requests are welcome, especially when a Claude or ChatGPT update breaks something. See the [contributing guide](.github/CONTRIBUTING.md) and the [code of conduct](.github/CODE_OF_CONDUCT.md); security problems go through the [security policy](.github/SECURITY.md).
 
 ## Support
 

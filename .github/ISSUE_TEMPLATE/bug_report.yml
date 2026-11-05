@@ -1,0 +1,64 @@
+name: Bug report · 报告问题
+description: Something doesn't work as expected. · 有功能不正常。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please leave out real chat titles, chat contents and account details, in screenshots too.
+        感谢反馈。请不要贴出真实的对话标题、对话内容和账号信息，截图里也一样。
+
+        **Security problem?** Don't post it here; see the [security policy](https://github.com/tang1693/KIKUmap/security/policy).
+        **安全问题**请不要发在这里，见[安全政策](https://github.com/tang1693/KIKUmap/security/policy)。
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? · 发生了什么？
+      description: What you saw, and what you expected instead. · 看到了什么，本来应该是什么样。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce · 复现步骤
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: input
+    id: version
+    attributes:
+      label: KIKUmap version · KIKUmap 版本
+      description: KIKUmap menu → About KIKUmap · 菜单 → 关于 KIKUmap
+      placeholder: "1.0.7"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version · macOS 版本
+      placeholder: "macOS 15.1"
+    validations:
+      required: true
+  - type: checkboxes
+    id: apps
+    attributes:
+      label: Which apps are involved? · 涉及哪些 App？
+      options:
+        - label: Claude desktop app · Claude 桌面 App
+        - label: Claude Code (Terminal, VS Code, Cursor or the app's Code mode) · Claude Code
+        - label: ChatGPT desktop app / Codex · ChatGPT 桌面 App / Codex
+        - label: Desktop widget · 桌面小组件
+        - label: Usage · 用量
+  - type: textarea
+    id: diagnostic
+    attributes:
+      label: Diagnostic report · 诊断报告
+      description: |
+        Settings → Access → Diagnostic report writes `kikumap-check.txt` (no chat titles, messages or passwords). Drag it here.
+        设置 → 授权 → 诊断报告，会生成 `kikumap-check.txt`（不含对话标题、内容和密码），拖到这里即可。
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else? · 其他补充
+      description: Screenshots, logs, when it started. · 截图、日志、从什么时候开始的。

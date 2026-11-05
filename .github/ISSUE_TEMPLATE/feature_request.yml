@@ -1,0 +1,20 @@
+name: Feature request · 功能建议
+description: An idea to make KIKUmap better. · 让 KIKUmap 更好用的想法。
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like? · 希望有什么功能？
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why? · 为什么需要？
+      description: What you're trying to do, and what's in the way now. · 想做到什么，现在卡在哪里。
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else? · 其他补充
+      description: Sketches, screenshots, examples from other apps. · 草图、截图、别的 App 的例子。

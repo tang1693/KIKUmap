@@ -239,7 +239,7 @@ open Install.command
 
 ## 参与贡献
 
-欢迎提 issue 和 pull request，尤其是 Claude 或 ChatGPT 更新后出了问题的时候。代码是纯 Swift + AppKit，在 `Sources/` 里（小组件在 `Widget/`），没有 Xcode 工程，也没有依赖。
+欢迎提 issue 和 pull request，尤其是 Claude 或 ChatGPT 更新后出了问题的时候。请看[贡献指南](.github/CONTRIBUTING.md)和[行为准则](.github/CODE_OF_CONDUCT.md)；安全问题请按[安全政策](.github/SECURITY.md)私下报告。
 
 ## 支持
 
