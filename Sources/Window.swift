@@ -485,6 +485,15 @@ final class SidebarView: NSView, NSDraggingSource {
     /// while the list is empty, and on hovering the heading.
     var status: (() -> (title: String, lines: [String]))?
     private var statusTick: Timer?
+    private var runTick: Timer?
+
+    /// Just the running rows are redrawn, and only while the window can be seen.
+    private func moveRunning() {
+        guard window?.isVisible == true, window?.occlusionState.contains(.visible) == true else { return }
+        for (i, c) in rows.enumerated() where store.isRunning(c.id) && !store.outOfSight(c.id) {
+            setNeedsDisplay(NSRect(x: 6, y: top + CGFloat(i) * rowH - 4, width: bounds.width - 12, height: rowH + 4))
+        }
+    }
 
     init(store: Store, usage: UsageMonitor) {
         self.store = store
@@ -510,6 +519,15 @@ final class SidebarView: NSView, NSDraggingSource {
             }
         } else if !all.isEmpty {
             statusTick?.invalidate(); statusTick = nil
+        }
+        // a row seen running has an orange stretch going round it, as on the map: redrawn every frame while one does
+        let moving = rows.contains { store.isRunning($0.id) && !store.outOfSight($0.id) }
+        if moving, runTick == nil {
+            runTick = Timer.scheduledTimer(withTimeInterval: Theme.turnFrame, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.moveRunning() }
+            }
+        } else if !moving {
+            runTick?.invalidate(); runTick = nil
         }
         if search.superview == nil { addSubview(search); addSubview(refresh) }
         search.placeholderString = tr("搜索置顶对话", "Search pinned chats")
@@ -579,19 +597,36 @@ final class SidebarView: NSView, NSDraggingSource {
                 NSBezierPath(roundedRect: NSRect(x: r.minX - 6, y: r.minY + 7, width: 2.5, height: r.height - 14), xRadius: 1.2, yRadius: 1.2).fill()
             }
             let state = store.isRunning(c.id) ? 2 : (store.isUnread(c) ? 1 : 0)
-            if state > 0 { Theme.drawStatus(state, in: NSRect(x: r.minX, y: r.midY - 5, width: 10, height: 10), phase: phase) }
+            // as on the map: running, an outline with an orange stretch going round it while it's seen running;
+            // finished and unread, solid with a red dot on its corner
+            var ink = Theme.ink, faded = Theme.muted
+            if state > 0 {
+                let pill = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: r.height / 2, yRadius: r.height / 2)
+                if state == 1 {
+                    Theme.ink.setFill(); pill.fill()
+                    ink = Theme.bg; faded = Theme.bg.withAlphaComponent(0.75)
+                } else {
+                    let seen = !store.outOfSight(c.id)
+                    Theme.paper.setFill(); pill.fill()
+                    (seen ? Theme.ink.withAlphaComponent(0.35) : Theme.ink).setStroke(); pill.lineWidth = 1.5; pill.stroke()
+                    if seen {
+                        let b = r.insetBy(dx: 0.75, dy: 0.75)
+                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Logo.orange, lineWidth: 2)
+                    }
+                }
+            }
             let tf = Theme.ui(13, state > 0 ? .semibold : .regular)
             // where it lives, before the name: Claude's mark, a terminal for Claude Code, "GPT" for ChatGPT
-            var nameX = r.minX + 16
-            if c.isCode, let img = SidebarView.terminal {
+            var nameX = r.minX + 12
+            if c.isCode, let img = SidebarView.terminal(faded) {
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: 14, height: 12))
                 nameX += 19
             } else if c.isGPT {
-                let img = GPTWatcher.mark(Theme.muted, height: 12)
+                let img = GPTWatcher.mark(faded, height: 12)
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
                 nameX += img.size.width + 5
             } else {
-                let img = Theme.claudeTag(Theme.muted, height: 12)
+                let img = Theme.claudeTag(faded, height: 12)
                 img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: img.size.width, height: 12))
                 nameX += img.size.width + 5
             }
@@ -602,10 +637,16 @@ final class SidebarView: NSView, NSDraggingSource {
             let th = ceil(tf.ascender - tf.descender + tf.leading)
             (store.name(c.id) as NSString).draw(with: NSRect(x: nameX, y: r.midY - th / 2, width: r.maxX - nameX - tw - 14, height: th),
                                                 options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
-                                                attributes: [.font: tf, .foregroundColor: Theme.ink, .paragraphStyle: p])
-            let tc: NSColor = state > 0 ? Theme.ink : Theme.muted
+                                                attributes: [.font: tf, .foregroundColor: ink, .paragraphStyle: p])
+            let tc: NSColor = state > 0 ? ink : faded
             let ts = time.size(timeF)
-            (time as NSString).draw(at: NSPoint(x: r.maxX - 8 - tw, y: r.midY - ts.height / 2), withAttributes: [.font: timeF, .foregroundColor: tc])
+            (time as NSString).draw(at: NSPoint(x: r.maxX - 12 - tw, y: r.midY - ts.height / 2), withAttributes: [.font: timeF, .foregroundColor: tc])
+            if state == 1 {
+                // a red dot on its top corner, like the menu bar's badge
+                let d = NSPoint(x: r.maxX - 3, y: r.minY + 2)
+                Theme.paper.setFill(); NSBezierPath(ovalIn: NSRect(x: d.x - 6.5, y: d.y - 6.5, width: 13, height: 13)).fill()
+                NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: d.x - 5, y: d.y - 5, width: 10, height: 10)).fill()
+            }
 
         }
         drawSchedule(dirtyRect)
@@ -704,11 +745,11 @@ final class SidebarView: NSView, NSDraggingSource {
         pressed = nil
     }
 
-    private static var terminal: NSImage? {          // built each time: follows light / dark
+    private static func terminal(_ color: NSColor) -> NSImage? {          // built each time: follows light / dark
         let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
         guard let i = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Claude Code")?.withSymbolConfiguration(cfg) else { return nil }
         let tinted = NSImage(size: i.size, flipped: false) { r in
-            i.draw(in: r); Theme.muted.set(); r.fill(using: .sourceAtop); return true
+            i.draw(in: r); color.set(); r.fill(using: .sourceAtop); return true
         }
         return tinted
     }
