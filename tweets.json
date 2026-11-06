@@ -1,0 +1,65 @@
+{
+ "updated": "2026-11-06T18:19:50.971Z",
+ "tweets": [
+  {
+   "id": "2118512582080221438",
+   "text": "Trendshift live risers right now (mentions · GitHub stars):\n\n1. tang1693/KIKUmap — 67 · ~556★ — mind map for Claude/ChatGPT chats (macOS menu bar)\n2. larashero3-dotcom/lieflat-less-ai-tone — 61 · ~5.4k★ — research-backed “less AI tone” writing skill\n3. huaxialucaicaizi/ai-startup-skills — 51 · ~917★ — 7-step AI startup agent skills (CN)\n4. milind-soni/OpenMausBot — 67 · ~13.3k★ — open-source Grok Bot-style multi-agent chat app\n5. stablyai/orca — 40 · ~117k★ — fleet runner for coding agents on your own subscription\n6. deepseek-ai/deepseek-harness — 38 · ~274k★ — “everything is a plugin” agent harness\n7. microsoft/VibeVoice — 35 · (check GH) — voice-related\n8. vercel-labs/agent-browser — (rising) · ~46k★ — browser automation CLI for agents\n9. meta/astryx — 17 · ~14k★ — agent-ready open design system\n10. FengZhenfei/carrel — · ~796★ — ontology-augmented generation for agents\n\nLive board: trendshift.io",
+   "created_at": "2026-11-06T01:15:34.000Z",
+   "author": {
+    "name": "Nam Hoàng Tuấn",
+    "username": "h___t____n",
+    "avatar": "https://pbs.twimg.com/profile_images/1653773785206775808/wApzOTim_200x200.jpg"
+   }
+  },
+  {
+   "id": "2117986862317154738",
+   "text": "@ExiledonMoon The approval-waiting state is particularly useful when several conversations are open. Does Kikumap detect desktop apps as well as browser tabs, and how does it distinguish a completed response from one that is still streaming slowly?",
+   "created_at": "2026-11-04T14:26:32.000Z",
+   "author": {
+    "name": "0xAzr",
+    "username": "AzrianoY1",
+    "avatar": "https://pbs.twimg.com/profile_images/1823380437101907968/p2eJHlnQ_200x200.jpg"
+   }
+  },
+  {
+   "id": "2117957599673163890",
+   "text": "Your AI chats can announce when they're done. Someone finally built the missing Mac app.\n\nKikumap is a free, open-source Mac menu-bar app that tracks Claude and ChatGPT chats.\n\n• See which pinned chats are running, finished unread or waiting for approval.\n• Hear a completion sound, or have it announce which chat finished.\n• Drag chats onto a mind map grouped by work, home or side projects.\n\n$0. 382 GitHub stars in 7 days. Works on Intel and Apple silicon Macs running macOS 13 or later. Everything stays on your Mac; it needs Accessibility permission and a one-time \"Open Anyway\" approval.\n\ngithub.com/tang1693/KIKUm…\n\nAnthropic and OpenAI automated the work and left you in charge of attendance.",
+   "created_at": "2026-11-04T12:30:16.000Z",
+   "author": {
+    "name": "The Lunar Misfit",
+    "username": "ExiledonMoon",
+    "avatar": "https://pbs.twimg.com/profile_images/2101984207006470144/awLhMls0_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116742341952466963",
+   "text": "AI 对话开多了，想知道哪个还在跑？\n\n开源 Mac 工具 Kikumap 能把 Claude 置顶会话和 ChatGPT 的 Codex 状态放进菜单栏。\n\n项目称它读取窗口和本地记录，Claude 部分需要辅助功能权限；下载版未经苹果公证，macOS 提示无法验证。\n\n少在几个窗口之间来回切，这一点挺实在。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-01T04:01:16.000Z",
+   "author": {
+    "name": "Leon",
+    "username": "LeonDemonHunter",
+    "avatar": "https://pbs.twimg.com/profile_images/2116704154383224833/2Xrj-Rjq_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116724534665744826",
+   "text": "🚀 小白搞自动化，最怕状态管理乱糟糟？Kikumap 来帮你！🔍\n\n一键整合 Claude 和 ChatGPT 的置顶会话，菜单栏实时显示哪些任务在跑，哪些已完成待查看，哪些需要你确认。🎯\n\n✅ 省去翻找烦恼，效率翻倍！\n\n✅ 一键操作，小白...\n\n#实用神器 #自动化工具",
+   "created_at": "2026-11-01T02:50:30.000Z",
+   "author": {
+    "name": "离岸工具包🎒",
+    "username": "Stanllll6o",
+    "avatar": "https://pbs.twimg.com/profile_images/2108433329322373120/EmdsFz3S_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116023790782067144",
+   "text": "Kikumap 把 Claude 和 ChatGPT 里一堆置顶会话的状态集中到菜单栏，随时看到哪些在跑、哪些跑完没看、哪些在等你点确认。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-10-30T04:26:00.000Z",
+   "author": {
+    "name": "Geek",
+    "username": "geekbb",
+    "avatar": "https://pbs.twimg.com/profile_images/1644898947272671233/7959WGOK_200x200.jpg"
+   }
+  }
+ ]
+}
