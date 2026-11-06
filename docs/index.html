@@ -115,6 +115,22 @@
   .btn.primary:hover { background: var(--accent-hover); }
   .meta { margin-top: 16px; font-size: 14px; color: var(--ink2); }
   .ph { margin-top: 20px; }
+  /* GitHub stars, beside the GitHub links (filled in by the script; nothing shows if GitHub can't be asked) */
+  .stars { font-variant-numeric: tabular-nums; color: var(--ink2); }
+  .stars .star { color: #E3A008; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* Posts on X about KIKUmap (the ones picked by hand from a daily search) */
+  .xposts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 360px)); justify-content: center; gap: 16px; margin-top: 40px; }
+  .xpost { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+  .xpost .head { display: flex; align-items: center; gap: 10px; }
+  .xpost img { width: 38px; height: 38px; border-radius: 50%; background: var(--bg2); flex: none; }
+  .xpost .who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+  .xpost .who b, .xpost .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xpost .who span, .xpost .meta { color: var(--ink2); font-size: 14px; }
+  .xpost p { white-space: pre-line; overflow-wrap: anywhere; font-size: 15.5px; display: -webkit-box; -webkit-line-clamp: 12; -webkit-box-orient: vertical; overflow: hidden; }
+  .xpost .meta { display: flex; gap: 14px; margin-top: auto; }
+  .xpost .meta a { text-decoration: none; }
+  .xpost .meta a:hover { text-decoration: underline; }
   .ph img { display: inline-block; width: 250px; height: 54px; }
   .shot { border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
   .hero .shot { margin: 56px auto 0; max-width: 1000px; }
@@ -230,7 +246,7 @@
     </nav>
     <div class="nav-end">
       <button class="chip" id="lang" type="button" aria-label="Switch language / 切换语言"><span lang="en">中文</span><span lang="zh">EN</span></button>
-      <a class="chip gh" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span>GitHub</span></a>
+      <a class="chip gh" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span>GitHub</span><span class="stars" data-stars hidden></span></a>
     </div>
   </div>
 </header>
@@ -448,6 +464,14 @@
     </div>
   </section>
 
+  <section id="x" hidden>
+    <div class="wrap">
+      <h2><span lang="en">What people say on X</span><span lang="zh">大家在 X 上怎么说</span></h2>
+      <p class="sub"><span lang="en">A few posts about KIKUmap.</span><span lang="zh">X 上关于 KIKUmap 的一些帖子。</span></p>
+      <div class="xposts" id="xposts"></div>
+    </div>
+  </section>
+
   <section id="faq" style="padding-top:24px">
     <div class="wrap">
       <h2><span lang="en">Questions</span><span lang="zh">常见问题</span></h2>
@@ -492,7 +516,7 @@
       <h2><span lang="en">Give your chats a map.</span><span lang="zh">给你的对话一张导图。</span></h2>
       <div class="cta">
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
-        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">Star on GitHub</span><span lang="zh">去 GitHub 点个 Star</span></a>
+        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">Star on GitHub</span><span lang="zh">去 GitHub 点个 Star</span><span class="stars" data-stars hidden></span></a>
         <a class="btn" href="https://ko-fi.com/vegligi"><svg><use href="#cup"/></svg><span lang="en">Buy me a coffee</span><span lang="zh">请我喝杯咖啡</span></a>
       </div>
     </div>
@@ -545,6 +569,78 @@
     var v = tour(); v.muted = false; v.loop = false; v.currentTime = 0; v.play().catch(function () {});
   });
   tours.forEach(function (v) { v.addEventListener("volumechange", function () { if (v === tour()) sound.hidden = !v.muted; }); });
+
+  // GitHub stars, asked once an hour at most (GitHub allows 60 asks an hour per visitor). A count saved from an
+  // earlier visit is shown only while it's under a day old; if GitHub can't say, nothing is shown.
+  (function () {
+    var n = null;
+    function show() {
+      if (n === null) return;
+      var zh = root.dataset.lang === "zh", num = n.toLocaleString(zh ? "zh-CN" : "en-US");
+      document.querySelectorAll("[data-stars]").forEach(function (el) {
+        el.textContent = "";
+        var vis = document.createElement("span"); vis.setAttribute("aria-hidden", "true");
+        var star = document.createElement("span"); star.className = "star"; star.textContent = "★ ";
+        vis.append(star, num);
+        var said = document.createElement("span"); said.className = "vh"; said.textContent = zh ? "，" + num + " 个 Star" : ", " + num + (n === 1 ? " star" : " stars");
+        el.append(vis, said); el.hidden = false;
+      });
+    }
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem("stars") || "null"); } catch (e) {}
+    var age = saved && typeof saved.n === "number" && typeof saved.at === "number" ? Date.now() - saved.at : Infinity;
+    if (age < 24 * 3600e3) { n = saved.n; show(); }
+    document.getElementById("lang").addEventListener("click", show);
+    if (age < 3600e3) return;
+    fetch("https://api.github.com/repos/tang1693/KIKUmap").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || typeof j.stargazers_count !== "number") return;
+      n = j.stargazers_count; show();
+      try { localStorage.setItem("stars", JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}
+    }).catch(function () {});
+  })();
+
+  // Posts on X about KIKUmap: found by a daily search, published only when picked by hand, to tweets.json on the
+  // repo's x-posts branch (kept off main). Built as plain text, never as HTML; only X's own addresses are linked.
+  // The section stays hidden while there are none. Like counts aren't shown: they'd be a stale copy.
+  (function () {
+    var box = document.getElementById("xposts"), sec = document.getElementById("x");
+    fetch("https://raw.githubusercontent.com/tang1693/KIKUmap/x-posts/tweets.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var list = (j && Array.isArray(j.tweets) ? j.tweets : []).filter(function (p) {
+        return p && typeof p.id === "string" && /^\d{1,25}$/.test(p.id) && p.author && typeof p.author.username === "string"
+          && /^[A-Za-z0-9_]{1,15}$/.test(p.author.username) && typeof p.text === "string";
+      }).slice(0, 9);
+      if (!list.length) return;
+      list.forEach(function (p) {
+        var url = "https://x.com/" + p.author.username + "/status/" + p.id;
+        var card = document.createElement("article"); card.className = "xpost";
+        var head = document.createElement("div"); head.className = "head";
+        var img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+        if (/^https:\/\/pbs\.twimg\.com\//.test(p.author.avatar || "")) img.src = p.author.avatar;
+        var who = document.createElement("a"); who.className = "who"; who.href = "https://x.com/" + p.author.username;
+        who.target = "_blank"; who.rel = "noopener noreferrer"; who.style.textDecoration = "none";
+        var name = document.createElement("b"); name.textContent = typeof p.author.name === "string" && p.author.name ? p.author.name : p.author.username;
+        var handle = document.createElement("span"); handle.textContent = "@" + p.author.username;
+        who.append(name, handle); head.append(img, who);
+        var text = document.createElement("p"); text.textContent = p.text;
+        var foot = document.createElement("div"); foot.className = "meta";
+        var date = document.createElement("a"); date.href = url; date.target = "_blank"; date.rel = "noopener noreferrer";
+        date.dataset.when = p.created_at; foot.append(date);
+        card.append(head, text, foot);
+        box.append(card);
+      });
+      dates(); sec.hidden = false;
+      document.getElementById("lang").addEventListener("click", dates);
+    }).catch(function () {});
+    // each post's date in the page's language (again after the language button)
+    function dates() {
+      box.querySelectorAll("[data-when]").forEach(function (a) {
+        var d = new Date(a.dataset.when);
+        var zh = root.dataset.lang === "zh", day = isNaN(d) ? "" : d.toLocaleDateString(zh ? "zh-CN" : "en-US", { year: "numeric", month: "short", day: "numeric" });
+        a.textContent = day || "X";
+        a.setAttribute("aria-label", zh ? "在 X 上打开这条帖子" + (day ? "（" + day + "）" : "") : "Open this post on X" + (day ? " (" + day + ")" : ""));
+      });
+    }
+  })();
 
   var nav = document.getElementById("nav");
   addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
