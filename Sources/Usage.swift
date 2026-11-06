@@ -30,6 +30,18 @@ struct Routine {
 
     /// Runs that are still to come.
     var upcoming: Date? { enabled ? next : nil }
+
+    /// In the shape the API gives it (what `init` reads), to be kept across a restart.
+    var saved: [String: Any] {
+        var o: [String: Any] = ["id": id, "name": name, "cron_expression": cron, "enabled": enabled]
+        if let n = next { o["next_run_at"] = Clock.iso(n) }
+        if let s = session { o["persistent_session_id"] = s }
+        var last: [String: Any] = ["status": lastStatus]
+        if let f = lastFired { last["fired_at"] = Clock.iso(f) }
+        if let f = lastFinished { last["finished_at"] = Clock.iso(f) }
+        o["last_run"] = last
+        return o
+    }
 }
 
 /// Plan usage (current 5-hour session, this week) and scheduled tasks.
@@ -58,8 +70,11 @@ final class UsageMonitor: NSObject {
     private(set) var plan: String?
     private(set) var updated: Date?
     private(set) var routines: [Routine] = []
-    /// When the scheduled tasks were last read (they're read with the usage, every few minutes).
+    /// When the scheduled tasks were last read (they're read with the usage, every few minutes); kept across a restart
+    /// with them. nil: there's no list to go by.
     private(set) var routinesAt: Date?
+    /// The last try to read them failed (the usage was read, the list wasn't).
+    private var routinesFailed = false
     /// Whose usage it is: Claude Code's account ("email · organization"), nil when unknown.
     private(set) var account: String?
     var onChange: (() -> Void)?
@@ -156,6 +171,29 @@ final class UsageMonitor: NSObject {
         asOf.map { let t = UsageMonitor.stamp($0); return tr("\(t) 时的数据", "as of \(t)") }
     }
 
+    /// The scheduled tasks shown are from an earlier read (they're read with the usage, which isn't being read now; or
+    /// their own read failed; or it's been half an hour): when it was. A task added, changed or removed since isn't known.
+    var routinesAsOf: Date? {
+        guard let at = routinesAt else { return nil }
+        return status != .ok || routinesFailed || Date().timeIntervalSince(at) > 1800 ? at : nil
+    }
+
+    /// Why the scheduled tasks can't be read now (nil: they're read as usual, the first read is on its way, or usage
+    /// is off): usage's own trouble (they come with it), or their own read failing.
+    var routinesWhy: String? {
+        guard UsageMonitor.enabled else { return nil }
+        switch status {
+        case .unknown: return nil
+        case .ok: return routinesFailed ? tr("列表没读到，过几分钟再试", "The list couldn't be read; trying again in a few minutes") : nil
+        default: return hint
+        }
+    }
+
+    /// They can't be read now and there's no earlier list to show "as of" (none read since usage was turned on, since
+    /// Claude Code's sign-in changed, or since KIKUmap began keeping them): why, said where the tasks would be instead of
+    /// nothing.
+    var routinesUnknown: String? { routinesAt == nil ? routinesWhy : nil }
+
     /// "14:05" today, "周一 14:05" / "Mon 14:05" in the six days before, else "10/21 14:05" (WidgetText.asOf: the same).
     static func stamp(_ d: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
@@ -243,6 +281,7 @@ final class UsageMonitor: NSObject {
         // again in a moment (its new sign-in may still be being written).
         if (token != nil || updated != nil) && acct?.key != tokenAccount {
             token = nil; session = nil; weekly = nil; sonnet = nil; plan = nil; routines = []; updated = nil
+            routinesAt = nil; routinesFailed = false
             holdUntil = nil; failures = 0                   // a wait Anthropic asked for was the old sign-in's
             lastRead = .distantPast
             tokenAccount = acct?.key
@@ -288,6 +327,8 @@ final class UsageMonitor: NSObject {
         sonnet = nil
         plan = nil
         routines = []
+        routinesAt = nil
+        routinesFailed = false
         updated = nil
         account = nil
         UserDefaults.standard.removeObject(forKey: UsageMonitor.lastKey)
@@ -327,6 +368,7 @@ final class UsageMonitor: NSObject {
         // the sign-in is gone or isn't this account's any more: nothing read with it is shown
         case .noLogin, .noScope, .denied:
             session = nil; weekly = nil; sonnet = nil; routines = []; updated = nil
+            routinesAt = nil; routinesFailed = false
             UserDefaults.standard.removeObject(forKey: UsageMonitor.lastKey)
         default: break                                       // older numbers stay, marked "as of"
         }
@@ -539,11 +581,15 @@ final class UsageMonitor: NSObject {
             guard code == 200, let o = obj as? [String: Any], let list = o["data"] as? [[String: Any]] else {
                 let note = "scheduled tasks HTTP \(code)"
                 if note != self.routinesNote { self.routinesNote = note; self.log?(note) }
+                // the list kept is as of its last read now (with none, not known): said where it's shown
+                if !self.routinesFailed { self.routinesFailed = true; self.onChange?() }
                 return
             }
             self.routinesNote = ""
+            self.routinesFailed = false
             self.routines = list.compactMap(Routine.init)
             self.routinesAt = Date()
+            self.keep()
             self.onChange?()
         }
     }
@@ -607,11 +653,13 @@ final class UsageMonitor: NSObject {
 
     private static let lastKey = "UsageLast"
 
-    /// The last good answer, so a restart (or Anthropic asking to wait) shows it "as of" then instead of nothing.
+    /// The last good answer, so a restart (or Anthropic asking to wait) shows it "as of" then instead of nothing; the
+    /// scheduled tasks too, as of when they were read.
     private func keep() {
         func w(_ x: Window?) -> [Double]? { x.map { [$0.percent, $0.resets?.timeIntervalSince1970 ?? 0] } }
         var d: [String: Any] = ["account": tokenAccount ?? "", "updated": (updated ?? Date()).timeIntervalSince1970, "model": modelName]
         d["session"] = w(session); d["weekly"] = w(weekly); d["modelWeek"] = w(sonnet); d["plan"] = plan
+        if let at = routinesAt { d["routines"] = routines.map(\.saved); d["routinesAt"] = at.timeIntervalSince1970 }
         UserDefaults.standard.set(d, forKey: UsageMonitor.lastKey)
     }
 
@@ -629,5 +677,10 @@ final class UsageMonitor: NSObject {
         plan = d["plan"] as? String
         updated = Date(timeIntervalSince1970: at)
         tokenAccount = (d["account"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        // (kept by a version that didn't keep the tasks yet: no list to go by until they're read)
+        if let r = d["routinesAt"] as? Double {
+            routines = (d["routines"] as? [[String: Any]] ?? []).compactMap(Routine.init)
+            routinesAt = Date(timeIntervalSince1970: r)
+        }
     }
 }

@@ -22,15 +22,26 @@ enum ClaudeExport {
         return true
     }
 
-    /// The newest zip in ~/Downloads that holds a conversations.json (nil without Full Disk Access).
+    /// The newest zip in ~/Downloads that's Claude's export (nil without Full Disk Access).
     static func newestZip() -> URL? {
         guard canLookInDownloads else { return nil }
         let dl = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         let files = (try? FileManager.default.contentsOfDirectory(at: dl, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
         let zips = files.filter { $0.pathExtension.lowercased() == "zip" }
             .sorted { modified($0) > modified($1) }
-        for z in zips.prefix(12) where contains(z, "conversations.json") { return z }
+        for z in zips.prefix(12) where isClaude(z) { return z }
         return nil
+    }
+
+    /// Claude's export, not another app's: ChatGPT's has a conversations.json too, but only Claude's has a users.json
+    /// beside it (ChatGPT's is user.json).
+    static func isClaude(_ zip: URL) -> Bool {
+        let names = run(["-Z1", zip.path]).out.split(separator: "\n")
+        func folder(_ entry: Substring, of file: String) -> Substring? {
+            entry == file ? "" : entry.hasSuffix("/" + file) ? entry.dropLast(file.count) : nil
+        }
+        let convos = Set(names.compactMap { folder($0, of: "conversations.json") })
+        return names.contains { folder($0, of: "users.json").map(convos.contains) == true }
     }
 
     static func modified(_ u: URL) -> Date {
@@ -50,25 +61,26 @@ enum ClaudeExport {
         return (p.terminationStatus == 0, String(decoding: data, as: UTF8.self))
     }
 
-    static func contains(_ zip: URL, _ name: String) -> Bool {
-        run(["-Z1", zip.path]).out.split(separator: "\n").contains { $0 == name || $0.hasSuffix("/" + name) }
-    }
+    /// Where conversations.json is unpacked to be read (a test points it at a folder it can write in).
+    nonisolated(unsafe) static var scratch = FileManager.default.temporaryDirectory
 
-    /// Unpacks conversations.json and reads every chat, keyed by its id.
-    static func load(_ zip: URL) -> [String: ExportedChat]? {
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("claude-export-\(UUID().uuidString)")
+    /// Unpacks conversations.json and reads every chat, keyed by its id (nil: it can't be read). `claude` is false when
+    /// it holds chats but none of Claude's shape (a uuid and chat_messages): another app's export, nothing to use.
+    static func load(_ zip: URL) -> (chats: [String: ExportedChat], claude: Bool)? {
+        let tmp = scratch.appendingPathComponent("claude-export-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         guard run(["-o", "-q", zip.path, "*conversations.json", "-d", tmp.path]).ok else { return nil }
         let found = FileManager.default.enumerator(at: tmp, includingPropertiesForKeys: nil)?
             .compactMap { $0 as? URL }.first { $0.lastPathComponent == "conversations.json" }
         guard let file = found, let data = try? Data(contentsOf: file),
               let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return nil }
-        var out: [String: ExportedChat] = [:]
+        var out: [String: ExportedChat] = [:], shaped = false
         for c in list {
             guard let id = (c["uuid"] as? String)?.lowercased() else { continue }
+            shaped = shaped || c["chat_messages"] is [Any]
             out[id] = chat(c, id: id)
         }
-        return out
+        return (out, shaped || list.isEmpty)
     }
 
     private static func chat(_ c: [String: Any], id: String) -> ExportedChat {
@@ -233,8 +245,10 @@ enum ClaudeExport {
         try put(c.attachments, "attachments", suffix: ".txt")
     }
 
+    /// A name every disk takes: besides / and :, what FAT, exFAT and SMB shares refuse (? * < > | " \ and control
+    /// characters), so an export onto a USB stick or a network drive doesn't fail on a title like "Why?".
     static func safeName(_ s: String) -> String {
-        var t = s.replacingOccurrences(of: #"[/:\\\n\r\t]"#, with: "-", options: .regularExpression)
+        var t = s.replacingOccurrences(of: #"[/:\\?*<>|"\p{Cc}]"#, with: "-", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if t.hasPrefix(".") { t = "_" + t }
         if t.isEmpty { t = "untitled" }

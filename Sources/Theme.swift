@@ -49,6 +49,10 @@ enum Prefs {
         get { d.object(forKey: "HotKeyEnabled") as? Bool ?? true }
         set { d.set(newValue, forKey: "HotKeyEnabled") }
     }
+    /// macOS refused the shortcut when it was last registered (another app or a system shortcut has it): its error.
+    nonisolated(unsafe) static var hotKeyError: OSStatus?
+    /// The shortcut really works: switched on and taken by macOS. Everywhere it's offered goes by this.
+    static var hotKeyWorks: Bool { hotKeyEnabled && hotKeyError == nil }
 
     static var soundDone: String {
         get { d.string(forKey: "SoundDone") ?? "Glass" }
@@ -62,6 +66,11 @@ enum Prefs {
     static var quietWhenClaudeFront: Bool {
         get { d.object(forKey: "QuietWhenFront") as? Bool ?? true }
         set { d.set(newValue, forKey: "QuietWhenFront") }
+    }
+    /// No sound while you're looking at the ChatGPT app (off unless asked for).
+    static var quietWhenGPTFront: Bool {
+        get { d.bool(forKey: "QuietWhenGPTFront") }
+        set { d.set(newValue, forKey: "QuietWhenGPTFront") }
     }
     /// The map window's left column (width, or tucked away) and timeline.
     static var sideWidth: CGFloat {
@@ -80,6 +89,16 @@ enum Prefs {
     static var timelineHidden: Bool {
         get { d.bool(forKey: "TimelineHidden") }
         set { d.set(newValue, forKey: "TimelineHidden") }
+    }
+    /// The tag shelf at the foot of the left column: tucked away, and the height it was dragged to (0: as tall as its
+    /// tags need, up to about half the column).
+    static var tagsHidden: Bool {
+        get { d.bool(forKey: "TagsHidden") }
+        set { d.set(newValue, forKey: "TagsHidden") }
+    }
+    static var tagsHeight: CGFloat {
+        get { CGFloat(d.double(forKey: "TagsHeight")) }
+        set { d.set(Double(newValue), forKey: "TagsHeight") }
     }
     /// After the sound, say which chat it was ("Pricing plan is done"). Off until you turn it on:
     /// the names are spoken out loud.
@@ -157,6 +176,10 @@ enum Prefs {
 
 /// Neutral, low-saturation interface. Colour is kept for what *you* mark: branches and tags.
 enum Theme {
+    /// The ring round a picked item, on the map and in the left column alike: blue (clear of the orange "running" and
+    /// the red "unread" whatever the Mac's accent colour), paler while the keys go elsewhere.
+    static func pickRing(focused: Bool) -> NSColor { NSColor.systemBlue.withAlphaComponent(focused ? 1 : 0.5) }
+
     /// System Settings → Accessibility → Display, as set now: Increase Contrast draws grey text and lines stronger,
     /// Reduce Motion moves things on the map without sliding them. Kept up to date by `followDisplayOptions`.
     nonisolated(unsafe) static var moreContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast

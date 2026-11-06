@@ -231,10 +231,9 @@ final class TimelineView: NSView {
         text(head, Theme.ui(13, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
         hx += head.size(Theme.ui(13, .semibold)).width + 16
         if let (r, d) = TimelineView.upcoming(usage.routines).first {
-            // (a list not read for a while says when it's from: a task changed since isn't known)
-            let old = usage.routinesAt.flatMap { Date().timeIntervalSince($0) > 1800 ? $0 : nil }
+            // (a list from an earlier read says when it's from: a task changed since isn't known)
             let s = tr("下一个计划任务：", "Next scheduled task: ") + "\(r.name) · \(Clock.countdown(d))"
-                + (old.map { tr(" · \(UsageMonitor.stamp($0)) 时的列表", " · list as of \(UsageMonitor.stamp($0))") } ?? "")
+                + (usage.routinesAsOf.map { tr(" · \(UsageMonitor.stamp($0)) 时的列表", " · list as of \(UsageMonitor.stamp($0))") } ?? "")
             text(s, Theme.ui(12, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
             hx += s.size(Theme.ui(12, .semibold)).width + 16
         }
@@ -319,8 +318,8 @@ final class TimelineView: NSView {
             let typical = Self.dur(store.typicalRun(id))
             let tip = "\(store.name(id))\n\(est ? "≈ " : "")\(Self.hm(s)) – \(live ? tr("进行中", "running") : Self.hm(e)) (\(est ? "≈ " : "")\(Self.dur(e.timeIntervalSince(s))))"
                 + (unseen ? tr("\n之后没看到动静（在等你批准，还是一步做得久，不知道）", "\nNo activity seen since (waiting for you, or a long step: not known)") : "")
-                + (est ? tr("\n估算：这段 KIKUmap 没看到\n（两次看到它之间，或按你一次运行的常见时长 \(typical)）",
-                            "\nEstimated: KIKUmap didn't see this stretch\n(between two sightings, or your typical run of \(typical))") : "")
+                + (est ? tr("\n估算：这段 KIKUmap 没看到\n（两次看到它之间，或到已知的做完时刻；\n否则按你一次运行的常见时长 \(typical)）",
+                            "\nEstimated: KIKUmap didn't see this stretch\n(between two sightings or up to a known finish;\nelse your typical run of \(typical))") : "")
             hits.append((r, tip, { [weak self] in if self?.store.canOpen(id) == true { self?.onOpenChat?(id) } }))
         }
 
@@ -332,6 +331,16 @@ final class TimelineView: NSView {
             let r = NSRect(x: labelW + 10, y: y1 + 5, width: s.size(f).width + 4, height: 16)
             text(s, f, Theme.muted, at: NSPoint(x: r.minX, y: r.minY))
             hits.append((r, "", { [weak self] in self?.onTurnOnUsage?() }))
+        } else if let why = usage.routinesUnknown {
+            // on, but no list to go by and none can be read now: said, with why, not an empty lane (whole on hovering
+            // when a narrow strip cuts it short: in two lines, as in one it would be wider than a bubble gets)
+            let s = tr("计划任务没同步：", "Scheduled tasks not synced: ") + why
+            let f = Theme.ui(11, .medium)
+            let r = NSRect(x: labelW + 10, y: y1 + 5, width: min(s.size(f).width + 4, max(0, bounds.width - labelW - 22)), height: 16)
+            let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail
+            (s as NSString).draw(with: r, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                                 attributes: [.font: f, .foregroundColor: Theme.muted, .paragraphStyle: p])
+            if s.size(f).width + 4 > r.width { hits.append((r, tr("计划任务没同步", "Scheduled tasks not synced") + "\n" + why, {})) }
         }
         var lastLabelEnd: CGFloat = -1
         var marks: [(Date, String, Bool)] = []
@@ -457,7 +466,7 @@ final class TimelineView: NSView {
             text(s, smallB, Theme.paper, at: NSPoint(x: r.minX + 6, y: r.minY + 1))
         }
 
-        // hovering a run or a scheduled task: its name and times in a bubble
+        // hovering a run or a scheduled task: its name and times in a bubble (a note cut short: all of it)
         if let hp = hoverP, drag?.moved != true, let tip = hits.last(where: { $0.0.contains(hp) && !$0.1.isEmpty })?.1 {
             let lines = tip.components(separatedBy: "\n")
             let fonts = lines.indices.map { $0 == 0 ? smallB : small }
@@ -467,6 +476,10 @@ final class TimelineView: NSView {
             var r = NSRect(x: hp.x + 12, y: hp.y - h - 6, width: w, height: h)
             if r.maxX > bounds.width - 4 { r.origin.x = hp.x - 12 - w }
             if r.minY < 2 { r.origin.y = hp.y + 14 }
+            // never past the strip's edges: a wide bubble in a narrow strip (a small window at a large UI scale) would
+            // lose its start or its end
+            r.origin.x = max(2, min(r.origin.x, bounds.width - w - 2))
+            r.origin.y = max(2, min(r.origin.y, bounds.height - h - 2))
             NSGraphicsContext.current?.saveGraphicsState()
             let sh = NSShadow(); sh.shadowBlurRadius = 6; sh.shadowColor = NSColor.black.withAlphaComponent(0.25); sh.set()
             Theme.ink.setFill(); NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()

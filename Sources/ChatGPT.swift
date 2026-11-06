@@ -5,7 +5,7 @@ import SQLite3
 // (title, archived, last change), a log per thread whose last "task started / complete" line says
 // whether it's working and whose answers carry the plan limits, and the window state with its pins
 // and unread dots. Ordinary chats pinned in the app (its ChatGPT side, kept online) come from the window state
-// too, with no status: running and unread aren't kept on this Mac for them. KIKUmap only reads them; nothing is
+// too, without status: running and unread aren't kept on this Mac for them (GPTSidebar reads them off its window). KIKUmap only reads them; nothing is
 // changed or sent anywhere.
 
 struct GPTThread {
@@ -30,7 +30,7 @@ struct GPTThread {
     var quiet = false
     /// When its task log was last written.
     var lastActive: Date? = nil
-    /// An ordinary ChatGPT chat pinned in the app, not a Codex thread: no status, and no time of its own.
+    /// An ordinary ChatGPT chat pinned in the app, not a Codex thread: no status here (see GPTSidebar), no time of its own.
     var isChat: Bool { id.hasPrefix("chat-") }
     /// Started by a script (`codex exec`, the Codex SDK, Codex as an MCP server), not by someone at the keyboard.
     var scripted = false
@@ -763,4 +763,65 @@ final class GPTWatcher {
 
     /// A small "GPT" tag that marks ChatGPT threads, as "Claude" marks the Claude app's.
     static func mark(_ color: NSColor, height: CGFloat = 12) -> NSImage { Theme.appTag("GPT", color, height: height) }
+}
+
+/// The ChatGPT window's layout, for working out whether it shows when an ordinary chat is working or done (that's
+/// kept nowhere on this Mac but in the window). Every text is left out: a pinned chat's name is "=pinN", a text with a
+/// word that can say working or done keeps just that word, any other text is only its length; a link is only its kind.
+enum GPTWindow {
+    private static let statusWords = ["loading", "generating", "thinking", "running", "working", "in progress", "stop", "unread",
+                                      "spinner", "spin", "progress", "busy", "pending", "streaming", "done", "complete", "finished",
+                                      "生成", "思考", "运行", "加载", "未读", "停止", "完成", "进行"]
+
+    private static func norm(_ s: String) -> String { s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ") }
+
+    private static func text(_ s: String, _ pins: [String]) -> String {
+        let t = norm(s)
+        if let k = pins.firstIndex(of: t) { return "=pin\(k + 1)" }
+        let low = t.lowercased()
+        let hits = statusWords.filter { low.contains($0) }
+        return hits.isEmpty ? "#\(t.count)" : "~" + hits.joined(separator: "~") + "#\(t.count)"
+    }
+
+    /// A link's kind only, and only for ChatGPT's own ("https://chatgpt.com/c/…", "codex://threads/…"), never what
+    /// follows; any other is just "link" (one in a chat: its site, page or file can say what the chat is about).
+    private static func link(_ s: String) -> String {
+        AXScan.linkKind(s, hosts: ["chatgpt.com", "chat.openai.com"], kinds: ["c", "g"], scheme: "codex")
+    }
+
+    nonisolated static func layout(pid: pid_t, pinned: [String]) -> String {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 2.0)
+        // (an Electron app builds its accessibility tree only once asked, and takes a moment to)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        Thread.sleep(forTimeInterval: 1.0)
+        let pins = pinned.map(norm)
+        var lines = ["# ChatGPT window layout \(Clock.iso()) · \(pins.count) ordinary chats known (pinned or not)",
+                     "# role/subrole · texts: =pinN a pinned chat's name, ~word a status word, #n a text's length · url= a ChatGPT link's kind, or just link · .classes · [actions]"]
+        let windows = AXScan.list(AXScan.attr(app, "AXWindows"))
+        if windows.isEmpty { lines.append("# no window: open ChatGPT's window and write the report again") }
+        for w in windows {
+            var stack: [(AXUIElement, Int)] = [(w, 0)], visited = 0
+            while let (el, d) = stack.popLast(), visited < 8000 {
+                visited += 1
+                var line = String(repeating: " ", count: min(d, 60)) + AXScan.str(el, "AXRole") + "/" + AXScan.str(el, "AXSubrole")
+                for k in ["AXTitle", "AXDescription", "AXValue", "AXHelp"] {
+                    let t = AXScan.str(el, k)
+                    if !t.isEmpty { line += " \(k.dropFirst(2))" + text(t, pins) }
+                }
+                let url = AXScan.str(el, "AXURL")
+                if !url.isEmpty { line += " url=" + link(url) }
+                if let classes = AXScan.attr(el, "AXDOMClassList") as? [String], !classes.isEmpty {
+                    line += " ." + classes.prefix(8).joined(separator: ".")
+                }
+                var names: CFArray?
+                _ = AXUIElementCopyActionNames(el, &names)
+                let acts = (names as? [String] ?? []).filter { $0 == "AXPress" || $0 == "AXShowMenu" }
+                if !acts.isEmpty { line += " [" + acts.joined(separator: ",") + "]" }
+                lines.append(line)
+                if d < 60 { for c in AXScan.children(el).reversed() { stack.append((c, d + 1)) } }
+            }
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
 }

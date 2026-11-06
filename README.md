@@ -59,7 +59,7 @@ Chats pinned in Claude and in the ChatGPT app, plus Claude Code sessions, line u
 <td>
 
 ### 3. Colours, shapes and tags
-Give a topic a colour and a shape. Tag chats, and click a tag to highlight every chat that has it.
+Give a topic a colour and a shape. Tag chats, and click a tag to highlight every chat that has it. Drag the top edge of the tags to make them taller or shorter, or tuck them away (⌃⌘G). In a short window zoomed in, they step aside until there's room: make the window taller or press ⌘-.
 
 </td>
 </tr>
@@ -157,7 +157,7 @@ open Install.command
 ## Privacy
 
 - Everything stays on the Mac, in `~/Library/Application Support/ClaudeConsole/`.
-- One permission is required: **Accessibility**, to read the Claude app's chat list. Every permission is explained before macOS asks.
+- One permission is required: **Accessibility**, to read the chat lists in the Claude and ChatGPT windows. Every permission is explained before macOS asks.
 - No network requests, except the optional usage lookups (off by default) to Anthropic and OpenAI. Those read the sign-ins Claude Code and Codex already keep on the Mac, and never save them. Neither company has said apps may do this, so these lookups could be blocked.
 
 <details>
@@ -169,11 +169,14 @@ open Install.command
 | Approval requests and finished Cowork tasks, also with Claude's window closed (optional) | Claude's notifications in Notification Center | Full Disk Access |
 | Claude Code sessions | Claude Code hooks in `~/.claude/settings.json` (backed up first) | none |
 | ChatGPT chats | The ChatGPT app's files in `~/.codex` (read-only) | none |
+| Running, done and unread for ordinary ChatGPT chats (not Codex) | The sidebar in ChatGPT's window, while part of the window can be seen | Accessibility |
 | Desktop widget | One file KIKUmap writes for it (`widget.json`) | none |
 | Claude usage and scheduled tasks (optional) | Anthropic's usage API, with Claude Code's sign-in | Keychain |
 | ChatGPT usage (optional, experimental) | OpenAI's usage interface, with Codex's sign-in | none |
 
-Not shown: unpinned chats, running and unread for ChatGPT chats other than Codex ones (the app doesn't keep that on the Mac), and anything running on another computer, a server or in the cloud.
+ChatGPT: Codex chats are supported best (read from the app's files, right even with its window closed). Ordinary chats are supported less well: they're read off ChatGPT's window, only while part of it shows.
+
+Not shown: unpinned chats, and anything running on another computer, a server or in the cloud.
 </details>
 
 <details>
@@ -184,7 +187,7 @@ Not shown: unpinned chats, running and unread for ChatGPT chats other than Codex
 | ⇥ / ⌥⇥ | new child / new parent topic |
 | ⏎ / ⌥⏎ / ⇧⏎ | new sibling below / above / new main topic |
 | ⌘⏎, double-click | rename |
-| ⌫ | delete (pinned chats go back to the left column) |
+| ⌫ / ⌥⌫ | delete (pinned chats stay in the left column) / delete just the topic, keeping its items (also with several selected) |
 | ⌥. | fold / unfold |
 | ↑ ↓ ← → | select the nearest item that way |
 | ⌥↑ ⌥↓ / ⌥← ⌥→ | move up or down / move a level |
@@ -192,7 +195,9 @@ Not shown: unpinned chats, running and unread for ChatGPT chats other than Codex
 | ⌘↑ | up to the topic it's in |
 | drag on empty space, ⇧/⌘-click | select several |
 | hold space, two-finger swipe | move around the map |
-| ⌃⌘S / ⌃⌘T | left column / timeline |
+| ⌃⌘S / ⌃⌘G / ⌃⌘T | left column / tags / timeline |
+| ↑ ↓ in the left column | pick the row above or below (the map selects its chat too) |
+| ⏎, space in the left column | open the chat in its app |
 | ⌘Y | statistics |
 | ⌘R | refresh |
 | ⌘Z / ⇧⌘Z | undo / redo |
@@ -200,7 +205,7 @@ Not shown: unpinned chats, running and unread for ChatGPT chats other than Codex
 | ⌘E / ⇧⌘E | map as PDF / export chats |
 | ⇧⌘U | mark unread / read |
 | ⌘+ / ⌘- / pinch / ⌘0 | bigger / smaller / zoom / fit |
-| ⌃⌥C (changeable) | show or hide the map from anywhere |
+| ⌃⌥C (changeable, but not to KIKUmap's own ⌃⌘S / ⌃⌘G / ⌃⌘T / ⌥⌘H) | show or hide the map from anywhere |
 </details>
 
 ## FAQ
@@ -220,7 +225,7 @@ Notarizing needs a paid Apple developer account, and KIKUmap is free. Building f
 <details>
 <summary><b>Claude's window is closed. What happens?</b></summary>
 
-⌘W only hides it. KIKUmap reads Claude's chats from the window, so it can't see them until the window is back on the current desktop; meanwhile running chats show "running?". Claude Code and ChatGPT aren't affected.
+⌘W only hides it. KIKUmap reads Claude's chats from the window, so it can't see them until the window is back on the current desktop; meanwhile running chats show "running?". Claude Code and Codex chats aren't affected. ChatGPT's ordinary chats are read from ChatGPT's window the same way, while part of it can be seen.
 </details>
 
 <details>

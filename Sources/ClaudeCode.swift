@@ -79,9 +79,65 @@ enum CodeHooks {
         return nil
     }
 
+    /// One hook that runs our script: as this version calls it, or an older KIKUmap (maybe from another path).
+    private static func isOurs(_ hook: Any) -> Bool {
+        ((hook as? [String: Any])?["command"] as? String)?.contains(marker) == true
+    }
+
+    /// A group (a matcher and its hooks) with ours in it, maybe next to yours: Claude Code files a hook you add into
+    /// the group with the same matcher (ours have none, PostToolUse's is "*"), and you may have put one there.
     private static func ours(_ entry: Any) -> Bool {
-        guard let e = entry as? [String: Any], let hs = e["hooks"] as? [[String: Any]] else { return false }
-        return hs.contains { ($0["command"] as? String)?.contains(marker) == true }
+        ((entry as? [String: Any])?["hooks"] as? [Any])?.contains(where: isOurs) == true
+    }
+
+    /// An event's groups with our hooks taken out: yours stay as they are, a group goes only if ours were all it held.
+    private static func withoutOurs(_ list: [Any]) -> [Any] {
+        list.compactMap { entry in
+            guard ours(entry), var e = entry as? [String: Any], let hs = e["hooks"] as? [Any] else { return entry }
+            let rest = hs.filter { !isOurs($0) }
+            if rest.isEmpty { return nil }
+            e["hooks"] = rest
+            return e
+        }
+    }
+
+    /// Ours in an event's list just as this version writes it: one copy, today's command, in a group that runs it
+    /// every time (no matcher, "" or "*").
+    private static func upToDate(_ list: [Any]) -> Bool {
+        var n = 0
+        for case let e as [String: Any] in list where ours(e) {
+            let m = e["matcher"] == nil ? "" : e["matcher"] as? String
+            for h in e["hooks"] as? [Any] ?? [] where isOurs(h) {
+                guard m == "" || m == "*", (h as? [String: Any])?["command"] as? String == command else { return false }
+                n += 1
+            }
+        }
+        return n == 1
+    }
+
+    /// settings.json's "hooks" with ours put in where missing or out of date. Yours stay as they are, also in a group
+    /// with ours: an up-to-date hook of ours is left where it is.
+    private static func adding(to hooks: [String: Any]) -> [String: Any] {
+        var hooks = hooks
+        for ev in events {
+            let list = hooks[ev] as? [Any] ?? []
+            if upToDate(list) { continue }
+            var entry: [String: Any] = ["hooks": [["type": "command", "command": command]]]
+            if ev == "PostToolUse" { entry["matcher"] = "*" }
+            hooks[ev] = withoutOurs(list) + [entry]
+        }
+        return hooks
+    }
+
+    /// settings.json's "hooks" without ours; yours stay, also in a group that held ours too.
+    private static func removing(from hooks: [String: Any]) -> [String: Any] {
+        var hooks = hooks
+        for ev in events {
+            guard let list = hooks[ev] as? [Any], list.contains(where: ours) else { continue }
+            let rest = withoutOurs(list)
+            hooks[ev] = rest.isEmpty ? nil : rest
+        }
+        return hooks
     }
 
     static var installed: Bool {
@@ -96,7 +152,8 @@ enum CodeHooks {
         guard installed else { return }
         let current = (try? String(contentsOf: script, encoding: .utf8)) == scriptText
         let hooks = settingsObject()?["hooks"] as? [String: Any] ?? [:]
-        let complete = events.allSatisfy { ((hooks[$0] as? [Any]) ?? []).contains(where: ours) }
+        // ours as install() writes them (one missing, or an older path, say from a Mac moved over); yours don't count
+        let complete = NSDictionary(dictionary: adding(to: hooks)).isEqual(to: hooks)
         if !current || !complete { _ = install() }
     }
 
@@ -142,7 +199,8 @@ enum CodeHooks {
         return nil
     }
 
-    /// Adds our entries next to whatever hooks you already have. Returns an error message, or nil.
+    /// Adds our entries next to whatever hooks you already have (never touching yours, also in a group with ours).
+    /// Returns an error message, or nil.
     static func install() -> String? {
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -166,26 +224,17 @@ enum CodeHooks {
             return tr("~/.claude/settings.json 不是有效的 JSON，没有改动它。", "~/.claude/settings.json isn't valid JSON, so it was left alone.")
         }
         let before = s["hooks"] as? [String: Any] ?? [:]
-        var hooks = before
-        for ev in events {
-            var list = (hooks[ev] as? [Any] ?? []).filter { !ours($0) }
-            var entry: [String: Any] = ["hooks": [["type": "command", "command": command]]]
-            if ev == "PostToolUse" { entry["matcher"] = "*" }
-            list.append(entry)
-            hooks[ev] = list
-        }
+        let hooks = adding(to: before)
         if NSDictionary(dictionary: hooks).isEqual(to: before) { return nil }        // already as it should be
         s["hooks"] = hooks
         return write(s)
     }
 
+    /// Takes out only our hooks: yours stay, also one Claude Code or you put in a group with ours.
     static func uninstall() -> String? {
-        guard var s = settingsObject() else { return nil }
-        guard var hooks = s["hooks"] as? [String: Any] else { return nil }
-        for ev in events {
-            let list = (hooks[ev] as? [Any] ?? []).filter { !ours($0) }
-            hooks[ev] = list.isEmpty ? nil : list
-        }
+        guard var s = settingsObject(), let before = s["hooks"] as? [String: Any] else { return nil }
+        let hooks = removing(from: before)
+        if NSDictionary(dictionary: hooks).isEqual(to: before) { return nil }        // none of ours there
         s["hooks"] = hooks.isEmpty ? nil : hooks
         return write(s)
     }

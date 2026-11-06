@@ -20,6 +20,12 @@ final class Archive {
         /// The folder each chat's own files (prompts, conversation, artifacts, attachments) were last put in (a full
         /// path: it says which export folder too). They follow the chat when it's filed elsewhere.
         var files: [String: String] = [:]
+        /// Chats whose files couldn't be written from the zip last read (a full disk, a folder still another chat's),
+        /// when that was, and how many runs in a row from that zip left some unwritten: they're tried again from it by
+        /// themselves an hour on, then each time twice as long after (see fromZip).
+        var zipMissed: [String] = []
+        var zipTriedAt: Double?
+        var zipTries = 0
 
         init() {}
         /// A part that's missing (an older or newer file) reads as empty; one that's there but unreadable fails the file.
@@ -30,6 +36,9 @@ final class Archive {
             zipDone = try c.decodeIfPresent(String.self, forKey: .zipDone)
             zipDoneAt = try c.decodeIfPresent(Double.self, forKey: .zipDoneAt)
             files = try c.decodeIfPresent([String: String].self, forKey: .files) ?? [:]
+            zipMissed = try c.decodeIfPresent([String].self, forKey: .zipMissed) ?? []
+            zipTriedAt = try c.decodeIfPresent(Double.self, forKey: .zipTriedAt)
+            zipTries = try c.decodeIfPresent(Int.self, forKey: .zipTries) ?? 0
         }
     }
     /// One chat to export and the folder it goes in.
@@ -37,6 +46,12 @@ final class Archive {
 
     let store: Store
     var pid: () -> pid_t = { 0 }
+    /// Accessibility is on (a test stands in for it).
+    var trusted: () -> Bool = { AXIsProcessTrusted() }
+    /// Seconds since your last keyboard or mouse input (a test stands in for it).
+    var idle: () -> Double = { Archive.idleSeconds() }
+    /// Claude's window can be worked now: the app is open and Accessibility is on.
+    var canDrive: Bool { pid() != 0 && trusted() }
     var onChange: (() -> Void)?
     private var state = State()
     private let stop = StopFlag()
@@ -176,6 +191,25 @@ final class Archive {
         get { d.object(forKey: "ExportFiles") == nil ? true : d.bool(forKey: "ExportFiles") }
         set { d.set(newValue, forKey: "ExportFiles") }
     }
+    /// You said yes to Claude writing the summaries on the schedule too, while you're away (asked when an export starts
+    /// with automatic updates on): without it the schedule brings only the files up to date. Unticking "Keep it
+    /// updated" or memory takes it back at once.
+    static var autoMemoryAgreed: Bool {
+        get { d.bool(forKey: "ArchiveAutoMemoryAgreed") }
+        set { d.set(newValue, forKey: "ArchiveAutoMemoryAgreed") }
+    }
+    /// What the export window saves when an export starts, as it's saved now: put back when the export isn't started
+    /// after all. ("Keep it updated" isn't one: it's on or off as soon as it's ticked.)
+    private static let choiceKeys = ["ExportTopics", "ExportKnownTopics", "ExportUnplaced", "ExportMemory", "ExportFiles",
+                                     "ArchiveEveryDays", "ArchiveFolder", "ArchivePreviousFolder"]
+    static func savedChoices() -> [String: Any] {
+        var out: [String: Any] = [:]
+        for k in choiceKeys { if let v = d.object(forKey: k) { out[k] = v } }
+        return out
+    }
+    static func restoreChoices(_ saved: [String: Any]) {
+        for k in choiceKeys { if let v = saved[k] { d.set(v, forKey: k) } else { d.removeObject(forKey: k) } }
+    }
     static var lastRun: Date? {
         get { let t = d.double(forKey: "ArchiveLastRun"); return t > 0 ? Date(timeIntervalSince1970: t) : nil }
         set { d.set(newValue?.timeIntervalSince1970 ?? 0, forKey: "ArchiveLastRun") }
@@ -255,12 +289,29 @@ final class Archive {
                zip: zip, force: false, scheduled: scheduled)
     }
 
-    /// Right-click → archive one chat: just its summary, always.
-    func runOne(_ id: String) {
+    /// Right-click → archive one chat: just its summary, asked whatever the chat shows (unread, nothing new since the
+    /// last one). Not one that's running, which isn't opened at all (`notNow` says why): false, nothing done.
+    @discardableResult
+    func runOne(_ id: String) -> Bool {
+        guard notNow(id) == nil else { return false }
         guard let it = items(topics: nil, unplaced: true).first(where: { $0.id == id }) ?? store.chat(id).map({
             Item(id: id, title: $0.title, dir: Archive.folder.appendingPathComponent(Archive.named("未归类", "Unfiled", in: Archive.folder)).appendingPathComponent(ClaudeExport.safeName(store.name(id))), outsideClaude: $0.outsideClaude)
-        }) else { return }
+        }) else { return false }
         export([it], memory: true, zip: nil, force: true, scheduled: false)
+        return true
+    }
+
+    /// Why one chat can't be archived by right-click now: it's running (or was, when KIKUmap last saw it), and asking
+    /// in it would mean opening it while Claude may still be replying. Nil: it can be.
+    func notNow(_ id: String) -> (title: String, text: String)? {
+        guard store.isRunning(id) else { return nil }
+        if store.outOfSight(id) {
+            return (tr("这个对话可能还在跑", "This chat may still be running"),
+                    tr("KIKUmap 上次看到时它还在跑，现在做完没有还不知道。等它做完、KIKUmap 又看得到 Claude 的对话列表时再存档。",
+                       "It was running when KIKUmap last saw it, and whether it has finished isn't known yet. Archive it once it's done and KIKUmap can see Claude's chat list again."))
+        }
+        return (tr("这个对话还在跑", "This chat is still running"),
+                tr("等它做完再存档：Claude 还在回复时，KIKUmap 不会打开它。", "Archive it once it's finished: KIKUmap doesn't open a chat while Claude is still replying in it."))
     }
 
     func cancel() { stop.set(true) }
@@ -270,16 +321,52 @@ final class Archive {
     func tick() {
         retrySave()
         guard Archive.auto, !busy, !recovering else { return }
-        if Archive.withFiles, let z = ClaudeExport.newestZip(), zipKey(z) != state.zipDone,
-           ClaudeExport.modified(z).timeIntervalSince1970 > (state.zipDoneAt ?? 0) {
-            export(items(topics: Archive.topics, unplaced: Archive.withUnplaced), memory: false, zip: z, force: false, scheduled: true)
+        if Archive.withFiles, let z = ClaudeExport.newestZip(), let todo = fromZip(z) {
+            export(todo, memory: false, zip: z, force: false, scheduled: true)
             return
         }
-        guard Archive.withMemory, pid() != 0, AXIsProcessTrusted() else { return }
+        // Claude writes in your chats on the schedule only with the yes you gave for that when the export started
+        guard Archive.withMemory, Archive.autoMemoryAgreed, canDrive else { return }
         let due = (Archive.lastRun.map { Date().timeIntervalSince($0) } ?? .infinity) >= Double(Archive.everyDays) * 86400 - 600
         // away: no input for 10 minutes, and nothing keeping the screen on (a video, a call, a presentation)
-        guard due, Archive.idleSeconds() >= 600, !Archive.screenKeptOn() else { return }
+        guard due, idle() >= 600, !Archive.screenKeptOn() else { return }
         exportSaved(scheduled: true, memory: true)
+    }
+
+    /// The zip whose being Claude's was last looked into (once is enough).
+    private var checkedDone: String?
+
+    /// How many times the chats a zip couldn't write are tried again from it by themselves.
+    static let zipRetries = 5
+
+    /// What Claude's export zip in Downloads brings now: every chat when it's a new one; a while after a run that
+    /// couldn't write some chats' files from it (an hour, then twice as long each time, five times), those chats again;
+    /// else nothing (nil).
+    private func fromZip(_ z: URL) -> [Item]? {
+        let at = ClaudeExport.modified(z).timeIntervalSince1970
+        // an older KIKUmap took another app's export (ChatGPT's) for Claude's: that's forgotten, so Claude's own applies
+        if at < (state.zipDoneAt ?? 0), let done = state.zipDone, done != checkedDone, let bar = done.range(of: "|", options: .backwards) {
+            checkedDone = done
+            let other = URL(fileURLWithPath: String(done[..<bar.lowerBound]))
+            if FileManager.default.fileExists(atPath: other.path), !ClaudeExport.isClaude(other) {
+                state.zipDone = nil; state.zipDoneAt = nil; state.zipMissed = []; state.zipTries = 0
+                saveState()
+            }
+        }
+        if zipKey(z) != state.zipDone {
+            return at > (state.zipDoneAt ?? 0) ? items(topics: Archive.topics, unplaced: Archive.withUnplaced) : nil
+        }
+        // one that can never be written (a file where its folder goes, a name the disk refuses) doesn't have the whole
+        // zip read again every hour for ever: an hour, then 2, 4, 8 and 16 after each run that still left it, and that's
+        // all (they're still counted, and tried, by the next export that reads this zip, or by a new zip)
+        let tries = max(state.zipTries, 1)
+        guard !state.zipMissed.isEmpty, tries <= Archive.zipRetries,
+              Date().timeIntervalSince1970 - (state.zipTriedAt ?? 0) >= 3600 * Double(1 << (tries - 1)) else { return nil }
+        let again = items(topics: Archive.topics, unplaced: Archive.withUnplaced).filter { state.zipMissed.contains($0.id) }
+        // (none of them is among the chosen chats any more)
+        if again.isEmpty { state.zipMissed = []; saveState(); return nil }
+        // the zip is read again only when one may get through now: one whose folder is still another chat's wouldn't
+        return again.contains { !taken($0.dir, by: $0.id) } ? again : nil
     }
 
     private func zipKey(_ z: URL) -> String { z.path + "|" + String(Int(ClaudeExport.modified(z).timeIntervalSince1970)) }
@@ -298,6 +385,9 @@ final class Archive {
 
     func export(_ list: [Item], memory: Bool, zip: URL?, force: Bool, scheduled: Bool) {
         guard !busy else { return }
+        // when the run began (a scheduled one: just after tick() saw 10 minutes without input), so any input from here
+        // on is yours, while the zip is read too, before Claude's window is touched
+        let began = Date()
         // an external or network disk that isn't connected: nothing is asked of Claude (and it's tried again later)
         guard Archive.reachable(Archive.folder) else {
             let why = tr("导出文件夹现在打不开（外接盘或网络盘没接上？）", "The export folder can't be reached (a disk not connected?)")
@@ -308,7 +398,7 @@ final class Archive {
             return
         }
         let p = pid()
-        let canDrive = p != 0 && AXIsProcessTrusted()
+        let canDrive = self.canDrive
         if memory && !canDrive && zip == nil {
             Permissions.alert(tr("没法写总结", "Can't write summaries"),
                               tr("要先打开 Claude App，并开启「辅助功能」权限。", "Open the Claude app and turn on Accessibility first."))
@@ -327,34 +417,55 @@ final class Archive {
         let done = state.summaries.mapValues { $0.date }
         let prompt = Archive.summaryPrompt
         let stop = self.stop
+        let idle = self.idle
         log("\(Clock.iso()) export · \(list.count) chats · memory \(memory) · zip \(zip?.lastPathComponent ?? "-")\(scheduled ? " · scheduled" : "")")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             func say(_ s: String) { DispatchQueue.main.async { MainActor.assumeIsolated { self?.progress = s; self?.onChange?() } } }
+            // (chats by id: their titles, and folders named after them, stay out of the log)
             func log(_ s: String) { DispatchQueue.main.async { MainActor.assumeIsolated { self?.log(s) } } }
             var r = Report()
+            // summaries asked for, but Claude can't be worked now (closed, or Accessibility off): said in the result
+            r.noClaude = memory && !canDrive
             // 1. prompts, conversation and artifacts from Claude's export
             if let z = zip {
                 say(tr("读取 Claude 导出包…", "Reading the Claude export…"))
-                if let all = ClaudeExport.load(z) {
-                    let byName = Dictionary(all.values.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
-                    var wrote: [Item] = []
+                let loaded = ClaudeExport.load(z)
+                if let all = loaded, all.claude {
+                    r.zipRead = true
+                    let byName = Dictionary(all.chats.values.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+                    // (those not written are tried again from this zip later)
+                    var wrote: [Item] = [], missed: [Item] = []
                     for it in list where !it.outsideClaude {
-                        if blocked.contains(it.id) { log("  \(it.title): " + tr("文件夹里还有另一个同名对话的东西，这次没写", "its folder still holds another chat's things (same name): not written this time")); continue }
+                        if blocked.contains(it.id) {
+                            r.blocked.insert(it.id); missed.append(it)
+                            log("  \(it.id): " + tr("文件夹里还有另一个同名对话的东西，这次没写", "its folder still holds another chat's things (same name): not written this time"))
+                            continue
+                        }
                         // by address; by name only for a chat known by its title alone (another may share it)
-                        guard let c = all[it.id.lowercased()] ?? (Archive.isAddress(it.id) ? nil : byName[it.title]) else { r.notInZip += 1; continue }
+                        guard let c = all.chats[it.id.lowercased()] ?? (Archive.isAddress(it.id) ? nil : byName[it.title]) else { r.notInZip += 1; continue }
                         do { try ClaudeExport.write(c, title: it.title, to: it.dir); r.files += 1; r.artifacts += c.artifacts.count; wrote.append(it) }
-                        catch { log("  \(it.title): \(error.localizedDescription)") }
+                        catch { r.filesFailed += 1; missed.append(it); log("  \(it.id): " + tr("文件没写成：", "files not written: ") + Archive.reason(error)) }
                     }
-                    let written = wrote
-                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.markZip(z, wrote: written) } }
+                    let written = wrote, left = missed
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.markZip(z, wrote: written, missed: left) } }
+                } else if loaded != nil {
+                    // another app's export (ChatGPT's has a conversations.json too): not used, and not taken as read
+                    r.notClaude = true
+                    log(tr("  不是 Claude 的导出包：", "  not Claude's export: ") + z.lastPathComponent)
                 } else {
                     r.zipFailed = true
                     log(tr("  导出包读不了：", "  can't read the export: ") + z.path)
                 }
             }
             // 2. the hand-off summaries, written by Claude in each chat
-            if memory && canDrive {
-                let d = ClaudeDriver(pid: p, stop: stop, log: log)
+            summaries: if memory && canDrive {
+                let d = ClaudeDriver(pid: p, stop: stop, log: log, since: began)
+                // a scheduled run goes while you're away: once you're back (any input since it began) it works Claude's
+                // window no more
+                d.whileAway = scheduled
+                d.idle = idle
+                // back already, while the zip was read, say: Claude's window and the clipboard aren't touched at all
+                if d.youCameBack() { r.cutShort = true; break summaries }
                 let clip = d.saveClipboard()
                 let back = d.pageTitle(), backID = d.chatID()
                 let todo = list.filter { !$0.outsideClaude }
@@ -362,17 +473,17 @@ final class Archive {
                 // a run over the chosen topics restarts the schedule; one chat archived by right-click leaves it as it was
                 r.summariesRan = !force
                 chats: for (n, it) in todo.enumerated() {
-                    if stop.isSet || (scheduled && Archive.idleSeconds() < 3 && n > 0) { r.cutShort = scheduled && !stop.isSet; break }
+                    if stop.isSet || d.youCameBack() { r.cutShort = !stop.isSet; break }
                     if skip.contains(it.id) { r.skipped += 1; continue }
                     // its folder still holds another chat's things: a summary couldn't be saved there, so none is asked
-                    if blocked.contains(it.id) { r.blocked += 1; log(tr("  文件夹里还有另一个同名对话的东西，这次跳过", "  its folder still holds another chat's things (same name): skipped this time")); continue }
+                    if blocked.contains(it.id) { r.blocked.insert(it.id); log("  \(it.id): " + tr("文件夹里还有另一个同名对话的东西，这次跳过", "its folder still holds another chat's things (same name): skipped this time")); continue }
                     // nothing new since the last summary (the app saw no activity)
                     if !force, let when = done[it.id], let u = updated[it.id], !u.isEmpty, u <= when {
                         DispatchQueue.main.sync { MainActor.assumeIsolated { self?.bringSummary(it) } }
                         r.skipped += 1; continue
                     }
                     say("\(n + 1)/\(todo.count) · \(it.title)")
-                    log("— \(it.title)")
+                    log("— \(it.id)")
                     switch d.summarize(id: it.id, title: it.title, prompt: prompt, lastCount: force ? nil : counts[it.id]) {
                     case .done(let text, let count):
                         misses = 0
@@ -387,6 +498,9 @@ final class Archive {
                         // twice in a row: it's Claude's page, not this chat; the rest would only fail the same way
                         misses += 1
                         if misses >= 2 { r.unreadable = true; break chats }
+                    case .away:
+                        // nothing was sent there: it's done when the Mac is idle again
+                        r.cutShort = true; break chats
                     }
                 }
                 if !stop.isSet { if let b = backID { _ = d.open(id: b, title: back) } else if !back.isEmpty { _ = d.open(title: back) } }
@@ -397,15 +511,29 @@ final class Archive {
     }
 
     private struct Report {
-        var files = 0, artifacts = 0, notInZip = 0, memory = 0, skipped = 0, failed = 0, blocked = 0
+        var files = 0, artifacts = 0, notInZip = 0, memory = 0, skipped = 0, failed = 0
+        /// Chats whose files couldn't be written from the zip (a full disk, a name the disk refuses).
+        var filesFailed = 0
+        /// Chats whose folder still holds another chat's things (counted once, files and summary alike).
+        var blocked = Set<String>()
         var zipFailed = false, unreadable = false, summariesRan = false
+        /// The zip is another app's export, not Claude's.
+        var notClaude = false
+        /// Summaries were asked for, but Claude couldn't be worked (closed, or Accessibility off).
+        var noClaude = false
         /// A scheduled run that stopped because you came back: it carries on when the Mac is idle again.
         var cutShort = false
+        /// Claude's export zip was read (its chats' files written, or tried).
+        var zipRead = false
     }
 
-    private func markZip(_ z: URL, wrote: [Item]) {
+    private func markZip(_ z: URL, wrote: [Item], missed: [Item]) {
+        // runs in a row from this zip that left some chats unwritten (each retry waits twice as long as the one before)
+        state.zipTries = missed.isEmpty ? 0 : (state.zipDone == zipKey(z) ? state.zipTries : 0) + 1
         state.zipDone = zipKey(z)
         state.zipDoneAt = max(state.zipDoneAt ?? 0, ClaudeExport.modified(z).timeIntervalSince1970)
+        state.zipMissed = missed.map { current($0).id }
+        state.zipTriedAt = Date().timeIntervalSince1970
         for it in wrote.map(current) { state.files[it.id] = it.dir.path }
         saveState()
     }
@@ -452,6 +580,7 @@ final class Archive {
             changed = true
         }
         if let f = state.files.removeValue(forKey: old) { if state.files[new] == nil { state.files[new] = f }; changed = true }
+        if let i = state.zipMissed.firstIndex(of: old) { state.zipMissed[i] = new; changed = true }
         for (k, v) in state.imported where v == old { state.imported[k] = new; changed = true }
         if changed { saveState() }
     }
@@ -496,7 +625,7 @@ final class Archive {
         if Archive.summaryID(mine) == it.id { state.summaries[it.id]?.file = relative(mine) }
         if Archive.hasRest(it.dir) { state.files[it.id] = it.dir.path }
         saveState()
-        log(tr("  文件夹跟过去了：", "  its folder followed it: ") + relative(it.dir))
+        log("  \(it.id): " + tr("文件夹跟过去了", "its folder followed it"))
         return true
     }
 
@@ -521,12 +650,19 @@ final class Archive {
         if !r.cutShort && r.summariesRan { Archive.lastRun = Date() }
         var parts: [String] = []
         if r.files > 0 { parts.append(tr("\(r.files) 个对话的提示词和全文，\(r.artifacts) 个 artifact", "\(r.files) chats' prompts and text, \(r.artifacts) artifacts")) }
+        if r.filesFailed > 0 { parts.append(tr("\(r.filesFailed) 个对话的文件没写成（看 logs/archive.log）", "\(r.filesFailed) chats' files couldn't be written (see logs/archive.log)")) }
         if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", "\(r.memory) summaries")) }
+        if r.noClaude { parts.append(tr("总结没写：Claude App 没打开，或「辅助功能」关着", "summaries not written: the Claude app isn't open, or Accessibility is off")) }
         if r.skipped > 0 { parts.append(tr("\(r.skipped) 个跳过（没变化、未读或在跑）", "\(r.skipped) skipped (unchanged, unread or running)")) }
-        if r.blocked > 0 { parts.append(tr("\(r.blocked) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked) not written (their folder still holds another chat's things)")) }
+        if !r.blocked.isEmpty { parts.append(tr("\(r.blocked.count) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked.count) not written (their folder still holds another chat's things)")) }
+        // (the last retry from this zip still left them: as they aren't tried on their own again, that's said too)
+        if r.zipRead && (r.filesFailed > 0 || !r.blocked.isEmpty) && state.zipTries > Archive.zipRetries {
+            parts.append(tr("这些不再单独重试；下次导出或有新的导出包时再试", "these aren't retried on their own any more: the next export, or a new export zip, tries them again"))
+        }
         if r.notInZip > 0 { parts.append(tr("\(r.notInZip) 个不在导出包里（导出包比对话旧？）", "\(r.notInZip) not in the export zip (older than the chat?)")) }
         if r.failed > 0 { parts.append(tr("\(r.failed) 个失败（看 logs/archive.log）", "\(r.failed) failed (see logs/archive.log)")) }
         if r.zipFailed { parts.append(tr("导出包读不了", "couldn't read the export zip")) }
+        if r.notClaude { parts.append(tr("这个 zip 不是 Claude 的官方导出包，没用它", "that zip isn't Claude's data export, so it wasn't used")) }
         if r.unreadable { parts.append(tr("认不出 Claude 的对话页面，已停下（Claude 更新了？）", "stopped: Claude's chat page couldn't be read (Claude updated?)")) }
         if r.cutShort { parts.append(tr("你回来了，先停下；Mac 再空闲时接着做", "paused as you came back; carries on when the Mac is idle again")) }
         if stop.isSet { parts.append(tr("中途停止", "stopped")) }
@@ -565,9 +701,9 @@ final class Archive {
             state.summaries[it.id]?.file = String(to.path.dropFirst(root.path.count + 1))
             if Archive.hasRest(it.dir) { state.files[it.id] = it.dir.path }
             saveState()
-            log(tr("  总结已带到：", "  summary brought along to: ") + String(to.path.dropFirst(root.path.count + 1)))
+            log("  \(it.id): " + tr("总结已带到它现在的文件夹", "summary brought along to its folder now"))
         } catch {
-            log(tr("  总结没能带过去：", "  couldn't bring its summary along: ") + error.localizedDescription)
+            log("  \(it.id): " + tr("总结没能带过去：", "couldn't bring its summary along: ") + Archive.reason(error))
         }
     }
 
@@ -606,14 +742,14 @@ final class Archive {
         let url = it.dir.appendingPathComponent("memory.md")
         // another chat's summary is still in this folder (two chats of one name): it isn't written over
         if let other = Archive.summaryID(url), other != it.id {
-            log(tr("  这个文件夹里还是另一个同名对话的总结，没写：", "  this folder still holds another chat's summary (same name), not written: ") + relative(url))
+            log("  \(it.id): " + tr("这个文件夹里还是另一个同名对话的总结，没写", "this folder still holds another chat's summary (same name), not written"))
             return false
         }
         do {
             try FileManager.default.createDirectory(at: it.dir, withIntermediateDirectories: true)
             try (head + text.trimmingCharacters(in: .whitespacesAndNewlines) + "\n").write(to: url, atomically: true, encoding: .utf8)
         } catch {
-            log(tr("  写文件失败：", "  couldn't write the file: ") + error.localizedDescription)
+            log("  \(it.id): " + tr("写文件失败：", "couldn't write the file: ") + Archive.reason(error))
             return false
         }
         let rel = String(url.path.dropFirst(Archive.folder.path.count + 1))
@@ -628,7 +764,7 @@ final class Archive {
         state.summaries[it.id] = Record(date: Clock.iso(), messages: messages, file: rel)
         if Archive.hasRest(it.dir) { state.files[it.id] = it.dir.path }
         saveState()
-        log(tr("  已存：", "  saved: ") + rel)
+        log("  \(it.id): " + tr("已存 memory.md", "memory.md saved"))
         return true
     }
 
@@ -692,6 +828,22 @@ final class Archive {
     func retrySave() { if saveError != nil { saveState() } }
 
     private func log(_ line: String) { store.log(line + "\n", file: "archive.log") }
+
+    /// A file error in fixed words: its own text names the file and its folder (chat and topic names), which stay out
+    /// of the log.
+    nonisolated static func reason(_ error: Error) -> String {
+        let e = error as NSError
+        let words: [Int: String] = [
+            NSFileWriteOutOfSpaceError: tr("磁盘满了", "the disk is full"), NSFileWriteVolumeReadOnlyError: tr("磁盘只读", "the disk is read-only"),
+            NSFileWriteNoPermissionError: tr("没有写入权限", "no permission to write there"),
+            NSFileWriteInvalidFileNameError: tr("磁盘不接受这个名字", "a name the disk refuses"),
+            NSFileWriteFileExistsError: tr("那里已经有别的东西", "something else is in the way"),
+            NSFileNoSuchFileError: tr("文件夹不在了", "the folder isn't there"),
+        ]
+        let said: String = e.domain == NSCocoaErrorDomain ? words[e.code].map { $0 + " · " } ?? "" : ""
+        let under: String = (e.userInfo[NSUnderlyingErrorKey] as? NSError).map { " · \($0.domain) \($0.code)" } ?? ""
+        return said + "\(e.domain) \(e.code)" + under
+    }
 
     static var summaryPrompt: String {
         tr("""
@@ -798,7 +950,7 @@ final class Archive {
                     self?.progress = "\(n + 1)/\(notes.count) · \(note.title)"
                     self?.onChange?()
                 } }
-                d.log("— \(note.title)")
+                d.log("— \(note.id)")
                 // the summary goes as a file (Claude reads it whole; pasted, a long one would become an attachment
                 // anyway), the files made in that chat beside it, and a short message saying what they are
                 let name = note.url.lastPathComponent
@@ -831,12 +983,13 @@ final class Archive {
                 var s = tr("导入了 \(done) 个", "\(done) imported")
                 if !failed.isEmpty { s += tr(" · \(failed.count) 个失败（看 logs/archive.log）", " · \(failed.count) failed (see logs/archive.log)") }
                 if stop.isSet { s += tr(" · 中途停止", " · stopped") }
+                // (why it stopped names the chat: that's said to you; the log has the step that failed, by id, above)
+                self.log("\(Clock.iso()) import end · \(s)\(why == nil ? "" : tr(" · 停下了", " · halted"))")
                 if let w = why {
                     s += " · " + w
                     Permissions.alert(tr("导入停下了", "Import stopped"), w)
                 }
                 Archive.lastResult = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + s
-                self.log("\(Clock.iso()) import end · \(s)")
                 self.onChange?()
             } }
         }
@@ -890,25 +1043,43 @@ enum ClaudeWords {
 /// reply. Every call blocks — run it off the main thread.
 final class ClaudeDriver: @unchecked Sendable {
     /// `unreadable`: Claude's chat page isn't one the driver knows how to read (no use trying the next chat).
-    enum Result { case done(String, Int), unchanged, failed(String), unreadable(String) }
+    /// `away`: you came back during a run while you're away, so nothing was sent.
+    enum Result { case done(String, Int), unchanged, failed(String), unreadable(String), away }
 
     let pid: pid_t
     let stop: StopFlag
     let log: (String) -> Void
     private let app: AXUIElement
+    /// A run while you're away (the scheduled one): once you've touched the keyboard or mouse, it opens, brings
+    /// forward and pastes nothing more.
+    var whileAway = false
+    /// Seconds since your last keyboard or mouse input.
+    var idle: () -> Double = { Archive.idleSeconds() }
+    private(set) var cameBack = false
+    /// When its own last keys went (any input after that is yours); before its first, when the run began.
+    private var lastStep: Date
 
-    init(pid: pid_t, stop: StopFlag, log: @escaping (String) -> Void) {
+    /// `since`: when the run began, so input before the driver's first step (while the zip was read) counts too.
+    init(pid: pid_t, stop: StopFlag, log: @escaping (String) -> Void, since: Date = Date()) {
         self.pid = pid
         self.stop = stop
         self.log = log
+        lastStep = since
         app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 3.0)
+    }
+
+    /// A run while you're away: you've touched the keyboard or mouse since its own last step (and once back, it stays
+    /// so). Asked right before each step that opens a chat, brings Claude forward or pastes.
+    func youCameBack() -> Bool {
+        if whileAway && !cameBack && idle() < Date().timeIntervalSince(lastStep) { cameBack = true }
+        return cameBack
     }
 
     // MARK: one chat
 
     func summarize(id: String, title: String, prompt: String, lastCount: Int?) -> Result {
-        guard open(id: id, title: title) else { return .failed(tr("打不开这个对话", "couldn't open the chat")) }
+        guard open(id: id, title: title) else { return cameBack ? .away : .failed(tr("打不开这个对话", "couldn't open the chat")) }
         guard wait(12, { self.lastMessage() != nil }) else {
             // (Claude moved on to a new chat: this one isn't there any more, or is in another account)
             if Archive.isAddress(id) && chatID() != id { return .failed(tr("这个对话打不开了（删了，或在别的账号里？）", "the chat isn't available (deleted, or in another account?)")) }
@@ -922,9 +1093,11 @@ final class ClaudeDriver: @unchecked Sendable {
         if hasDraft() { return .failed(tr("输入框里有你还没发的草稿，没动它", "there's an unsent draft in the message box: left alone")) }
         // still this chat (another may have been opened meanwhile): the message goes nowhere else
         if Archive.isAddress(id) && chatID() != id { return .failed(tr("打开的已经不是这个对话", "another chat is open now")) }
-        guard type(prompt) else { return .failed(tr("找不到输入框", "couldn't find the message box")) }
+        guard type(prompt) else { return cameBack ? .away : .failed(tr("找不到输入框", "couldn't find the message box")) }
         guard send() else { return .failed(tr("发不出去", "couldn't send")) }
         guard waitReply(after: before) else { return .failed(stop.isSet ? tr("停止了", "stopped") : tr("等回复超时", "no reply in time")) }
+        // still this chat (you may have opened another meanwhile): another chat's reply isn't this one's summary
+        if Archive.isAddress(id) && chatID() != id { return .failed(tr("打开的已经不是这个对话", "another chat is open now")) }
         guard let text = copyLast() else { return .failed(tr("复制不到回复", "couldn't copy the reply")) }
         return .done(text, messageCount())
     }
@@ -951,9 +1124,10 @@ final class ClaudeDriver: @unchecked Sendable {
         // Claude names the chat after the first reply
         _ = wait(20) { let t = self.pageTitle(); return !t.isEmpty && !ClaudeWords.untitled.contains(t) }
         let auto = pageTitle()
-        if !pin(rowTitle: auto) { log(tr("  置顶失败（\(auto)）", "  couldn't pin it (\(auto))")) }
+        // (not the name Claude gave it: chat titles stay out of the log)
+        if !pin(rowTitle: auto) { log(tr("  置顶失败", "  couldn't pin it")) }
         pause(1)
-        if !rename(rowTitle: auto, to: title) { log(tr("  改名失败，现在叫「\(auto)」", "  couldn't rename it: it's called \"\(auto)\"")) }
+        if !rename(rowTitle: auto, to: title) { log(tr("  改名失败，还是 Claude 起的名字", "  couldn't rename it: it keeps the name Claude gave it")) }
         log(tr("  已导入 → ", "  imported → ") + id)
         return .made(id)
     }
@@ -962,7 +1136,7 @@ final class ClaudeDriver: @unchecked Sendable {
 
     func open(title: String) -> Bool {
         if pageTitle() == title { return true }
-        guard AXScan.press(pid: pid, title: title) else { return false }
+        guard !youCameBack(), AXScan.press(pid: pid, title: title) else { return false }
         return wait(15) { self.pageTitle() == title }
     }
 
@@ -971,29 +1145,28 @@ final class ClaudeDriver: @unchecked Sendable {
     func open(id: String, title: String) -> Bool {
         guard Archive.isAddress(id) else { return open(title: title) }
         if chatID() == id { return true }
-        guard let u = URL(string: "claude://claude.ai/chat/" + id) else { return false }
+        guard !youCameBack(), let u = URL(string: "claude://claude.ai/chat/" + id) else { return false }
         DispatchQueue.main.sync { _ = NSWorkspace.shared.open(u) }
         return wait(20) { self.chatID() == id }
     }
 
     /// Pastes files into the message box as attachments.
     func attach(_ files: [URL]) -> Bool {
-        guard let w = web(), let box = composer(w) else { return false }
-        activate()
+        guard let w = web(), let box = composer(w), activate() else { return false }
         AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         pause(0.4)
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.writeObjects(files as [NSURL])
         ownChange = pb.changeCount
+        guard !youCameBack() else { return false }
         command("v")                                              // ⌘V
         pause(2.5 + 0.4 * Double(files.count))                    // let them upload
         return true
     }
 
     func type(_ text: String) -> Bool {
-        guard let w = web(), let box = composer(w) else { return false }
-        activate()
+        guard let w = web(), let box = composer(w), activate() else { return false }
         AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         pause(0.4)
         let pb = NSPasteboard.general
@@ -1001,6 +1174,8 @@ final class ClaudeDriver: @unchecked Sendable {
         pb.setString(text, forType: .string)
         ownChange = pb.changeCount
         let sendable = canSend()
+        // (you came back while Claude was brought forward: your typing isn't mixed with this)
+        guard !youCameBack() else { return false }
         command("v")                                              // ⌘V
         pause(1.2)
         // it landed (else nothing is sent, rather than an empty message waited on for minutes): in the box, or, for a
@@ -1044,12 +1219,12 @@ final class ClaudeDriver: @unchecked Sendable {
         return false
     }
 
-    /// The newest reply as Markdown (through its Copy button), or its plain text.
+    /// The newest reply as Markdown (through its Copy button), or its plain text (also when you've come back during a
+    /// run while you're away: Claude isn't brought forward for the button).
     func copyLast() -> String? {
         guard let w = web(), let m = lastMessage(in: w), isClaude(m) else { return nil }
         let pb = NSPasteboard.general
-        if let b = copyButton(m) {
-            activate()
+        if let b = copyButton(m), activate() {
             let before = pb.changeCount
             AXUIElementPerformAction(b, kAXPressAction as CFString)
             if wait(4, { pb.changeCount != before }), let s = pb.string(forType: .string),
@@ -1096,8 +1271,7 @@ final class ClaudeDriver: @unchecked Sendable {
         guard let w = web(), let sb = AXScan.sidebar(in: w),
               let more = find(sb, first: true, skipSidebar: false, { el in
                   AXScan.str(el, "AXRole") == "AXPopUpButton" && AXScan.knownMenus.contains { $0.replacingOccurrences(of: "{label}", with: rowTitle) == AXScan.str(el, "AXDescription") }
-              }).first else { return false }
-        activate()
+              }).first, activate() else { return false }
         AXUIElementPerformAction(more, kAXPressAction as CFString)
         pause(0.7)
         let found = find(w, first: true, skipSidebar: true, { el in
@@ -1237,11 +1411,14 @@ final class ClaudeDriver: @unchecked Sendable {
 
     // MARK: input
 
-    private func activate() {
+    /// Claude in front (false: you've come back during a run while you're away, and it's left where it is).
+    private func activate() -> Bool {
+        guard !youCameBack() else { return false }
         if NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
             NSRunningApplication(processIdentifier: pid)?.activate()
             pause(0.6)
         }
+        return true
     }
 
     /// ⌘ and a letter, on whichever key types that letter with ⌘ in the keyboard layout in use (on a French
@@ -1276,6 +1453,8 @@ final class ClaudeDriver: @unchecked Sendable {
     }
 
     private func key(_ code: CGKeyCode, cmd: Bool = false) {
+        // (input of yours before these keys is noted first; any after them is yours too, even if these count as input)
+        _ = youCameBack()
         let src = CGEventSource(stateID: .privateState)
         for down in [true, false] {
             guard let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) else { continue }
@@ -1283,6 +1462,7 @@ final class ClaudeDriver: @unchecked Sendable {
             e.postToPid(pid)
             pause(0.04)
         }
+        lastStep = Date()
     }
 
     func wait(_ secs: Double, _ ok: () -> Bool) -> Bool {

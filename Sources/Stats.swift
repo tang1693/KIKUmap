@@ -330,6 +330,27 @@ final class StatsView: NSView {
         return h == 0 ? tr("\(m)分", "\(m)m") : tr("\(h)小时\(m)分", "\(h)h\(m)m")
     }
 
+    /// The line under the summary: what the bars are, how much of them is estimated, and before when there are only
+    /// daily totals. With an estimate it takes two lines at the window's narrowest (640 pt), the longest names too.
+    static func note(hours: Int, who: String, estimated: Double, dailyOnlyUntil: Date?) -> String {
+        let per = hours == 24 ? tr("每天", "each day") : hours == 48 ? tr("每 2 天", "every 2 days")
+            : hours == 1 ? tr("每小时", "each hour") : tr("每 \(hours) 小时", "every \(hours) hours")
+        var note = tr("\(per) \(who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
+                      "Hours \(who) worked \(per), split by chat. Chats running side by side share the time.")
+        // (what KIKUmap couldn't see: either app's window, as the menu bar's Today names them, or a quiet Codex task. How
+        // a stretch was estimated, between two sightings, up to a known finish or at a typical run, doesn't fit here:
+        // the timeline's tooltip on it and the menu bar's Today say)
+        if estimated >= 60 {
+            note += tr("其中 ≈\(Clock.duration(estimated)) 是估算的：Claude 或 ChatGPT 的窗口看不到、Codex 任务没动静的那段时间。",
+                       " ≈\(Clock.duration(estimated)) of it is estimated (Claude's or ChatGPT's window out of sight, a Codex task quiet).")
+        }
+        if let until = dailyOnlyUntil {
+            let d = Clock.format(until, "M月d日", "MMM d")
+            note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")
+        }
+        return note
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         Theme.paper.setFill()
         bounds.fill()
@@ -353,20 +374,13 @@ final class StatsView: NSView {
             draw(value, Theme.mono(24), Theme.ink, in: NSRect(x: x, y: 38, width: 190, height: 32))
             x += 200
         }
-        let per = hours == 24 ? tr("每天", "each day") : hours == 48 ? tr("每 2 天", "every 2 days")
-            : hours == 1 ? tr("每小时", "each hour") : tr("每 \(hours) 小时", "every \(hours) hours")
-        var note = tr("\(per) \(GPTWatcher.who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
-                      "Hours \(GPTWatcher.who) worked \(per), split by chat. Chats running side by side share the time.")
-        if estTotal >= 60 {
-            note += tr(" 其中 ≈\(Clock.duration(estTotal)) 是估算：KIKUmap 看不到的时候（Claude 窗口关了、Codex 任务没动静），按你一次运行的常见时长算。",
-                       " ≈\(Clock.duration(estTotal)) of it is estimated: while KIKUmap couldn't see (Claude's window closed, a Codex task quiet), at your typical run's length.")
-        }
-        if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] {
-            let d = Clock.format(until, "M月d日", "MMM d")
-            note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")
-        }
-        // two lines when it needs them (with an estimate it's longer than a narrow window)
-        draw(note, Theme.ui(11.5), Theme.muted, in: NSRect(x: pad, y: 76, width: bounds.width - pad * 2, height: 31))
+        var daily: Date?
+        if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] { daily = until }
+        // two lines when it needs them (with an estimate it's longer than a narrow window): wrapped, the second cut
+        // with … (`draw` keeps to one line)
+        (Self.note(hours: hours, who: GPTWatcher.who, estimated: estTotal, dailyOnlyUntil: daily) as NSString)
+            .draw(with: NSRect(x: pad, y: 76, width: bounds.width - pad * 2, height: 31), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                  attributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         // a footnote under the chart: the desktop widget's times count the estimates in too, without the ≈
         draw(tr("注：桌面小组件里的时长也包含估算的部分，只是不标 ≈。", "Note: the desktop widget's times include the estimated part too, without the ≈."),
              Theme.ui(10.5), Theme.muted, in: NSRect(x: pad, y: bounds.height - 18, width: plot.maxX - pad, height: 14))

@@ -28,6 +28,8 @@ struct Chat: Codable, Equatable {
     var isCodexSession: Bool { source == "gpt" && app != nil && app != "com.openai.codex" }
     /// A thread in the ChatGPT app.
     var isGPT: Bool { source == "gpt" }
+    /// An ordinary chat pinned in the ChatGPT app (not a Codex thread): its status comes from ChatGPT's window.
+    var isGPTChat: Bool { id.hasPrefix("gpt-chat-") }
     /// Not a chat in the Claude app (its pins, sidebar and archive don't apply).
     var outsideClaude: Bool { isCode || isGPT }
 }
@@ -37,7 +39,7 @@ struct Interval: Codable {
     var id: String
     var start: String
     var end: String
-    /// A stretch KIKUmap didn't see (the run was out of its sight), counted at a typical run's length: shown "≈".
+    /// A stretch KIKUmap didn't see (the run was out of its sight), estimated: shown "≈".
     var est: Bool? = nil
 }
 
@@ -55,6 +57,13 @@ private struct HistoryFile: Codable {
 private struct ChatsFile: Codable {
     var refreshed_at: String?
     var chats: [Chat]
+}
+
+/// Requests KIKUmap is unsure of ("needs you?"), since when, and which notification put each request on its chat: kept
+/// so that a relaunch doesn't turn a doubt back into a sure "needs you", nor forget whose banner is whose.
+private struct RequestsFile: Codable {
+    var maybeAnswered: [String: Date]
+    var requests: [String: String]
 }
 
 /// Everything the app knows: chats, what you've read, what's running, and your map.
@@ -80,6 +89,13 @@ final class Store {
     private var gptActive: [String: Date] = [:]
     /// The Codex tasks shown "running?" as of the last read (one turning so redraws the menu bar and the counts).
     private var gptUnsure = Set<String>()
+    /// Ordinary ChatGPT chats whose row in ChatGPT's window has been read since KIKUmap started: whether they run is
+    /// known (as of the last time the window could be seen).
+    private(set) var gptChatsRead = Set<String>()
+    /// Ordinary ChatGPT chats whose row showed ChatGPT's unread dot when last seen. Kept (data/gpt-dots.json) across
+    /// restarts, ChatGPT turned off and on, and reads that miss the row: a dot gone since was read in ChatGPT, one still
+    /// on is no new reply.
+    private(set) var gptMarked = Set<String>()
     /// ChatGPT is read (Settings → Access); when it's off its threads aren't shown.
     nonisolated static var gptOn: Bool { UserDefaults.standard.object(forKey: "ChatGPTOn") as? Bool ?? true }
     /// Time counted in the totals (Today, the timeline, Statistics, the widget): every chat's, ChatGPT's only while
@@ -105,6 +121,19 @@ final class Store {
     private var missingSince: [String: Date] = [:]
     /// The chat open in Claude's window (from the sidebar's last read).
     var openChatID: (() -> String?)?
+    /// Claude has been in front at some point since the last read of its sidebar began (it was in front when that read
+    /// came back, or it has left the front since), and when it last left the front. Told by the order things happen
+    /// in, not by comparing times: once the clock is set back, a time from before stays ahead of everything after.
+    private var claudeFrontSince = false
+    private var claudeLeftAt = Date.distantPast
+    /// What the last read went by: Claude in front then, or at some point since the read before it began.
+    private(set) var claudeWasFront = false
+    /// The same for ChatGPT: in front at some point since its window was last read, when it last left the front (a
+    /// Codex thread's finish is known to the second: it goes by that), and what the last read of its window or its
+    /// files went by.
+    private var gptFrontSince = false
+    private var gptLeftAt = Date.distantPast
+    private(set) var gptWasFront = false
     /// When Claude last asked for an approval in a chat KIKUmap couldn't tell (its window closed): said in the To-do.
     private(set) var approvalAsked: Date?
     /// How many times a chat's id has changed: a sidebar read begun before a change is stale.
@@ -129,6 +158,8 @@ final class Store {
     var activityURL: URL { dir.appendingPathComponent("data/activity.json") }
     var historyURL: URL { dir.appendingPathComponent("data/history.json") }
     var dismissedURL: URL { dir.appendingPathComponent("data/dismissed.json") }
+    var gptDotsURL: URL { dir.appendingPathComponent("data/gpt-dots.json") }
+    var requestsURL: URL { dir.appendingPathComponent("data/requests.json") }
     var logsDir: URL { dir.appendingPathComponent("logs") }
 
     init() {
@@ -145,6 +176,14 @@ final class Store {
         if let f = load(ChatsFile.self, chatsURL) { chats = f.chats }
         if let s = load([String: String].self, seenURL) { seen = s }
         if let s = load([String: String].self, dismissedURL) { dismissed = s }
+        if let s = load([String].self, gptDotsURL) { gptMarked = Set(s) }
+        if let r = load(RequestsFile.self, requestsURL) {
+            // (only for chats still known: a doubt or a banner of one gone says nothing)
+            let ids = Set(chats.map(\.id))
+            maybeAnswered = r.maybeAnswered.filter { ids.contains($0.key) }
+            requests = r.requests.filter { ids.contains($0.value) }
+        }
+        var closed = false
         if let a = load(ActivityFile.self, activityURL) {
             intervals = a.intervals
             // still open: KIKUmap stopped without closing them (a crash, a forced quit). They end when it was last
@@ -153,6 +192,7 @@ final class Store {
                 ?? ((try? FileManager.default.attributesOfItem(atPath: activityURL.path))?[.modificationDate] as? Date) ?? Date()
             let end = Clock.iso(min(alive, Date()))
             for (id, start) in a.open { intervals.append(Interval(id: id, start: start, end: max(start, end))) }
+            closed = !a.open.isEmpty
         }
         if let h = load(HistoryFile.self, historyURL) {
             history = Store.offsetKeys(h.days)
@@ -162,6 +202,9 @@ final class Store {
         if let m = map.unreadable { unreadable.append(m) }
         prune()
         reindex()
+        // (saved at once, now that the chats are known for the totals' names: should this run of KIKUmap end without a
+        // save too, the next launch would end them at its own last minute)
+        if closed { saveActivity() }
         let before = map.root.children.count
         writeDefaultRules()
         log("\(Clock.iso()) start · data \(dir.path) · chats \(chats.count) · topics \(before)→\(map.root.children.count)\n", file: "app.log")
@@ -239,6 +282,9 @@ final class Store {
         let ids = Set(chats.map(\.id))
         seen = seen.filter { ids.contains($0.key) }
         dismissed = dismissed.filter { ids.contains($0.key) }
+        gptMarked = gptMarked.filter { ids.contains($0) }
+        maybeAnswered = maybeAnswered.filter { ids.contains($0.key) }
+        requests = requests.filter { ids.contains($0.value) }
         log("\(Clock.iso()) forgot \(before - chats.count) chats unchanged for 30 days\n", file: "app.log")
         saveChats(); saveSeen()
     }
@@ -268,8 +314,9 @@ final class Store {
         if let n = c.last_note, SidebarWatcher.waitingStatuses.contains(n) { return true }
         if c.isGPT {
             if seen[c.id] == "" { return !c.updated_at.isEmpty }          // marked unread here
-            // an app thread: ChatGPT's dot, unless read here since its last change (a session: like Claude Code)
-            if !c.isCodexSession, let dots = gptListed { return dots.contains(c.id) && (seen[c.id] ?? "") <= c.updated_at }
+            // an app thread: ChatGPT's dot, unless read here since its last change (a session: like Claude Code; an
+            // ordinary chat has no dot: finished after you last saw it)
+            if !c.isCodexSession, !c.isGPTChat, let dots = gptListed { return dots.contains(c.id) && (seen[c.id] ?? "") <= c.updated_at }
         }
         return !c.updated_at.isEmpty && c.updated_at > (seen[c.id] ?? "")
     }
@@ -571,13 +618,15 @@ final class Store {
         // Claude's row shows it waiting (mirrored on every read): so whether or not it was marked read here; a request
         // from a notification, or a stop on an error, until it's read
         if SidebarWatcher.waitingStatuses.contains(n) { return true }
-        if c.isCode && maybeAnswered[c.id] != nil { return false }
+        if maybeAnswered[c.id] != nil { return false }
         return isUnread(c) && (Store.isInputNote(n) || n.hasPrefix(Store.stopMark))
     }
 
-    /// Claude Code sessions asking for your approval whose app has come to the front since (when): you may have answered
-    /// there, and no hook says so until the approved step ends. Shown as "needs you?", without the "!".
-    private var maybeAnswered: [String: Date] = [:]
+    /// Requests for your approval that may have been answered where no word of it comes from, since when: a Claude Code
+    /// session's whose app has come to the front (no hook says so until the approved step ends), a Claude chat's whose
+    /// notification left Notification Center (answered, or only cleared: the two look the same). Shown as "needs you?",
+    /// without the "!". Saved on every change (data/requests.json): nothing would bring the doubt back after a relaunch.
+    private var maybeAnswered: [String: Date] = [:] { didSet { if maybeAnswered != oldValue { saveRequests() } } }
     /// The app in front now (its bundle id).
     var frontApp: (() -> String?)?
 
@@ -586,7 +635,7 @@ final class Store {
     private func onlySession(_ c: Chat) -> Bool {
         !chats.contains { $0.isCode && $0.id != c.id && $0.app == c.app && (lastCodeEvent[$0.id].map { Date().timeIntervalSince($0) < 3600 } ?? false) }
     }
-    /// A session shown "needs you?": you may have answered in its app.
+    /// A chat shown "needs you?": you may have answered it.
     func maybeWaiting(_ id: String) -> Bool { maybeAnswered[id] != nil }
 
     /// An app came to the front: a Claude Code session in it that asks for your approval may be answered from now on.
@@ -599,6 +648,12 @@ final class Store {
         if changed { notify() }
         readCodeInFront(bundle)
     }
+
+    /// Claude left the front (another app came forward, or it was hidden): a reply that had just finished in the chat
+    /// open there was still watched, though the read that finds it done comes back a moment later.
+    func claudeLeftFront(at when: Date = Date()) { claudeLeftAt = when; claudeFrontSince = true }
+    /// ChatGPT left the front: the same for its chats and its Codex threads.
+    func gptLeftFront(at when: Date = Date()) { gptLeftAt = when; gptFrontSince = true }
 
     /// The title of the front app's focused window (read with Accessibility), or nil.
     var frontWindowTitle: (() -> String?)?
@@ -707,27 +762,38 @@ final class Store {
         return nil
     }
 
-    /// Requests Claude's notifications put on a chat ("needs you"), by the notification's key: if Claude takes the
-    /// notification back (answered on the banner or elsewhere), so does KIKUmap.
-    private var requests: [String: String] = [:]
+    /// Requests Claude's notifications put on a chat ("needs you"), by the notification's key: if the notification
+    /// leaves Notification Center, KIKUmap is no longer sure the chat waits. Saved with the doubts (a banner cleared after
+    /// a relaunch still raises one).
+    private var requests: [String: String] = [:] { didSet { if requests != oldValue { saveRequests() } } }
 
-    /// Claude took these notifications back. A request that's gone, on a chat still shown waiting for it: it was
-    /// answered (or cancelled) somewhere KIKUmap can't see, so the chat is out of sight again ("running?"), not waiting.
-    func withdrawn(_ keys: Set<String>) {
-        var changed = false
-        for k in keys {
-            guard let id = requests.removeValue(forKey: k), let i = index[id], let n = chats[i].last_note,
-                  Store.isInputNote(n), !SidebarWatcher.waitingStatuses.contains(n), !running.contains(id) else { continue }
-            chats[i].last_note = nil
-            running.insert(id); paused.insert(id)
-            seenRunningAt[id] = Date(); runBegan[id] = Date()
-            changed = true
-        }
-        if changed { saveChats(); notify() }
+    /// A new request on a chat: the chat waits for this one now, so the banners of its earlier ones say nothing
+    /// about it any more (clearing an older one while this one is still there leaves it "needs you").
+    private func request(_ key: String, on id: String) {
+        requests = requests.filter { $0.value != id }
+        if !key.isEmpty { requests[key] = id }
     }
 
-    /// A run ends where a notification says (it finished, or waits for you): its time up to then; out of KIKUmap's
-    /// sight, from the last sighting (time asleep isn't counted: a finish after the last wake counts from that wake).
+    /// These notifications left Notification Center. A request that's gone, on a chat still shown waiting for it, was
+    /// answered somewhere KIKUmap can't see, or only cleared to deal with later: the two look the same, so the chat
+    /// still waits as far as anyone knows, unsure ("needs you?", no "!"), until Claude's sidebar or a new notification
+    /// says. It isn't running: no time is counted from here (a turn's end notified later counts the approved run up to
+    /// it, see `apply(_:)`). With Claude not running nothing was answered: left as is. (Both maps save themselves.)
+    func withdrawn(_ keys: Set<String>, claudeOpen: Bool = true) {
+        var changed = false
+        for k in keys {
+            guard let id = requests.removeValue(forKey: k), claudeOpen, let i = index[id], let n = chats[i].last_note,
+                  Store.isInputNote(n), !SidebarWatcher.waitingStatuses.contains(n), !running.contains(id),
+                  needsInput(chats[i]) else { continue }
+            maybeAnswered[id] = Date()
+            changed = true
+        }
+        if changed { notify() }
+    }
+
+    /// A run ends where a notification says (it finished, or waits for you): its time up to then. Out of KIKUmap's
+    /// sight, it's counted from the last sighting as estimated (≈), not as time seen (time asleep isn't counted: a
+    /// finish after the last wake counts from that wake).
     private func stopRun(_ id: String, at date: Date) {
         running.remove(id)
         let when = Clock.iso(date)
@@ -735,11 +801,7 @@ final class Store {
             intervals.append(Interval(id: id, start: start, end: max(start, when)))
             saveActivity()
         } else if paused.contains(id), let seen = seenRunningAt[id] {
-            let from = date > awakeSince ? max(seen, awakeSince) : seen
-            if from < date {
-                intervals.append(Interval(id: id, start: Clock.iso(from), end: when))
-                saveActivity()
-            }
+            estimate(id, from: date > awakeSince ? max(seen, awakeSince) : seen, to: date)
         }
         paused.remove(id); quitPaused.remove(id); missingSince.removeValue(forKey: id)
         finishedAt[id] = date
@@ -758,8 +820,9 @@ final class Store {
 
     func timeLabel(_ c: Chat) -> String {
         if running.contains(c.id) { return outOfSight(c.id) ? tr("在跑？", "running?") : tr("进行中", "running") }
-        // an ordinary ChatGPT chat: the app keeps neither its status nor its last change on this Mac
-        if c.id.hasPrefix("gpt-chat-") { return tr("状态未知", "status unknown") }
+        // an ordinary ChatGPT chat whose row in ChatGPT's window hasn't been read since KIKUmap started (the window
+        // can't be seen, Accessibility is off): whether it runs isn't known
+        if c.isGPTChat && !gptChatsRead.contains(c.id) { return tr("状态未知", "status unknown") }
         // a Codex task that went quiet without finishing: since when, not a finish time it doesn't have
         if gptQuiet.contains(c.id), let a = gptActive[c.id] { return tr("\(UsageMonitor.stamp(a)) 起没动静", "quiet since \(UsageMonitor.stamp(a))") }
         // stopped on an error: Claude's own words
@@ -778,12 +841,14 @@ final class Store {
         return id.hasPrefix("gpt-") && (gptActive[id].map { Date().timeIntervalSince($0) > 180 } ?? false)
     }
     /// When a chat out of sight was last seen running (for a Codex task: when its log last moved).
-    func lastSeenRunning(_ id: String) -> Date? { id.hasPrefix("gpt-") ? gptActive[id] : seenRunningAt[id] }
+    func lastSeenRunning(_ id: String) -> Date? { Store.codexThread(id) ? gptActive[id] : seenRunningAt[id] }
+    /// A Codex thread's id (its status comes from its log), not an ordinary ChatGPT chat's (from ChatGPT's window).
+    static func codexThread(_ id: String) -> Bool { id.hasPrefix("gpt-") && !id.hasPrefix("gpt-chat-") }
     /// Where a run's time stops for now: the present, or for a Codex task whose log has gone quiet ("running?") its
-    /// last activity. What it has done since (waited for you, or a long step) isn't known, so it isn't counted; if it
-    /// finishes, its time runs to the finish (that end is known), and if it moves again, from then on.
+    /// last activity. What it has done since (waited for you, or a long step) isn't known, so it isn't counted for now;
+    /// once it finishes or moves again (that end is known), that stretch is counted, estimated (≈).
     func liveEnd(_ id: String, now: Date = Date()) -> Date {
-        id.hasPrefix("gpt-") && outOfSight(id) ? min(gptActive[id] ?? now, now) : now
+        Store.codexThread(id) && outOfSight(id) ? min(gptActive[id] ?? now, now) : now
     }
     /// Running, as far as KIKUmap can see now (what the menu-bar ring and the counts go by).
     var seenRunningChats: [Chat] { runningChats.filter { !outOfSight($0.id) } }
@@ -822,7 +887,8 @@ final class Store {
             // its dot in ChatGPT may stay until it's opened there
             seen[id] = chat(id)?.isGPT == true ? max(Clock.iso(), u + "+") : (u.isEmpty ? Clock.iso() : u)
             // a Claude-app chat: its unread mark in Claude's sidebar may stay until it's opened there; passed over
-            if chat(id)?.outsideClaude == false { dismissed[id] = u }
+            // (so is ChatGPT's dot on an ordinary chat)
+            if chat(id)?.outsideClaude == false || gptMarked.contains(id) { dismissed[id] = u }
             axUnread.remove(id)
         }
         saveSeen()
@@ -851,10 +917,17 @@ final class Store {
         e.outputFormatting = [.sortedKeys, .prettyPrinted]
         if let d = try? e.encode(seen) { write(d, seenURL) }
         if let d = try? e.encode(dismissed) { write(d, dismissedURL) }
+        if let d = try? e.encode(gptMarked.sorted()) { write(d, gptDotsURL) }
+    }
+
+    private func saveRequests() {
+        let e = JSONEncoder()
+        e.outputFormatting = [.sortedKeys, .prettyPrinted]
+        if let d = try? e.encode(RequestsFile(maybeAnswered: maybeAnswered, requests: requests)) { write(d, requestsURL) }
     }
 
     /// Everything written again from memory (another copy of KIKUmap may have written over it).
-    func saveAll() { saveChats(); saveSeen(); saveActivity(); saveHistory() }
+    func saveAll() { saveChats(); saveSeen(); saveRequests(); saveActivity(); saveHistory() }
 
     private func saveChats() {
         reindex()
@@ -866,10 +939,19 @@ final class Store {
     // MARK: activity (for the timeline)
 
     private func saveActivity() {
-        let cutoff = Clock.iso(Date().addingTimeInterval(-8 * 86400))
-        let old = intervals.filter { $0.end < cutoff }
+        // the hours before the timeline's week go into the hourly totals whole, every run in them at once (one that goes
+        // on past them, its part in them): runs side by side share them there as on the timeline (folded one at a
+        // time, each would have had the hour to itself)
+        let back = Date().addingTimeInterval(-8 * 86400)
+        let cutoff = Clock.iso(Calendar.current.dateInterval(of: .hour, for: back)?.start ?? back)
+        var old: [Interval] = []
+        for k in intervals.indices where intervals[k].start < cutoff {
+            var part = intervals[k]
+            if part.end > cutoff { part.end = cutoff; intervals[k].start = cutoff }
+            old.append(part)
+        }
         if !old.isEmpty { fold(old) }
-        intervals.removeAll { $0.end < cutoff }
+        intervals.removeAll { $0.end <= cutoff }
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
         if let d = try? e.encode(ActivityFile(intervals: intervals, open: runStart)) { write(d, activityURL) }
@@ -909,27 +991,34 @@ final class Store {
     }
 
     /// KIKUmap is quitting, or the Mac going to sleep: running chats stop counting now (nothing can be seen
-    /// while it's away, and time it can't see isn't counted).
-    func closeRuns(at when: Date) {
+    /// while it's away, and time it can't see isn't counted). Quitting, runs out of sight end too, with the ≈ time
+    /// Today showed for them: the next launch knows nothing of them. Not at a sleep: they stay, the sleep left out.
+    func closeRuns(at when: Date, quitting: Bool = false) {
+        // (before `sleptAt` moves to now: the Mac's last sleep is still left out of them, as Today left it out)
+        if quitting { endUnseen(paused, at: when) }
         sleptAt = when
-        guard !runStart.isEmpty else { return }
         for id in Array(runStart.keys) { endRun(id, at: when) }
+        // with nothing open too: all that's in memory is on disk before KIKUmap goes (a Mac asleep may never wake)
         saveActivity()
     }
 
     /// A run's time ends at `when` (a sleep, a quit, the task gone from the list); a Codex task whose log went quiet
-    /// ("running?"): seen up to its last activity, the rest estimated.
+    /// ("running?"): seen up to its last activity, the rest estimated. Saved at once: a run still open on disk would
+    /// be ended at KIKUmap's last minute by the next launch.
     private func endRun(_ id: String, at when: Date) {
         guard let start = runStart.removeValue(forKey: id) else { return }
         let seenTo = min(when, liveEnd(id, now: when))
         intervals.append(Interval(id: id, start: start, end: max(start, Clock.iso(seenTo))))
         if seenTo < when, let s = Clock.parse(start) { estimate(id, from: max(seenTo, s), to: estimatedEnd(id, seen: max(seenTo, s), by: when)) }
+        saveActivity()
     }
 
     /// The Mac woke up: chats still running count again from now (the next read says whether they still are).
     func resumeRuns(at when: Date) {
         awakeSince = when
         unwatched()                       // Claude's list may still show how it was before the sleep
+        // (Claude or ChatGPT in front before the sleep says nothing of what finished during it)
+        claudeFrontSince = false; gptFrontSince = false
         let now = Clock.iso(when)
         var changed = false
         for id in running where runStart[id] == nil && !paused.contains(id) { runStart[id] = now; changed = true }
@@ -977,7 +1066,8 @@ final class Store {
                     if chats[k].updated_at < when { chats[k].updated_at = when }
                     // it waits for you now: no longer running (or "running?"), its time up to the request
                     stopRun(id, at: n.date)
-                    if !n.key.isEmpty { requests[n.key] = id }
+                    maybeAnswered[id] = nil                  // (a new word from Claude: no "needs you?" doubt)
+                    request(n.key, on: id)
                     if n.date >= quietBefore && !known { events.append(.needsInput(id)) }
                 } else {
                     approvalAsked = max(approvalAsked ?? .distantPast, n.date)
@@ -1013,8 +1103,15 @@ final class Store {
                 id = n.chatId ?? ("n-" + Store.fnv(title))
                 chats.append(Chat(id: id, title: title, updated_at: when, path: nil, source: "notification", last_note: n.body))
             }
+            // its turn ended after a request that may have been answered ("needs you?"): taken as answered, the approved
+            // run went on to here, estimated (a typical run's length at most: the wait for your answer isn't work), as a
+            // Claude Code session's approved step is
+            if !input, !running.contains(id), let asked = maybeAnswered[id], n.date >= asked {
+                estimate(id, from: max(asked, n.date.addingTimeInterval(-typicalRun(id))), to: n.date)
+            }
             stopRun(id, at: n.date)
-            if input && !n.key.isEmpty { requests[n.key] = id }
+            maybeAnswered[id] = nil                          // (a new word from Claude: no "needs you?" doubt)
+            if input { request(n.key, on: id) }
             if n.date >= quietBefore && !known { events.append(input ? .needsInput(id) : .finished(id)) }
             reindex()
         }
@@ -1096,6 +1193,7 @@ final class Store {
         let code = Set(chats.filter { $0.outsideClaude }.map { $0.id })
         missingSince = [:]
         unwatched()
+        claudeFrontSince = false              // (Claude in front before it quit says nothing of what it shows next)
         // Claude's own runs: out of sight, not known to have stopped (a reply may finish on its servers); their time
         // stops at the last sighting, and Claude's next read says how they ended
         // the Claude app's own Code sessions stop with it (Claude warns that quitting interrupts them): ended at their
@@ -1115,6 +1213,17 @@ final class Store {
         quitPaused.formUnion(claude)
         pause(claude)
         notify()
+    }
+
+    /// Runs out of sight that end here (KIKUmap quitting, ChatGPT turned off, gone from ChatGPT's list or from Claude's
+    /// whole reads): their time after the last sighting, as
+    /// Today showed it, is kept, estimated (a typical run's length at most, as when they're forgotten after 6 hours).
+    /// No longer paused, so it isn't counted twice.
+    private func endUnseen(_ ids: Set<String>, at when: Date) {
+        for id in ids where paused.contains(id) && running.contains(id) {
+            if let seen = seenRunningAt[id] { estimate(id, from: seen, to: estimatedEnd(id, seen: seen, by: when)) }
+            paused.remove(id); quitPaused.remove(id)
+        }
     }
 
     /// Claude's runs out of sight this long (Claude closed for hours) are no longer said to run: as of the last sighting.
@@ -1290,6 +1399,10 @@ final class Store {
         var events: [Event] = []
         var changed = false, seenChanged = false, dotsChanged = false
         let now = Clock.iso()
+        // ChatGPT in front now, or at some point since a task finished: you were looking at it (its log is read a
+        // second or two after, when you may have switched apps already; a time still to come is from before the clock
+        // was set back)
+        func sawFinish(_ f: Date) -> Bool { front || (gptLeftAt >= f && gptLeftAt <= Date()) }
         for t in threads {
             let id = "gpt-" + t.id
             let before = gptActive[id]
@@ -1323,6 +1436,7 @@ final class Store {
             let app = t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID
             if chats[i].app != app { chats[i].app = app; changed = true }
             if t.scripted && chats[i].headless != true { chats[i].headless = true; changed = true }
+            if t.isChat { continue }                                // its status comes from ChatGPT's window
             let quiet = chats[i].headless == true                   // a script's run: no sound, nothing to read
             if t.running && !running.contains(id) {
                 running.insert(id)
@@ -1344,18 +1458,27 @@ final class Store {
                         let until = estimatedEnd(id, seen: quietFrom, by: Date())
                         estimate(id, from: quietFrom, to: until)
                         gptQuietUntil[id] = until
+                        saveActivity()                          // (a long run has nothing estimated: saved all the same)
                     }
                 } else {
+                    // its log quiet a while ("running?") before the finish: seen up to its last activity, the rest
+                    // estimated, as when it moves again
+                    if let b = before, let fin = t.finished, fin.timeIntervalSince(b) > 180,
+                       let start = runStart.removeValue(forKey: id), let s = Clock.parse(start) {
+                        if b > s { intervals.append(Interval(id: id, start: start, end: Clock.iso(b))) }
+                        estimate(id, from: max(b, s), to: fin)
+                        saveActivity()
+                    }
                     let when = Clock.iso(t.finished ?? Date())
                     chats[i].updated_at = when
                     if t.stopped {
                         seen[id] = when; seenChanged = true         // you pressed Stop: nothing new to read, no sound
                     } else if quiet {
                         seen[id] = when; seenChanged = true         // a script's run: nothing to read, no sound
-                    } else if t.finished != nil {
+                    } else if let f = t.finished {
                         events.append(.finished(id))
                         // you were looking at ChatGPT (its own threads; a session runs in its editor, like Claude Code)
-                        if front && !chats[i].isCodexSession { seen[id] = when; seenChanged = true }
+                        if sawFinish(f) && !chats[i].isCodexSession { seen[id] = when; seenChanged = true }
                     }
                 }
                 changed = true
@@ -1363,10 +1486,10 @@ final class Store {
                 chats[i].updated_at = f                             // finished while KIKUmap wasn't watching
                 if t.stopped { gptQuiet.remove(id); seen[id] = f; seenChanged = true }      // stopped: nothing to read
                 else if gptQuiet.remove(id) != nil {
-                    // the quiet task did finish: its time runs to that known finish (not after 6 hours)
+                    // the quiet task did finish: its time runs to that known finish, estimated as when it moves again
+                    // (what it did while quiet isn't known: it waited for you, or a long step ran; not after 6 hours)
                     if let from = gptQuietUntil.removeValue(forKey: id), let fin = t.finished, fin > from, fin.timeIntervalSince(from) <= 6 * 3600 {
-                        for (x, y) in awake(from, fin) { intervals.append(Interval(id: id, start: Clock.iso(x), end: Clock.iso(y))) }
-                        saveActivity()
+                        estimate(id, from: from, to: fin)
                     }
                     if !quiet { events.append(.finished(id)) }
                 }
@@ -1375,7 +1498,10 @@ final class Store {
         }
         // archived or gone from the list: no longer running (one whose log had gone quiet: seen up to its last activity)
         let listed = Set(threads.map { "gpt-" + $0.id })
-        for id in running where id.hasPrefix("gpt-") && !listed.contains(id) { endRun(id, at: Date()); running.remove(id); changed = true }
+        for id in running where id.hasPrefix("gpt-") && !listed.contains(id) {
+            endUnseen([id], at: Date())      // one out of sight keeps the ≈ time Today showed for it
+            endRun(id, at: Date()); running.remove(id); paused.remove(id); changed = true
+        }
         // unpinned or deleted in ChatGPT, so no longer listed: no longer pinned here either
         for i in chats.indices where pinsRead && chats[i].isGPT && chats[i].pinned == true && !listed.contains(chats[i].id) {
             chats[i].pinned = nil; changed = true
@@ -1385,7 +1511,7 @@ final class Store {
         if let list = unread.map({ Set($0.map { "gpt-" + $0 }) }) {
             if list != gptListed { gptListed = list; dotsChanged = true }
             // ChatGPT's read state takes over: a dot that comes back later is unread again
-            for c in chats where c.isGPT && !c.isCodexSession && !list.contains(c.id) && !running.contains(c.id)
+            for c in chats where c.isGPT && !c.isCodexSession && !c.isGPTChat && !list.contains(c.id) && !running.contains(c.id)
                 && seen[c.id] != "" && seen[c.id] != c.updated_at && !c.updated_at.isEmpty {
                 seen[c.id] = c.updated_at; seenChanged = true
             }
@@ -1398,15 +1524,116 @@ final class Store {
         let unsure = Set(running.filter { $0.hasPrefix("gpt-") && outOfSight($0) })
         if unsure != gptUnsure { gptUnsure = unsure; dotsChanged = true }
         if changed || seenChanged || dotsChanged { notify() }
+        let out = events.filter(shown)
+        // what its sounds go by: ChatGPT in front now, or at some point since each finish they announce
+        let ends = Dictionary(threads.compactMap { t in t.finished.map { ("gpt-" + t.id, $0) } }, uniquingKeysWith: { a, _ in a })
+        gptWasFront = front || (!out.isEmpty && out.allSatisfy { e in
+            if case .finished(let id) = e, let f = ends[id] { return sawFinish(f) }
+            return false
+        })
+        return out
+    }
+
+    /// The pinned ordinary ChatGPT chats' names (to look for in ChatGPT's sidebar), and whether one of them runs.
+    var gptChatNames: [String] { chats.filter { $0.isGPTChat && $0.pinned == true }.map(\.title) }
+    var gptChatRunning: Bool { running.contains { $0.hasPrefix("gpt-chat-") } }
+    /// A pinned ordinary ChatGPT chat that was running is out of sight now ("running?").
+    var gptChatUnseen: Bool { running.contains { $0.hasPrefix("gpt-chat-") && paused.contains($0) } }
+
+    /// ChatGPT's window was read: its pinned ordinary chats' rows, by name, and the name of the chat open in it; nil
+    /// rows: it can't be seen now. A chat whose row shows a status runs; once the status goes, it's done: unread,
+    /// unless it's the chat open in ChatGPT in front (you watched it finish). Opening it there reads it. A chat
+    /// out of sight (or whose row isn't found: renamed just now, or a name two pinned chats share) keeps its state,
+    /// a running one "running?" with its time as of the last sighting. Returns sounds to play.
+    func apply(gptWindow rows: [String: GPTSidebarRow]?, open: String?, front: Bool, at date: Date = Date()) -> [Event] {
+        var events: [Event] = []
+        var changed = false, seenChanged = false, moved = false
+        let now = Clock.iso(date)
+        // ChatGPT in front now, or at some point since its window was last read: the chat open there that finished
+        // meanwhile was watched, as with Claude's (the read after you switch apps comes a moment later; a read takes
+        // a few hundredths of a second, so leaving during one isn't looked for)
+        let watched = front || gptFrontSince
+        gptWasFront = watched
+        gptFrontSince = front
+        let mine = chats.indices.filter { chats[$0].isGPTChat && chats[$0].pinned == true }
+        var named: [String: Int] = [:]
+        for i in mine { named[GPTSidebar.norm(chats[i].title), default: 0] += 1 }
+        for i in mine {
+            let id = chats[i].id, name = GPTSidebar.norm(chats[i].title)
+            guard let rows, named[name] == 1, let r = rows[name] else {
+                if running.contains(id) && !paused.contains(id) { hideGPTChat(id, at: date); moved = true }
+                if rows != nil && gptChatsRead.remove(id) != nil { moved = true }
+                continue                                            // its dot as last seen stays: nothing new to go by
+            }
+            if gptChatsRead.insert(id).inserted { moved = true }
+            let looking = watched && open.map(GPTSidebar.norm) == name
+            if r.working {
+                // running again after a stretch out of sight: it ran through it (estimated, time asleep aside)
+                if paused.remove(id) != nil, let s = seenRunningAt[id] { estimate(id, from: s, to: date); moved = true }
+                if !running.contains(id) {
+                    running.insert(id)
+                    seen[id] = now; seenChanged = true              // you just asked it something
+                    moved = true
+                }
+                seenRunningAt[id] = date
+            } else if running.contains(id) {
+                running.remove(id)
+                // finished while out of sight: when isn't known, so its time after the last sighting is estimated
+                if paused.remove(id) != nil, let s = seenRunningAt[id] { estimate(id, from: s, to: estimatedEnd(id, seen: s, by: date)) }
+                chats[i].updated_at = now; changed = true
+                finishedAt[id] = date
+                // you watched it finish: no sound. Not if ChatGPT has left the front and puts its unread dot on it: it
+                // ended after you looked away (a finish watched with ChatGPT in front never rings, dot or not)
+                if looking && (front || !r.unread) { seen[id] = now; seenChanged = true }
+                else { events.append(.finished(id)) }
+                moved = true
+            } else if looking && !r.unread && isUnread(chats[i]) {
+                seen[id] = max(now, chats[i].updated_at + "+"); seenChanged = true
+            }
+            // ChatGPT's yellow dot (a reply you haven't read through): mirrored. It shows: unread (if KIKUmap had it read,
+            // the reply came where it didn't see, dated now), unless you marked it read here since. It goes: read there.
+            if r.unread && !r.working && !running.contains(id) {
+                if gptMarked.insert(id).inserted { moved = true; seenChanged = true }
+                let u = chats[i].updated_at
+                if !(dismissed[id] == u && !u.isEmpty) && !isUnread(chats[i]) {
+                    if u < now { chats[i].updated_at = now; changed = true }
+                    seen[id] = ""; seenChanged = true
+                }
+            } else if gptMarked.remove(id) != nil {
+                dismissed.removeValue(forKey: id)
+                if !r.working && isUnread(chats[i]) { seen[id] = chats[i].updated_at }
+                moved = true; seenChanged = true
+            }
+        }
+        if moved || changed { track(running, at: now) }
+        if changed { saveChats() }
+        if seenChanged { saveSeen() }
+        if moved || changed || seenChanged { notify() }
         return events.filter(shown)
+    }
+
+    /// A running ordinary ChatGPT chat out of sight: it stays running ("running?"), its time as of the last sighting.
+    private func hideGPTChat(_ id: String, at date: Date) {
+        paused.insert(id)
+        if seenRunningAt[id] == nil { seenRunningAt[id] = date }
+        guard let start = runStart.removeValue(forKey: id) else { return }
+        let end = Clock.iso(max(seenRunningAt[id] ?? date, Clock.parse(start) ?? .distantPast))
+        if end > start { intervals.append(Interval(id: id, start: start, end: end)) }
+        saveActivity()
     }
 
     /// ChatGPT was turned off: forget its threads' running and unread state.
     func clearGPT() {
         let before = running
-        // (a task whose log had gone quiet: seen up to its last activity)
+        // (a task whose log had gone quiet: seen up to its last activity; an ordinary chat out of sight: its ≈ time so
+        // far is kept, and counts again once ChatGPT is back on)
         for id in running where id.hasPrefix("gpt-") { endRun(id, at: Date()) }
+        endUnseen(paused.filter { $0.hasPrefix("gpt-") }, at: Date())
         running = running.filter { !$0.hasPrefix("gpt-") }
+        paused = paused.filter { !$0.hasPrefix("gpt-") }
+        // (ChatGPT's dots on its ordinary chats as last seen stay, as their read state does: a dot gone by the next
+        // read once it's on again was read in ChatGPT)
+        gptChatsRead = []
         let dots = gptListed != nil
         gptListed = nil
         gptQuiet = []; gptQuietUntil = [:]
@@ -1455,6 +1682,8 @@ final class Store {
         if let f = finishedAt.removeValue(forKey: old) { finishedAt[new] = f }
         if let s = seenRunningAt.removeValue(forKey: old) { seenRunningAt[new] = s }
         if let m = missingSince.removeValue(forKey: old) { missingSince[new] = m }
+        if let a = maybeAnswered.removeValue(forKey: old) { maybeAnswered[new] = a }
+        for (k, v) in requests where v == old { requests[k] = new }        // its notifications are still its own
         var moved = false
         if let start = runStart.removeValue(forKey: old) {
             if runStart[new] == nil { runStart[new] = start }
@@ -1493,6 +1722,13 @@ final class Store {
     func apply(scan links: [AXLink], claudeFront: Bool, noPins: Bool = false, readKnown: Bool = false,
                startedAt: Date = .distantFuture, whole: Bool = true) -> [Event] {
         func claudeRunning() -> Set<String> { running.filter { !$0.hasPrefix("cc-") && !$0.hasPrefix("gpt-") && chat($0)?.outsideClaude != true } }
+        // Claude in front now, or at some point since the last read began: the chat open there that finished meanwhile
+        // was watched (this read comes back a second or so after the finish, when you may have switched apps already)
+        let watched = claudeFront || claudeFrontSince
+        claudeWasFront = watched
+        // and for the next read: in front now, or it left after this read began (not at a time still to come: that's
+        // from before the clock was set back)
+        claudeFrontSince = claudeFront || (claudeLeftAt >= startedAt && claudeLeftAt <= Date())
         // An empty read means the sidebar is hidden or still loading, not that everything finished. A list read whole
         // and empty (every chat deleted, another account) is read like any other: what it doesn't list isn't there.
         guard !links.isEmpty || whole else {
@@ -1584,6 +1820,10 @@ final class Store {
         }
         // the sidebar only lists recent chats: one that scrolled off it is unchanged, not finished or read
         let listed = ids
+        // a request KIKUmap was unsure of ("needs you?"): its row, read since, says how it stands (running again,
+        // still waiting, or neither: over), as below
+        var settled = false
+        for id in listed { if let t = maybeAnswered[id], startedAt > t { maybeAnswered[id] = nil; settled = true } }
         for id in nowRunning {
             // running again after a stretch out of sight: it ran through it (estimated, time asleep aside)
             if paused.contains(id), let seen = seenRunningAt[id] { estimate(id, from: seen, to: Date()) }
@@ -1608,7 +1848,7 @@ final class Store {
             // finished while out of sight: when isn't known, so its time after the last sighting is estimated
             if paused.contains(id), let seen = seenRunningAt[id] { estimate(id, from: seen, to: estimatedEnd(id, seen: seen, by: Date())) }
             paused.remove(id); missingSince.removeValue(forKey: id)
-            if claudeFront && current == id {
+            if watched && current == id {
                 chats[i].updated_at = now; changed = true           // it changed (Export goes by this), and you saw it
                 seen[id] = now; seenChanged = true
             } else if rules.markFinishedUnread || waits != nil {
@@ -1656,18 +1896,19 @@ final class Store {
                 seen[id] = u.isEmpty ? now : max(u, seen[id] ?? ""); seenChanged = true
             }
         }
-        if claudeFront, let c = current, let i = index[c] {
+        if watched, let c = current, let i = index[c] {
             let u = chats[i].updated_at
             if !u.isEmpty && u > (seen[c] ?? "") { seen[c] = u; seenChanged = true }
             if dismissed.removeValue(forKey: c) != nil { seenChanged = true }
         }
         // Claude shows no unread mark on it, so it was read there (say while KIKUmap wasn't running): read here too.
         // Not one that finished in the last minute (Claude may not have marked it yet), one you marked unread, one
-        // waiting for you (Claude marks that differently), or the one open in Claude's window while Claude isn't in
-        // front (Claude never marks the chat it shows: no mark there says nothing about you having seen it).
+        // waiting for you (Claude marks that differently), or the one open in Claude's window while Claude hasn't been
+        // in front since the last read (Claude never marks the chat it shows: no mark there says nothing about you
+        // having seen it).
         if readKnown {
             for l in links where !nowRunning.contains(l.id) && !nowUnread.contains(l.id) && dismissed[l.id] == nil
-                                  && (claudeFront || l.id != current)
+                                  && (watched || l.id != current)
                                   && !SidebarWatcher.statusLabels(l.flags).contains(where: SidebarWatcher.waitingStatuses.contains)
                                   && SidebarWatcher.unknownStatus(l.flags) == nil {
                 guard let i = index[l.id], !chats[i].outsideClaude, seen[l.id] != "", !needsInput(chats[i]) else { continue }
@@ -1691,8 +1932,12 @@ final class Store {
                     if let start = runStart.removeValue(forKey: id) {
                         let end = Clock.iso(max(since, Clock.parse(start) ?? since))
                         if end > start { intervals.append(Interval(id: id, start: start, end: end)) }
+                        saveActivity()
                     }
-                    missingSince.removeValue(forKey: id); paused.remove(id)
+                    // one out of sight keeps its ≈ time, up to when it went missing (one that stopped with Claude, as
+                    // when it's listed, ends at its last sighting)
+                    if !quitPaused.contains(id) { endUnseen([id], at: since) }
+                    missingSince.removeValue(forKey: id); paused.remove(id); quitPaused.remove(id)
                     continue
                 }
             }
@@ -1708,7 +1953,7 @@ final class Store {
         axUnread = nowUnread
         if changed { saveChats() }
         if seenChanged { saveSeen() }
-        if changed || seenChanged || stateChanged { notify() }
+        if changed || seenChanged || stateChanged || settled { notify() }
         return events.filter(shown)
     }
 

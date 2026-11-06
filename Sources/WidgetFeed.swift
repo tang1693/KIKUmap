@@ -54,6 +54,9 @@ final class WidgetFeed {
 
     /// What's off with reading Claude right now (nil: nothing), and whether it's only Claude's unread marks.
     var claudeNote: (() -> (text: String, unreadOnly: Bool)?)?
+    /// Where the file goes and how WidgetKit is asked to redraw (the regression checks swap both: a throwaway file, a count).
+    var file = WidgetFeed.url
+    var reload: () -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget") }
 
     init(store: Store, usage: UsageMonitor, gpt: GPTWatcher) {
         self.store = store
@@ -149,11 +152,11 @@ final class WidgetFeed {
         lastBeat = Date()
         state.updated = Clock.iso()
         guard let data = try? e.encode(state) else { return }
-        try? FileManager.default.createDirectory(at: Self.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: Self.url, options: .atomic)
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: file, options: .atomic)
         // the widget shows the record and usage (not what's running or unread): any change to them is worth a redraw,
         // paced; quitting changes nothing it shows
-        redraw(String(body.hashValue), now: force && !closed)
+        redraw(body, now: force && !closed)
     }
 
     /// macOS lets an app redraw its widget only so many times a day: Apple's "Keeping a widget up to date" gives 40 to
@@ -163,27 +166,29 @@ final class WidgetFeed {
     /// in the end. While KIKUmap is the app in front, redraws don't count against that, so they go at once (and when
     /// it comes to the front, one catches up).
     private static let pace: TimeInterval = 20 * 60
-    private var lastRedraw = Date.distantPast, redrawnKey = "", wantedKey = ""
+    /// What the widget last drew and what it should show: the body itself, compared whole. (A hash of it missed changes:
+    /// Data's covers only its length and first 80 bytes, so Session 35% becoming 70% looked like nothing new.)
+    private var lastRedraw = Date.distantPast, redrawnBody = Data(), wantedBody = Data()
     private var redrawLater: Timer?
 
     /// KIKUmap came to the front: the widget catches up for free, if it's behind.
     func caughtUp() {
-        guard redrawnKey != wantedKey, !wantedKey.isEmpty else { return }
-        redraw(wantedKey, now: true)
+        guard redrawnBody != wantedBody, !wantedBody.isEmpty else { return }
+        redraw(wantedBody, now: true)
     }
 
-    private func redraw(_ key: String, now: Bool) {
-        wantedKey = key
-        guard now || key != redrawnKey else { return }
+    private func redraw(_ body: Data, now: Bool) {
+        wantedBody = body
+        guard now || body != redrawnBody else { return }
         let wait = Self.pace - Date().timeIntervalSince(lastRedraw)
         if now || NSApp.isActive || wait <= 0 || wait > Self.pace {
             redrawLater?.invalidate(); redrawLater = nil
-            redrawnKey = key
+            redrawnBody = body
             lastRedraw = Date()
-            WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget")
+            reload()
         } else if redrawLater == nil {
             redrawLater = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self] _ in
-                MainActor.assumeIsolated { guard let self else { return }; self.redrawLater = nil; self.redraw(self.wantedKey, now: true) }
+                MainActor.assumeIsolated { guard let self else { return }; self.redrawLater = nil; self.redraw(self.wantedBody, now: true) }
             }
         }
     }

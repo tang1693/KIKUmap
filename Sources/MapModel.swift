@@ -312,6 +312,10 @@ final class MapModel {
         return false
     }
 
+    /// A step to take back, or to do again (Edit → Undo / Redo is greyed out without one).
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+
     func undo() -> Bool {
         guard let s = undoStack.popLast(), let m = restore(s) else { return false }
         redoStack.append((snapshot(), renames.count))
@@ -578,14 +582,18 @@ final class MapModel {
         let arr = parent.children
         let next: String = loc.index + 1 < arr.count ? arr[loc.index + 1].key
             : (loc.index > 0 ? arr[loc.index - 1].key : parent.id)
-        commit {
-            parent.children.remove(at: loc.index)
-            if keepChildren, let n = loc.item.node {
-                parent.children.insert(contentsOf: n.children, at: loc.index)
-                if parent === doc.root { for c in n.children { setSide(c.key, side(of: key)) } }
-            }
-        }
+        commit { takeOut(loc, keepChildren: keepChildren) }
         return next
+    }
+
+    /// One item out of its topic (inside a `commit`); `keepChildren`: a topic's items take its place, on its side.
+    private func takeOut(_ loc: Location, keepChildren: Bool) {
+        guard let parent = loc.parent else { return }
+        parent.children.remove(at: loc.index)
+        if keepChildren, let n = loc.item.node {
+            parent.children.insert(contentsOf: n.children, at: loc.index)
+            if parent === doc.root { for c in n.children { setSide(c.key, side(of: loc.item.key)) } }
+        }
     }
 
     func rename(_ key: String, to text: String, chatTitle: String?) {
@@ -660,11 +668,12 @@ final class MapModel {
         }
     }
 
-    /// Removes several items as one undo step: topics with what's under them, chats back to the left column.
-    func remove(_ keys: [String]) {
+    /// Removes several items as one undo step: topics with what's under them (`keepChildren`: what's under each stays
+    /// in its place, as ⌥⌫ does for one), chats back to the left column.
+    func remove(_ keys: [String], keepChildren: Bool = false) {
         commit {
             for k in keys {
-                if let loc = locate(k), let parent = loc.parent { parent.children.remove(at: loc.index) }
+                if let loc = locate(k) { takeOut(loc, keepChildren: keepChildren) }
             }
         }
     }

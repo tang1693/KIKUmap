@@ -195,7 +195,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.settled = 4
         case .map:
             titleL.stringValue = tr("导图：把对话归好类", "A map for your chats")
-            let open = Prefs.hotKeyEnabled ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) for the map. ")
+            let open = Prefs.hotKeyWorks ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) for the map. ")
                                            : tr("点菜单栏图标 →「打开导图」。", "Click the menu-bar icon → Open map. ")
             bodyL.stringValue = open + tr("左栏是你在 Claude 和 ChatGPT 里置顶的对话，还有编辑器里的 Claude Code、Codex 会话，拖到主题上就归好了。键盘操作和 MindNode 一样。",
                                           "The left column holds the chats you pinned in Claude and ChatGPT, and Claude Code / Codex sessions from your editors; drag them onto a topic. Keys work like MindNode.")
@@ -215,21 +215,21 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.settled = 5
         case .sources:
             titleL.stringValue = tr("KIKUmap 能看到什么", "What KIKUmap can see")
-            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的对话（Codex 对话还能看到进行中、未读）。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及没在 ChatGPT App 里置顶的 ChatGPT 对话，它看不到。",
-                                   "It reads what's on this Mac: chats you pin in the Claude app (pinned on your phone or the web too), Claude Code and Codex run on this Mac, and chats you pin in the ChatGPT app (Codex chats with running and unread too). Claude Code or Codex running on another computer, a server or in the cloud (SSH, remote), and ChatGPT chats not pinned in the app, are out of its sight.")
+            // (ordinary ChatGPT chats too: read off its window, as the next page says, so less surely than Codex's)
+            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的对话（也能看到进行中、未读：Codex 对话最准；普通对话只在 ChatGPT 的窗口露出来时看得到）。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及没在 ChatGPT App 里置顶的 ChatGPT 对话，它看不到。",
+                                   "It reads what's on this Mac: chats you pin in the Claude app (or on your phone or the web), Claude Code and Codex run on this Mac, and chats you pin in the ChatGPT app (running and unread too: Codex chats best; ordinary ones only while ChatGPT's window shows). Claude Code or Codex on another computer, a server or in the cloud (SSH, remote), and ChatGPT chats not pinned in the app, are out of its sight.")
             art.painter = { r, t in Onboarding.paintSources(r, t) }
             art.settled = 0.4
-        case .accessibility where perms.sidebar.status == .notInstalled && !AXIsProcessTrusted():
-            // no Claude app here: nothing to give access to
+        case .accessibility where !perms.accessNeeded && !AXIsProcessTrusted():
+            // neither the Claude app nor ChatGPT here (or only the older ChatGPT app): nothing to give access to
             titleL.stringValue = tr("辅助功能：这台 Mac 用不上", "Accessibility: not needed on this Mac")
-            bodyL.stringValue = tr("辅助功能只用来看 Claude App 的对话列表，这台 Mac 上没装 Claude App，跳过就好；以后装了，在 设置 → 授权 里再开。ChatGPT 和 Claude Code 不需要它。",
-                                   "Accessibility is only for reading the Claude app's chat list, and there's no Claude app on this Mac, so skip it. If you install it later, turn it on in Settings → Access. ChatGPT and Claude Code don't need it.")
+            bodyL.stringValue = Onboarding.accessNotNeeded(olderGPT: GPTWatcher.oldAppOnly)
             art.painter = { r, t in Onboarding.paintSymbol(r, t, "accessibility", granted: nil) }
         case .accessibility:
             permissionPage(step: 1, symbol: "accessibility",
                            title: tr("只需要一步：辅助功能", "Just one step: Accessibility"),
-                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。ChatGPT 不需要任何权限。\n点下面的按钮 → 在列表里打开 KIKUmap。",
-                                    "Lets KIKUmap read the Claude app's chat list: which chats are running, done or pinned. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting). ChatGPT needs no permission.\nClick below → switch on KIKUmap in the list."),
+                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了；ChatGPT 的普通对话在不在跑、有没有未读，也从它的窗口里看。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。\n点下面的按钮 → 在列表里打开 KIKUmap。",
+                                    "Lets KIKUmap read the Claude app's chat list: which chats are running, done or pinned; and, from ChatGPT's window, whether its ordinary chats are running or unread. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting).\nClick below → switch on KIKUmap in the list."),
                            action: tr("打开系统设置", "Open System Settings"),
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
         case .extras:
@@ -271,6 +271,16 @@ final class Onboarding: NSObject, NSWindowDelegate {
         }
         layoutButtons()
         art.restart()
+    }
+
+    /// Why Accessibility isn't needed on this Mac: neither app is here, or only the older ChatGPT app (`olderGPT`), whose
+    /// window KIKUmap doesn't read.
+    static func accessNotNeeded(olderGPT: Bool) -> String {
+        olderGPT
+            ? tr("辅助功能只用来看 Claude App 和 ChatGPT 窗口里的对话列表。这台 Mac 上没有 Claude App，ChatGPT 是旧版，KIKUmap 不读它的窗口，跳过就好；以后装了 Claude App 或新版 ChatGPT，在 设置 → 授权 里再开。Claude Code 不需要它。",
+                 "Accessibility is only for reading the chat lists in the Claude and ChatGPT windows. This Mac has no Claude app, and its ChatGPT app is the older one, whose window KIKUmap doesn't read, so skip it. If you install the Claude app or the current ChatGPT app later, turn it on in Settings → Access. Claude Code doesn't need it.")
+            : tr("辅助功能只用来看 Claude App 和 ChatGPT 窗口里的对话列表，这台 Mac 上两个都没装，跳过就好；以后装了，在 设置 → 授权 里再开。Claude Code 不需要它。",
+                 "Accessibility is only for reading the chat lists in the Claude and ChatGPT windows, and neither app is on this Mac, so skip it. If you install one later, turn it on in Settings → Access. Claude Code doesn't need it.")
     }
 
     /// The optional extras, each a button with what it adds; all can be skipped and turned on later in Settings.

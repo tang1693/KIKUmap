@@ -156,7 +156,10 @@ final class NotificationWatcher: NSObject {
                              : rows.filter { !handled.contains($0.key) }.map { $0.note }
         let gone = handled.subtracting(keys), removed = gone.count
         if removed > 0 { store.log("\(Clock.iso()) [removed] \(removed) Claude notification(s) cleared or opened\n", file: "notifications.log") }
-        if !gone.isEmpty && !firstRun { store.withdrawn(gone) }
+        // (with Claude not running, a request that's gone wasn't answered)
+        if !gone.isEmpty && !firstRun {
+            store.withdrawn(gone, claudeOpen: !NSRunningApplication.runningApplications(withBundleIdentifier: claudeBundleID).isEmpty)
+        }
         if keys != handled || firstRun {
             handled = keys
             d.set(Array(keys).sorted(), forKey: handledKey)
@@ -293,37 +296,39 @@ enum SyncIssue: Sendable {
         }
     }
 
-    /// What keeps working meanwhile.
+    /// What keeps working meanwhile (with Accessibility off, not ChatGPT's ordinary chats: they're read off its window).
     private var still: String {
-        SyncIssue.alerts
-            ? tr("不受影响：Claude 的通知（要你批准或回答；Claude App 里的 Cowork 任务做完）、Claude Code、ChatGPT。",
-                 "Still works: Claude's notifications (it needs your approval or an answer; a Cowork task in the Claude app finished), Claude Code, ChatGPT.")
-            : tr("不受影响：Claude Code、ChatGPT。（开了「完全磁盘访问」的话，Claude 要你批准、Cowork 任务做完时的通知也能收到。）",
-                 "Still works: Claude Code, ChatGPT. (With Full Disk Access on, Claude's notifications would also say when it needs your approval and when a Cowork task finishes.)")
+        let gpt = self == .accessOff ? tr("Codex 对话", "Codex chats") : "ChatGPT"
+        return SyncIssue.alerts
+            ? tr("不受影响：Claude 的通知（要你批准或回答；Claude App 里的 Cowork 任务做完）、Claude Code、\(gpt)。",
+                 "Still works: Claude's notifications (it needs your approval or an answer; a Cowork task in the Claude app finished), Claude Code, \(gpt).")
+            : tr("不受影响：Claude Code、\(gpt)。（开了「完全磁盘访问」的话，Claude 要你批准、Cowork 任务做完时的通知也能收到。）",
+                 "Still works: Claude Code, \(gpt). (With Full Disk Access on, Claude's notifications would also say when it needs your approval and when a Cowork task finishes.)")
     }
 
     /// What it means, what it affects, what to do.
     var help: String {
         switch self {
         case .accessOff:
-            return tr("macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读。\n",
-                      "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar.\n")
+            return tr("macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读；ChatGPT 普通对话的进行中和未读（也是从它的窗口里读的）。\n",
+                      "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar; running and unread for ChatGPT's ordinary chats (read off its window too).\n")
                 + still + tr("\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 KIKUmap 删掉（−）再加回来。",
                              "\nFix: System Settings → Privacy & Security → Accessibility: remove KIKUmap (−) and add it again.")
         case .noWindow:
-            // with Claude's notifications read, a finish ends the time the window hid at the notification
+            // as Store counts it: in full between two sightings, or up to a finish Claude notifies (with its notifications
+            // read); otherwise a typical run (still out of sight, found finished, KIKUmap quit)
             let time = SyncIssue.alerts
-                ? tr("在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：按你一次运行的常见时长算，不超过它被看到做完的时候；发通知说做完的（Cowork 任务）算到通知那一刻。普通对话回复完 Claude 不发通知，要等窗口回来才知道。\n",
-                     "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; one whose finish Claude notifies (a Cowork task) counts up to that notification. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n")
-                : tr("在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：按你一次运行的常见时长算，不超过它被看到做完的时候；做完没有，要等窗口回来才知道。\n",
-                     "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): your typical run's length, never past when it's seen finished; whether they've finished shows when the window is back.\n")
-            return tr("KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的进行中、做完和置顶同步，窗口回到这个桌面就自动恢复。",
-                      "KIKUmap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished and pins for Claude's chats; they resume once the window is back on this desktop. ")
+                ? tr("在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：窗口回来时还在跑的，整段都算；Claude 发通知说做完的（Cowork 任务），算到通知那一刻；其余按你一次运行的常见时长算，不超过它被看到做完的时候。普通对话回复完 Claude 不发通知，要等窗口回来才知道。\n",
+                     "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running when the window is back, or up to the notification if Claude notifies its finish (a Cowork task); otherwise your typical run's length, never past when it's seen finished. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n")
+                : tr("在跑的对话显示「在跑？」，做完没有要等窗口回来才知道。看不到的这段时长是估算的（标 ≈）：那时还在跑的，整段都算；其余按你一次运行的常见时长算，不超过它被看到做完的时候。\n",
+                     "Chats that were running show \"running?\"; whether they've finished shows when the window is back. The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running then; otherwise your typical run's length, never past when it's seen finished.\n")
+            return tr("KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的进行中、做完、未读和置顶同步，窗口回到这个桌面就自动恢复。",
+                      "KIKUmap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished, unread and pins for Claude's chats; they resume once the window is back on this desktop. ")
                 + time + still + tr("\n怎么办：点程序坞里的 Claude（关着的窗口会重新打开，在别的桌面会切过去）。想在别的桌面工作时也同步，就把 Claude 的窗口放到你用的那个桌面。",
                              "\nFix: click Claude in the Dock (it reopens a closed window, or takes you to its desktop). To keep syncing while you work on another desktop, move Claude's window to the desktop you use.")
         case .codeMode:
-            return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶对话同步、对话的进行中状态。\n",
-                      "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins and the running status of chats.\n")
+            return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶对话同步，以及对话的进行中和未读。\n",
+                      "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins, and running and unread for chats.\n")
                 + still + tr("\n怎么办：在 Claude 侧边栏顶部切回 Chat。", "\nFix: switch Claude back to Chat at the top of its sidebar.")
         case .pinsCollapsed:
             return tr("Claude 侧边栏里的 Pinned 区折叠起来了，KIKUmap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新），以及置顶对话的进行中和未读。\n",
@@ -351,8 +356,11 @@ enum AXScan {
         return AXUIElementCopyAttributeValue(el, name as CFString, &v) == .success ? v : nil
     }
 
-    static func str(_ el: AXUIElement, _ name: String) -> String {
-        guard let v = attr(el, name) else { return "" }
+    static func str(_ el: AXUIElement, _ name: String) -> String { string(attr(el, name)) }
+
+    /// An attribute's value as text ("" when there's none).
+    static func string(_ v: CFTypeRef?) -> String {
+        guard let v = v else { return "" }
         if let s = v as? String { return s }
         if let u = v as? URL { return u.absoluteString }
         if let n = v as? NSNumber { return n.stringValue }
@@ -377,7 +385,8 @@ enum AXScan {
         return t.count > n ? String(t.prefix(n)) + "…" : t
     }
 
-    /// One-line description of an element subtree (used by rules and the diagnostic log).
+    /// One-line description of an element subtree, for the diagnostic log (a link to a chat can sit in a message,
+    /// so only Claude's own words show, see `field`).
     static func describe(_ root: AXUIElement, limit: Int) -> String {
         var parts: [String] = []
         var stack: [(AXUIElement, Int)] = [(root, 0)]
@@ -386,10 +395,9 @@ enum AXScan {
             n += 1
             var p = str(el, "AXRole")
             let sub = str(el, "AXSubrole"); if !sub.isEmpty { p += "/" + sub }
-            for (k, label) in [("AXTitle", "t"), ("AXDescription", "d"), ("AXHelp", "h")] {
-                let v = str(el, k); if !v.isEmpty { p += " \(label)='\(short(v, 40))'" }
+            for (k, label) in [("AXTitle", "t"), ("AXDescription", "d"), ("AXHelp", "h"), ("AXValue", "v")] {
+                if let f = field(attr(el, k), k) { p += " \(label)=" + f }
             }
-            let val = str(el, "AXValue"); if !val.isEmpty { p += " v='\(short(val, 40))'" }
             let cls = str(el, "AXDOMClassList"); if !cls.isEmpty { p += " cls='\(short(cls, 120))'" }
             if str(el, "AXSelected") == "1" { p += " sel=1" }
             let cur = str(el, "AXARIACurrent"); if !cur.isEmpty && cur != "0" && cur != "false" { p += " cur=\(cur)" }
@@ -415,24 +423,107 @@ enum AXScan {
         return out.joined(separator: " ")
     }
 
-    /// Indented outline of a subtree, for the diagnostic log.
-    static func outline(_ root: AXUIElement, limit: Int) -> String {
+    /// Indented outline of a subtree, for the diagnostic log, every text masked as it's written (see `field`). `list`:
+    /// the chat list's, whose headings (Pinned, Today…) show too, and where the chats' `titles` are ‹title›. Else the
+    /// window with no chat list found: only Claude's own words show, and its main part (the conversation) isn't gone into.
+    static func outline(_ root: AXUIElement, limit: Int, list: Bool, menus: Set<String>, titles: Set<String> = []) -> String {
+        outline(root, limit: limit, list: list, menus: menus, titles: titles, read: { attr($0, $1) }, kids: { children($0) })
+    }
+
+    static func outline<E>(_ root: E, limit: Int, list: Bool, menus: Set<String>, titles: Set<String>,
+                           read: (E, String) -> CFTypeRef?, kids: (E) -> [E]) -> String {
+        let isTitle = titleTest(titles), menu = menuTest(menus)
         var lines: [String] = []
-        var stack: [(AXUIElement, Int)] = [(root, 0)]
-        while let (el, d) = stack.popLast(), lines.count < limit {
-            var p = str(el, "AXRole")
-            let sub = str(el, "AXSubrole"); if !sub.isEmpty { p += "/" + sub }
-            // a menu button's own title is what it shows (the account menu: your name and plan): left out
-            let popup = str(el, "AXRole") == "AXPopUpButton"
+        var stack: [(E, Int, Bool)] = [(root, 0, false)]      // (and whether it's in a heading)
+        while let (el, d, inHeading) = stack.popLast(), lines.count < limit {
+            let role = string(read(el, "AXRole")), sub = string(read(el, "AXSubrole"))
+            let heading = inHeading || role == "AXHeading"
+            var p = sub.isEmpty ? role : role + "/" + sub
+            // (in the list, any text but a heading's may be a chat's title, or the account menu's name and plan)
             for (k, label) in [("AXTitle", "t"), ("AXDescription", "d"), ("AXValue", "v"), ("AXURL", "u")] {
-                let v = str(el, k); if !v.isEmpty { p += " \(label)='\(popup && k != "AXDescription" ? "‹…›" : short(v, 60))'" }
+                if let f = field(read(el, k), k, menu: menu, title: isTitle, shown: list && heading) { p += " \(label)=" + f }
             }
-            if str(el, "AXSelected") == "1" { p += " sel=1" }
-            if str(el, "AXElementBusy") == "1" { p += " busy=1" }
-            lines.append(String(repeating: "  ", count: min(d, 30)) + p)
-            if d < 60 { for c in children(el).reversed() { stack.append((c, d + 1)) } }
+            if string(read(el, "AXSelected")) == "1" { p += " sel=1" }
+            if string(read(el, "AXElementBusy")) == "1" { p += " busy=1" }
+            let conversation = !list && sub == "AXLandmarkMain"
+            lines.append(String(repeating: "  ", count: min(d, 30)) + p + (conversation ? " (the conversation: left out)" : ""))
+            if d < 60 && !conversation { for c in kids(el).reversed() { stack.append((c, d + 1, heading)) } }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// Claude's own words KIKUmap knows (its chat list's name, the Pinned heading, a row's statuses, the Chat / Code
+    /// switch): the texts the diagnostic log shows wherever they stand.
+    static let claudeWords = sidebarNames.union(pinnedHeadings).union(SidebarWatcher.knownStatuses).union(["Claude", "Code"])
+    /// The kinds of Claude's own links the diagnostic log names ("https://claude.ai/chat/…").
+    static let claudeLinks: Set<String> = ["chat", "code", "project", "projects", "new", "recents", "artifacts"]
+
+    /// An attribute as the diagnostic log writes it (nil: there's none): a number (a heading's level, a switch's
+    /// state) as it is, a link by its kind only, a text masked (see `masked`).
+    static func field(_ raw: CFTypeRef?, _ name: String, menu: (String) -> String? = knownMenu,
+                      title: (String) -> Bool = { _ in false }, shown: Bool = false) -> String? {
+        let v = string(raw)
+        if v.isEmpty { return nil }
+        if raw is NSNumber { return v }
+        if name == "AXURL" { return linkKind(v, hosts: ["claude.ai"], kinds: claudeLinks) }
+        return masked(v, menu: menu, title: title, shown: shown)
+    }
+
+    /// A text from Claude's window as the diagnostic log writes it, masked before it's quoted (so an apostrophe in it
+    /// can't end the quote early): a row menu's words with the chat's title left out ("More options for {label}", see
+    /// `menuTest`); a chat's title (`title` tells) as ‹title›; Claude's own words, and short `shown` ones, as they are;
+    /// any other text only by its length (‹n›).
+    static func masked(_ v: String, menu: (String) -> String? = knownMenu, title: (String) -> Bool = { _ in false },
+                       shown: Bool = false) -> String {
+        let t = v.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let m = menu(t) { return "'\(m)'" }
+        if title(t) { return "‹title›" }
+        if claudeWords.contains(t) || (shown && t.count < 25) { return "'\(short(t, 40))'" }
+        return "‹\(t.count)›"
+    }
+
+    /// The words of the row menu a text is, with the title left out ("猫のその他のオプション": "{label}のその他のオプション"),
+    /// if it's one of `menus`. (Each menu split around its {label} once: the log asks this of every text it writes.)
+    static func menuTest(_ menus: Set<String>) -> @Sendable (String) -> String? {
+        let parts = menus.compactMap { m -> (menu: String, head: String, tail: String)? in
+            let part = m.components(separatedBy: "{label}")
+            return part.count == 2 ? (m, part[0], part[1]) : nil
+        }
+        return { v in parts.first { v.hasPrefix($0.head) && v.hasSuffix($0.tail) && v.count > $0.head.count + $0.tail.count }?.menu }
+    }
+    /// The row menus of every language Claude ships (see `knownMenus`), split once.
+    static let knownMenu = menuTest(knownMenus)
+
+    /// Whether a text holds a chat's title, found as `redact` finds titles: a title's first 12 characters anywhere in
+    /// it, a title of one or two characters as the whole text. (Looked up by the pieces of each text: with hundreds of
+    /// titles, trying each in turn takes seconds.)
+    static func titleTest(_ titles: Set<String>) -> (String) -> Bool {
+        var keys = Set<Substring>(), tiny = Set<String>()
+        for t in titles {
+            let key = t.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12)
+            if key.count >= 3 { keys.insert(key) } else if !key.isEmpty { tiny.insert(String(key)) }
+        }
+        let lengths = Set(keys.map(\.count)).sorted()
+        return { v in
+            if tiny.contains(v) { return true }
+            var i = v.startIndex
+            while i < v.endIndex {
+                for n in lengths { if let j = v.index(i, offsetBy: n, limitedBy: v.endIndex), keys.contains(v[i..<j]) { return true } }
+                i = v.index(after: i)
+            }
+            return false
+        }
+    }
+
+    /// A link as the diagnostic logs write it: an app's own by its kind only ("https://claude.ai/chat/…",
+    /// "codex://threads/…"), any other just "link" (its site, page or file can say what a chat is about, or whose it is).
+    static func linkKind(_ s: String, hosts: Set<String>, kinds: Set<String>, scheme own: String? = nil) -> String {
+        guard let u = URL(string: s), let scheme = u.scheme?.lowercased() else { return "link" }
+        let host = u.host?.lowercased() ?? ""
+        if scheme == own { return scheme + "://" + host + "/…" }
+        guard scheme == "https" || scheme == "http", hosts.contains(host) else { return "link" }
+        let kind = u.pathComponents.dropFirst().first ?? ""
+        return scheme + "://" + host + (kinds.contains(kind) ? "/" + kind : "") + "/…"
     }
 
     private static let itemRoles: Set<String> = ["AXLink", "AXButton", "AXRow", "AXCell", "AXMenuItem", "AXRadioButton"]
@@ -697,6 +788,7 @@ enum AXScan {
         var emptyList = false, readKnown = false, partial = false
         var hiddenLists = 0, codeLists = 0, unshownLists = 0
         var titles = Set(known.keys).union(hidden)            // left out of the log
+        var menus = knownMenus                                // a row menu's words, also as this read finds them
         // Electron builds its accessibility tree only after AXManualAccessibility is set — give it a moment
         var winErr = AXError.success
         var windows: [AXUIElement] = []
@@ -717,7 +809,7 @@ enum AXScan {
         }
         for w in windows {
             titles.insert(str(w, "AXTitle"))
-            if wantDump { dump += "WINDOW title='\(str(w, "AXTitle"))'\n" }
+            if wantDump { dump += "WINDOW title=\(masked(str(w, "AXTitle")))\n" }
             var webs: [AXUIElement] = []
             var stack: [(AXUIElement, Int)] = [(w, 0)]
             var visited = 0
@@ -744,7 +836,7 @@ enum AXScan {
                         if d < 60 { for c in children(el) { st.append((c, d + 1)) } }
                     }
                 }
-                if wantDump { dump += " WEBAREA url='\(str(web, "AXURL"))' links=\(links.count)\n" }
+                if wantDump { dump += " WEBAREA url=\(field(attr(web, "AXURL"), "AXURL") ?? "''") links=\(links.count)\n" }
                 for l in links {
                     let url = str(l, "AXURL")
                     let ns = url as NSString
@@ -754,14 +846,14 @@ enum AXScan {
                     let id = ns.substring(with: m.range).lowercased()
                     if linkSeen.contains(id) { continue }
                     linkSeen.insert(id)
-                    let path = URL(string: url)?.path ?? ""
                     let title = linkText(l)
                     titles.insert(title)
+                    guard wantDump else { continue }
                     var flags = describe(l, limit: 40)
                     if let parent = element(attr(l, "AXParent")), children(parent).count <= 6 {
                         flags += " || parent: " + describe(parent, limit: 50)
                     }
-                    if wantDump { dump += "LINK \(path)\n  title=\(short(title, 80))\n  flags=\(flags)\n" }
+                    dump += "LINK \(linkKind(url, hosts: ["claude.ai"], kinds: claudeLinks)) \(id)\n  title=\(title.isEmpty ? "''" : "‹title›")\n  flags=\(flags)\n"
                 }
             }
             allWebs.append(contentsOf: webs)
@@ -805,6 +897,7 @@ enum AXScan {
                 var headings: [String] = [], sections: [Section] = [], texts = Set<String>()
                 let rows = rows(in: sb, headings: &headings, sections: &sections, texts: &texts)
                 titles.formUnion(texts)
+                menus.formUnion(rows.map(\.menu).filter { !$0.isEmpty })
                 // a chat opened while the list was read: Claude's marks (read late) needn't be the address's (read early)
                 let settled = str(web, "AXURL") == url
                 // the landmark is there but shows no list at all, not even a heading: collapsed or narrow, not empty
@@ -825,7 +918,7 @@ enum AXScan {
                 noPins = (noPins ?? true) && !codeMode && p.none
                 if !codeMode && p.partial { partial = true }
                 if !codeMode && rows.isEmpty { emptyList = true }
-                if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · menus '\(rows.first?.menu ?? "")' · open chat '\(short(openTitle, 60))' \(openID ?? "-")\n" }
+                if wantDump { dump += "\nSIDEBAR: \(rows.count) rows · menus '\(rows.first?.menu ?? "")' · open chat \(openTitle.isEmpty ? "''" : "‹title›") \(openID ?? "-")\n" }
                 // the Code list holds sessions (their hooks report them), not chats: nothing to apply from it
                 if codeMode { continue }
                 // the open chat: only a /chat/ address that's the same before and after the list was read
@@ -834,49 +927,59 @@ enum AXScan {
                 for l in links(rows, known: known, open: openChat, openRow: open, seen: &seen) {
                     titles.insert(l.title)
                     out.append(l)
-                    if wantDump { dump += "ROW \(l.pinned == true ? "📌 " : l.pinned == nil ? "? " : "")\(short(l.title, 70))  →  \(l.id)\n  flags=\(l.flags)\n" }
+                    if wantDump { dump += "ROW \(l.pinned == true ? "📌 " : l.pinned == nil ? "? " : "")‹title›  →  \(l.id)\n  flags=\(l.flags)\n" }
                 }
             }
         }
         // no chat list: nothing (links elsewhere in the page aren't the list, and their text isn't a status). A list
         // that's hidden, folded, loading or in Code mode gives nothing: what isn't seen isn't changed.
         if wantDump {
-            // the chat list only: the rest of the window is the conversation itself (without a chat list,
-            // the window with its longer texts left out). The Code list holds session titles: left out.
+            // the chat list only: the rest of the window is the conversation itself (without a chat list, the window
+            // with only Claude's own words, and not its main part). The Code list holds session titles: left out.
             for (i, root) in (sidebars.isEmpty ? allWebs : sidebars).enumerated() where codeLists == 0 {
-                let o = outline(root, limit: 700)
-                dump += "\n== OUTLINE \(i) \(sidebars.isEmpty ? "window" : "sidebar")\n" + maskLong(o) + "\n"
+                let list = !sidebars.isEmpty
+                dump += "\n== OUTLINE \(i) \(list ? "sidebar" : "window, no chat list found") · texts: '…' the app's own words, ‹title› a chat's title, ‹n› any other's length\n"
+                    + outline(root, limit: 700, list: list, menus: menus, titles: titles) + "\n"
             }
         }
         if issue == nil && !windows.isEmpty && out.isEmpty && unshownLists > 0 && !emptyList { issue = .noChatsShown }
         if issue == nil && !windows.isEmpty && (!foundSidebar || (out.isEmpty && hiddenLists > 0 && !emptyList)) { issue = .sidebarHidden }
         if wantDump, let n = issue { dump = "# Sync problem: \(n.note)\n" + dump }
-        if wantDump { dump = redact(dump, titles: titles) }
+        if wantDump { dump = redact(dump, titles: titles, menus: menus) }
         let whole = issue == nil && foundSidebar && hiddenLists < sidebars.count && !partial
         return (out, dump, issue, issue == nil && noPins == true, issue == nil && emptyList && out.isEmpty, readKnown, whole, page)
     }
 
-    /// The log without chat titles (each becomes ‹title›), so it can be sent to someone.
-    static func redact(_ text: String, titles: Set<String>) -> String {
-        var t = text
+    /// The log without chat titles (each becomes ‹title›), so it can be sent to someone. `menus`: a row menu's words in
+    /// each language, which a short title stands in too ("{label}のその他のオプション"). (A net: the log's texts are masked
+    /// as they're written. Each pass reads all of the log and there can be thousands of titles, so a pass runs only
+    /// where it can find something: the report has seconds to be written in.)
+    static func redact(_ text: String, titles: Set<String>, menus: Set<String> = knownMenus) -> String {
+        var t = NSString(string: text) as String      // (as an NSString from the start: else each search copies the log over)
         for title in titles.sorted(by: { $0.count > $1.count }) {
-            let key = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12))
+            let whole = title.trimmingCharacters(in: .whitespacesAndNewlines), key = String(whole.prefix(12))
             guard key.count >= 3 else {
-                // a short title (one or two characters, common in Chinese and Japanese): where it stands whole
-                guard !key.isEmpty else { continue }
-                // (a field, a quoted label, a sidebar row "ROW 📌 X  →", a menu "More options for X'")
+                // a short title (one or two characters, common in Chinese and Japanese): where it stands whole, if it's
+                // in the log at all (looked for as the passes below look)
+                guard !key.isEmpty, t.contains(key) else { continue }
+                // (a field, a quoted label, a sidebar row "ROW 📌 X  →", a menu "More options for X'" or "'Xのその他のオプション")
                 t = t.replacingOccurrences(of: "=" + key + "\n", with: "=‹title›\n").replacingOccurrences(of: "'" + key + "'", with: "'‹title›'")
                     .replacingOccurrences(of: " " + key + "  →", with: " ‹title›  →").replacingOccurrences(of: " " + key + "'", with: " ‹title›'")
+                for m in menus {
+                    t = t.replacingOccurrences(of: m.replacingOccurrences(of: "{label}", with: key), with: m.replacingOccurrences(of: "{label}", with: "‹title›"))
+                }
                 continue
+            }
+            // (only where its first 12 characters are, exactly as the match below needs them)
+            guard t.range(of: key, options: .literal) != nil else { continue }
+            // the whole title first where an apostrophe, a line break or an arrow in it would stop the match below
+            // early (by code point, as the match reads: "\r\n" holds a line break), then where it's cut short
+            if whole.unicodeScalars.contains(where: { $0 == "'" || $0 == "\n" || $0 == "→" }) {
+                t = t.replacingOccurrences(of: whole, with: "‹title›")
             }
             t = t.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: key) + "[^'\\n→]*", with: "‹title›", options: .regularExpression)
         }
         return t
-    }
-
-    /// Quoted texts longer than a label left out.
-    static func maskLong(_ text: String) -> String {
-        text.replacingOccurrences(of: "'[^'\\n]{25,}'", with: "'‹…›'", options: .regularExpression)
     }
 }
 
@@ -915,8 +1018,9 @@ final class SidebarWatcher: NSObject {
     private var loggedUnknown: String?
 
     /// The statuses Claude puts on a chat row, in each language it speaks (from its message catalogs): unread,
-    /// running, waiting for input or an answer, using the browser, idle, done.
-    static let knownStatuses: Set<String> = [
+    /// running, waiting for input or an answer, using the browser, idle, done. (Also read off the main thread, by the
+    /// diagnostic log.)
+    nonisolated static let knownStatuses: Set<String> = [
         "Unread response", "Ungelesene Antwort", "Respuesta no leída", "Réponse non lue", "अपठित प्रतिक्रिया", "Respons yang belum dibaca",
         "Risposta non letta", "未読の返答", "읽지 않은 응답", "Resposta não lida",
         "Running", "Läuft", "En ejecución", "En cours", "चल रहा है", "Berjalan", "In esecuzione", "実行中", "실행 중", "Em execução",

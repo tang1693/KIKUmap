@@ -71,9 +71,9 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var rootV: VNode?
     private var all: [VNode] = []
     private var byKey: [String: VNode] = [:]
-    private(set) var sel: String?
+    private(set) var sel: String? { didSet { if sel != oldValue { selectionMoved() } } }
     /// Several items selected at once (⇧-drag a box, ⇧/⌘-click). Empty when one or none is; `sel` is then the selection.
-    private var group = Set<String>()
+    private var group = Set<String>() { didSet { if group != oldValue { selectionMoved() } } }
     /// ⇧-drag on empty space: the box, and what was selected before it started.
     private var band: (start: NSPoint, end: NSPoint, before: Set<String>)?
     /// A plain click on one of several selected items selects just it — unless the click turns into a drag.
@@ -165,15 +165,18 @@ final class MapView: NSView, NSTextFieldDelegate {
         super.viewDidMoveToWindow()
         NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
         if let w = window {
             NotificationCenter.default.addObserver(self, selector: #selector(occlusionChanged), name: NSWindow.didChangeOcclusionStateNotification, object: w)
             NotificationCenter.default.addObserver(self, selector: #selector(lostFocus), name: NSWindow.didResignKeyNotification, object: w)
+            NotificationCenter.default.addObserver(self, selector: #selector(gotFocus), name: NSWindow.didBecomeKeyNotification, object: w)
         }
         occlusionChanged()
     }
 
-    /// Switching away while space is down: its key-up goes elsewhere, so let go here.
-    @objc private func lostFocus() { endSpace() }
+    /// Switching away while space is down: its key-up goes elsewhere, so let go here. (The picked ring pales.)
+    @objc private func lostFocus() { endSpace(); needsDisplay = true }
+    @objc private func gotFocus() { needsDisplay = true }
 
     @objc private func occlusionChanged() {
         let onScreen = window?.isVisible == true && window?.occlusionState.contains(.visible) == true
@@ -219,10 +222,15 @@ final class MapView: NSView, NSTextFieldDelegate {
         build()
         layoutTree(keep: keepRoot)
         glide(from: prev)
+        // what was selected isn't there any more (a step undone, ChatGPT switched off): the map lets go of it by
+        // itself, not by your choice, so the left column keeps its pick
+        let quiet = syncing
+        syncing = true
         if let s = sel, byKey[s] == nil { sel = nil }
         group = group.filter { byKey[$0] != nil }
         if sel == nil { sel = group.first }
         if group.count < 2 { group = [] }
+        syncing = quiet
         if let e = editing, let v = byKey[e.key] { e.field.frame = editRect(v) }
         if !searchQuery.isEmpty { updateMatches() }
         needsDisplay = true
@@ -535,10 +543,11 @@ final class MapView: NSView, NSTextFieldDelegate {
         if editing != nil { finishEdit() }
         let r = all.reduce(root.frame) { $0.union($1.frame) }.insetBy(dx: -40, dy: -40).intersection(bounds)
         let keep = (sel, group, hoverChat)
+        syncing = true
         sel = nil
         group = []
         hoverChat = nil
-        defer { (sel, group, hoverChat) = keep; needsDisplay = true }
+        defer { (sel, group, hoverChat) = keep; syncing = false; needsDisplay = true }
         var d: Data?
         NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { d = dataWithPDF(inside: r) }
         return d
@@ -747,20 +756,22 @@ final class MapView: NSView, NSTextFieldDelegate {
             let tx = r.minX + pad + iconW(v) + v.labelW + 8
             drawText(t, timeF, timeC, x: tx, midY: midY + 1)
             drawTags(v, x: tx + ceil((v.time + (v.state == 2 ? "···" : "")).size(timeF).width) + 6, midY: midY)
-            if v.state == 1 {
-                // unread: a red dot on the outer top corner, like the menu bar's badge
-                let c = NSPoint(x: v.dir < 0 ? r.minX + 3 : r.maxX - 3, y: r.minY + 2)
-                Theme.bg.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 6.5, y: c.y - 6.5, width: 13, height: 13)).fill()
-                NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 5, y: c.y - 5, width: 10, height: 10)).fill()
-            }
         }
         NSGraphicsContext.current?.restoreGraphicsState()
         // selection and drop outlines first, then badges and the fold handle on top of them
+        // selected: the left column's blue ring, shaped like the item (a pill round a chat that runs or waits)
         if (sel == v.key || group.contains(v.key)) && !isEditing {
-            let p = v.kind == .root ? NSBezierPath(ovalIn: r.insetBy(dx: -5, dy: -5)) : NSBezierPath(rect: r.insetBy(dx: -4, dy: -4))
+            let p: NSBezierPath
+            switch v.kind {
+            case .root: p = NSBezierPath(ovalIn: r.insetBy(dx: -5, dy: -5))
+            case .chat where v.state > 0:
+                let b = r.insetBy(dx: -2, dy: -2)
+                p = NSBezierPath(roundedRect: b, xRadius: b.height / 2, yRadius: b.height / 2)
+            case .main: p = NSBezierPath(roundedRect: r.insetBy(dx: -3, dy: -3), xRadius: 9, yRadius: 9)
+            default: p = NSBezierPath(roundedRect: r.insetBy(dx: -4, dy: -4), xRadius: 6, yRadius: 6)
+            }
             p.lineWidth = 2
-            p.setLineDash([5, 3], count: 2, phase: 0)
-            Theme.ink.setStroke()
+            Theme.pickRing(focused: window?.isKeyWindow == true && window?.firstResponder === self).setStroke()
             p.stroke()
         }
         if tagTarget == v.key {
@@ -778,6 +789,16 @@ final class MapView: NSView, NSTextFieldDelegate {
             Theme.ink.set()
             let p = v.kind == .root ? NSBezierPath(ovalIn: r.insetBy(dx: -5, dy: -5)) : NSBezierPath(roundedRect: r.insetBy(dx: -4, dy: -4), xRadius: 6, yRadius: 6)
             p.lineWidth = 2; p.stroke()
+        }
+        if v.kind == .chat && v.state == 1 {
+            // unread: a red dot on the outer top corner, like the menu bar's badge (over the selection ring, as in the
+            // left column; faded with the rest of the item when a search or a tag dims it)
+            NSGraphicsContext.current?.saveGraphicsState()
+            if alpha < 1 { NSGraphicsContext.current?.cgContext.setAlpha(alpha) }
+            let c = NSPoint(x: v.dir < 0 ? r.minX + 3 : r.maxX - 3, y: r.minY + 2)
+            Theme.bg.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 6.5, y: c.y - 6.5, width: 13, height: 13)).fill()
+            NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 5, y: c.y - 5, width: 10, height: 10)).fill()
+            NSGraphicsContext.current?.restoreGraphicsState()
         }
         if v.kind != .chat { drawBadges(v) }
         if v.kind == .chat && showsButtons(v) { drawChatButtons(v) }
@@ -948,6 +969,12 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
     }
 
+    /// A hovered chat, its buttons and the strip between (an idle or unread chat is drawn narrower than the pill its
+    /// buttons are placed for): the pointer crossing it on the way to them keeps them.
+    private func hoverReach(_ v: VNode) -> NSRect {
+        chatButtons(v).reduce(v.frame.insetBy(dx: -3, dy: -3)) { $0.union($1.0.insetBy(dx: -4, dy: -4)) }
+    }
+
     private func chatButtonHit(_ p: NSPoint) -> (String, ChatAction)? {
         for v in all where v.kind == .chat && showsButtons(v) {
             if let b = chatButtons(v).first(where: { $0.0.insetBy(dx: -2, dy: -2).contains(p) }) { return (v.key, b.1) }
@@ -1017,15 +1044,66 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     // MARK: selection & navigation
 
-    func select(_ key: String?) {
+    /// `notify` false: the window's own choice (the centre when nothing is selected), not yours, so the left column
+    /// keeps what it has picked.
+    func select(_ key: String?, notify: Bool = true) {
+        syncing = !notify
         sel = key
         group = []
+        syncing = false
         needsDisplay = true
         if let k = key, let v = byKey[k] { scrollToVisible(v.frame.insetBy(dx: -40, dy: -40)) }
     }
 
     /// Everything selected: the group, or the one selected item.
     private var selection: Set<String> { group.isEmpty ? Set(sel.map { [$0] } ?? []) : group }
+
+    /// The chats in the selection (by id) and the one the keys move from, told after it changes (once per turn of the
+    /// run loop), so the left column picks the same rows; not while the column itself sets it (`syncing`).
+    var onChatsSelected: (([String], String?) -> Void)?
+    private var syncing = false
+    private var selectionNoted = false
+    /// Goes up whenever the column sets the selection: a notice queued before that has nothing to tell it.
+    private var selectionGen = 0
+    private func selectionMoved() {
+        guard !syncing, !selectionNoted else { return }
+        selectionNoted = true
+        let gen = selectionGen
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.selectionNoted = false
+                guard gen == self.selectionGen else { return }
+                func chat(_ k: String) -> String? { k.hasPrefix("c:") ? String(k.dropFirst(2)) : nil }
+                self.onChatsSelected?(self.selection.compactMap(chat).sorted(), self.sel.flatMap(chat))
+            }
+        }
+    }
+
+    /// Where a chat shows on the map: its own item, or the folded topic it's tucked in (nil: it isn't on the map).
+    private func shownKey(ofChat id: String) -> String? {
+        var k = "c:" + id
+        while byKey[k] == nil {
+            guard let up = store.map.locate(k)?.parent else { return nil }
+            k = up.id
+        }
+        return k
+    }
+
+    /// Selects the items of these chats (rows picked in the left column), without telling the column back; the lead
+    /// one comes into view. Chats that aren't on the map: nothing is selected here.
+    func selectChats(_ ids: [String], lead: String?) {
+        selectionGen += 1
+        selectionNoted = false
+        // a chat in a folded topic: the topic stands in for it, as when searching
+        let keys = Set(ids.compactMap(shownKey))
+        let leadKey = lead.flatMap(shownKey)
+        guard keys != selection || (leadKey != nil && keys.contains(leadKey!) && sel != leadKey) else { return }
+        syncing = true
+        setSelection(keys, lead: leadKey)
+        syncing = false
+        if let k = sel, let v = byKey[k] { scrollToVisible(v.frame.insetBy(dx: -40, dy: -40)) }
+    }
 
     /// Sets several items as the selection (the root never joins a group); `lead` gets the keyboard.
     private func setSelection(_ keys: Set<String>, lead: String?) {
@@ -1139,13 +1217,30 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     // MARK: operations
 
+    /// `key` nil: nothing new to select. If the step left nothing selected (several deleted, chats dragged back to the
+    /// left column), that was your choice, so the column lets go of them too (redrawn, the map let go of them without
+    /// telling it). One that took nothing off (⌫ or ⌥⇥ on the centre, a topic let go over the column) leaves both as
+    /// they were.
     private func changed(select key: String?, edit: Bool = false) {
         store.notify()
-        if let k = key { select(k) }
+        if let k = key { select(k) } else if selection.isEmpty { selectionMoved() }
         if edit, let k = key { startEdit(k) }
     }
 
     func addTopicUnderRoot() { changed(select: store.map.addChild(store.map.root.id), edit: true) }
+
+    /// The left column's pick: its chats and the row the keys move from (the window sets it).
+    var columnPick: (() -> (ids: [String], lead: String?))?
+
+    /// ⌘Z ⇧⌘Z (Edit → Undo / Redo too): the map's last step taken back, or done again. A step that takes a picked chat
+    /// off the map leaves the left column's pick as it is; one that puts it back selects it here again.
+    func undoStep(redo: Bool) {
+        guard redo ? store.map.redo() : store.map.undo() else { return }
+        store.notify()
+        // what of the column's pick is on the map now is selected, unless the map has a selection of its own
+        guard let pick = columnPick?(), !pick.ids.isEmpty, selection.isSubset(of: pick.ids.compactMap(shownKey)) else { return }
+        selectChats(pick.ids, lead: pick.lead)
+    }
 
     // MARK: keyboard (MindNode shortcuts)
 
@@ -1175,7 +1270,9 @@ final class MapView: NSView, NSTextFieldDelegate {
             switch e.keyCode {
             case 53: select(nil); return                                                 // esc
             case 51, 117:                                                                // delete them all
-                map.remove(movingKeys(group))
+                // ⌥: each topic goes as it would alone, what's under it staying (a subtopic selected too goes as well)
+                if opt { map.remove(all.filter { group.contains($0.key) && $0.kind != .root }.map(\.key), keepChildren: true) }
+                else { map.remove(movingKeys(group)) }
                 changed(select: nil)
                 return
             default: break
@@ -1216,8 +1313,10 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func resignFirstResponder() -> Bool {
         endSpace()
+        needsDisplay = true                 // the picked ring pales while the keys go elsewhere
         return super.resignFirstResponder()
     }
+    override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -1232,9 +1331,9 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func mouseMoved(with e: NSEvent) {
         guard var h = spaceHeld else {
-            // a chat under the pointer (or its buttons, still) shows its buttons
+            // a chat under the pointer shows its buttons; they stay while the pointer is on them or on its way there
             let p = convert(e.locationInWindow, from: nil)
-            if let k = hoverChat, let v = byKey[k], chatButtons(v).contains(where: { $0.0.insetBy(dx: -4, dy: -4).contains(p) }) { return }
+            if let k = hoverChat, let v = byKey[k], hoverReach(v).contains(p) { return }
             setHover(hit(p).flatMap { $0.kind == .chat ? $0.key : nil })
             return
         }
@@ -1254,10 +1353,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         guard f.contains(.command) else { return super.performKeyEquivalent(with: e) }
         let ch = e.charactersIgnoringModifiers?.lowercased() ?? ""
         switch (ch, e.keyCode) {
-        case ("z", _):
-            let ok = f.contains(.shift) ? store.map.redo() : store.map.undo()
-            if ok { store.notify() }
-            return true
+        case ("z", _): undoStep(redo: f.contains(.shift)); return true
         case ("a", _): selectAll(nil); return true
         case ("u", _) where f.contains(.shift):
             let ids = selection.compactMap { byKey[$0]?.chatId }.filter { !store.isRunning($0) }
@@ -1463,6 +1559,7 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func menu(for e: NSEvent) -> NSMenu? {
         if editing != nil { finishEdit() }
+        window?.makeFirstResponder(self)            // as a click does: ⌘Z then takes back what the menu did
         let p = convert(e.locationInWindow, from: nil)
         let v = hit(p)
         if let v = v { select(v.key) }
@@ -1877,6 +1974,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             guard let k = tagTarget else { return false }
             tagTarget = nil
             if !store.map.hasTag(k, parts[1]) { store.map.toggleTag(k, parts[1]) }
+            window?.makeFirstResponder(self)        // the keys come with what was dropped: ⌘Z takes it back
             changed(select: k)
             return true
         }
@@ -1885,6 +1983,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         land(d, t)
         dragged = []
         reload()
+        window?.makeFirstResponder(self)            // (not the left column it came from: ⏎ ↑ ↓ act on it here)
         changed(select: d.key)
         if d.keys.count > 1 { setSelection(Set(d.keys), lead: d.key) }
         return true

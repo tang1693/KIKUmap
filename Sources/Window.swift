@@ -158,6 +158,7 @@ final class HeaderView: NSView {
     var onLights: (() -> Void)?
     var onToggleSide: (() -> Void)?
     var onToggleTimeline: (() -> Void)?
+    var onToggleTags: (() -> Void)?
     var onStats: (() -> Void)?
     /// The ▸ To-do button was clicked (it's the anchor for the list).
     var onTodo: ((NSView) -> Void)?
@@ -168,13 +169,17 @@ final class HeaderView: NSView {
     private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
     private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
     private lazy var timelineBtn = IconButton("rectangle.bottomthird.inset.filled", tip: tr("显示 / 隐藏时间线", "Show / hide the timeline")) { [weak self] in self?.onToggleTimeline?() }
+    private lazy var tagsBtn = IconButton("tag", tip: tr("显示 / 隐藏标签", "Show / hide the tags")) { [weak self] in self?.onToggleTags?() }
     private lazy var statsBtn = IconButton("chart.bar.xaxis", tip: tr("统计", "Statistics")) { [weak self] in self?.onStats?() }
+    /// No room for the tag shelf at this size: the tag button says why (pressing it only beeps).
+    var tagsNoRoom = false { didSet { if tagsNoRoom != oldValue { tagsBtn.toolTip = tagsTip } } }
+    private var tagsTip: String { tr("显示 / 隐藏标签  ⌃⌘G", "Show / hide the tags  ⌃⌘G") + (tagsNoRoom ? "\n" + MainWindow.noRoomText() : "") }
 
     override var isFlipped: Bool { true }
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if gear.superview == nil { [sideBtn, timelineBtn, statsBtn, lights, gear, todoBtn].forEach(addSubview) }
+        if gear.superview == nil { [sideBtn, tagsBtn, timelineBtn, statsBtn, lights, gear, todoBtn].forEach(addSubview) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -184,6 +189,7 @@ final class HeaderView: NSView {
         gear.setSymbol("gearshape")
         sideBtn.setSymbol("sidebar.left")
         timelineBtn.setSymbol("rectangle.bottomthird.inset.filled")
+        tagsBtn.setSymbol("tag")
         statsBtn.setSymbol("chart.bar.xaxis")
         needsDisplay = true
     }
@@ -193,6 +199,7 @@ final class HeaderView: NSView {
         lights.toolTip = tr("开关灯（浅色 / 深色）", "Lights (light / dark)")
         sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
         timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
+        tagsBtn.toolTip = tagsTip
         statsBtn.toolTip = tr("统计  ⌘Y", "Statistics  ⌘Y")
         todoBtn.toolTip = tr("哪些事还没做，没做会影响什么；做不做由你决定", "What's left to do and what it affects; up to you whether to do it")
         todoBtn.needsDisplay = true
@@ -220,7 +227,7 @@ final class HeaderView: NSView {
         super.layout()
         let midY = (bounds.height - 1) / 2
         var x = bounds.width - 14
-        for b in [gear, lights, statsBtn, timelineBtn, sideBtn] {
+        for b in [gear, lights, statsBtn, timelineBtn, tagsBtn, sideBtn] {
             x -= 28
             b.frame = NSRect(x: x, y: midY - 13, width: 28, height: 26)
         }
@@ -468,13 +475,40 @@ final class SidebarView: NSView, NSDraggingSource {
     }()
     private lazy var refresh = IconButton("arrow.clockwise", tip: "") { [weak self] in self?.onRefresh?() }
     private var sched: [(Routine, Date)] = []
+    /// No scheduled-task list to go by, and it can't be read now: said where the tasks would be, with why.
+    private var schedNote: String?
     private var placed = Set<String>()
     private let schedRowH: CGFloat = 42
     private var sel: String?
     /// Several rows picked at once (⌘-click, ⇧-click); dragging one of them takes them all to the map.
     private var picked = Set<String>()
+    /// The rows picked by hand changed: their chats (in the list's order) and the one the keys move from, so the map
+    /// selects the same.
+    var onPick: (([String], String?) -> Void)?
+    private var pickedIDs: [String] { picked.isEmpty ? (sel.map { [$0] } ?? []) : rows.map(\.id).filter { picked.contains($0) } }
+    private func pickedChanged() { onPick?(pickedIDs, sel) }
+    /// What's picked now: the chats, and the one the keys move from.
+    var pick: (ids: [String], lead: String?) { (pickedIDs, sel) }
+
+    /// Picks the rows of these chats (the map selected them), without telling the map back; the lead one comes into
+    /// view. Chats this list doesn't show (not pinned, or searched away) aren't picked.
+    func show(picked ids: [String], lead: String?) {
+        let listed = Set(rows.map(\.id))
+        let shown = ids.filter { listed.contains($0) }
+        let newSel = lead.flatMap { listed.contains($0) ? $0 : nil } ?? rows.first { shown.contains($0.id) }?.id
+        let newPicked: Set<String> = shown.count > 1 ? Set(shown) : []
+        guard newSel != sel || newPicked != picked else { return }
+        sel = newSel
+        picked = newPicked
+        if let s = sel, let n = rows.firstIndex(where: { $0.id == s }) {
+            scrollToVisible(NSRect(x: 0, y: top + CGFloat(n) * rowH - 8, width: bounds.width, height: rowH + 16))
+        }
+        needsDisplay = true
+    }
     /// A plain click on one of the picked rows picks just it — unless the click turns into a drag.
     private var narrowOnUp: String?
+    /// A plain click tells the map on mouse-up, unless it turned into a drag.
+    private var syncOnUp = false
     private var pressed: (id: String, at: NSPoint)?
     private var dropOn = false
     private let rowH: CGFloat = 34
@@ -534,11 +568,15 @@ final class SidebarView: NSView, NSDraggingSource {
         refresh.toolTip = tr("同步：马上重新读 Claude 和 ChatGPT  ⌘R", "Sync: read Claude and ChatGPT again now  ⌘R")
         removeAllToolTips()
         addToolTip(NSRect(x: 0, y: 0, width: bounds.width - 44, height: 54), owner: self, userData: nil)
+        // a picked chat that isn't listed at all any more (unpinned, ChatGPT switched off) isn't picked; one only
+        // searched away stays picked for when the search is cleared
+        if let s = sel, !all.contains(where: { $0.id == s }) { sel = nil }
         picked.formIntersection(rows.map(\.id))
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
-        let content = schedTop + (sched.isEmpty ? 0 : 30 + CGFloat(sched.count) * schedRowH) + 20
+        schedNote = usage.routinesUnknown.map { tr("没同步：", "Not synced: ") + $0 }
         let visible = enclosingScrollView?.contentView.bounds.size ?? NSSize(width: 270, height: 0)
+        let content = schedTop + (sched.isEmpty && schedNote == nil ? 0 : 30 + CGFloat(sched.count) * schedRowH + schedNoteHeight(visible.width)) + 20
         setFrameSize(NSSize(width: visible.width, height: max(content, visible.height)))
         needsDisplay = true
     }
@@ -586,8 +624,11 @@ final class SidebarView: NSView, NSDraggingSource {
         }
         for (i, c) in rows.enumerated() {
             let r = NSRect(x: 10, y: top + CGFloat(i) * rowH, width: bounds.width - 20, height: rowH - 4)
-            guard r.intersects(dirtyRect) else { continue }
-            if sel == c.id || picked.contains(c.id) {
+            // a row's picked ring and red dot reach past it into the gap between rows, which a neighbour's redraw
+            // (a running row's turning stretch, many times a second) clears: drawn again whenever they're touched
+            guard r.insetBy(dx: -8, dy: -8).intersects(dirtyRect) else { continue }
+            let selected = sel == c.id || picked.contains(c.id)
+            if selected {
                 let b = NSBezierPath(roundedRect: r.insetBy(dx: -2, dy: 0), xRadius: 6, yRadius: 6)
                 Theme.hover.setFill(); b.fill()
             }
@@ -614,6 +655,12 @@ final class SidebarView: NSView, NSDraggingSource {
                         Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Logo.orange, lineWidth: 2)
                     }
                 }
+            }
+            // picked: the blue ring the map uses too (paler while the list isn't what the keys go to)
+            if selected {
+                let ring = NSBezierPath(roundedRect: r.insetBy(dx: -2, dy: -2), xRadius: (r.height + 4) / 2, yRadius: (r.height + 4) / 2)
+                Theme.pickRing(focused: window?.isKeyWindow == true && window?.firstResponder === self).setStroke()
+                ring.lineWidth = 2; ring.stroke()
             }
             let tf = Theme.ui(13, state > 0 ? .semibold : .regular)
             // where it lives, before the name: Claude's mark, a terminal for Claude Code, "GPT" for ChatGPT
@@ -651,15 +698,34 @@ final class SidebarView: NSView, NSDraggingSource {
     /// Scheduled tasks follow the inbox.
     private var schedTop: CGFloat { top + CGFloat(max(rows.isEmpty ? 4 : 1, rows.count)) * rowH + 22 }
 
+    /// The not-synced note's height in a column this wide (it wraps).
+    private func schedNoteHeight(_ width: CGFloat) -> CGFloat {
+        guard let n = schedNote else { return 0 }
+        return ceil((n as NSString).boundingRect(with: NSSize(width: width - 32, height: 200), options: .usesLineFragmentOrigin,
+                                                 attributes: [.font: Theme.ui(11.5)]).height) + 4
+    }
+
     private func drawSchedule(_ dirtyRect: NSRect) {
-        guard !sched.isEmpty else { return }
+        guard !sched.isEmpty || schedNote != nil else { return }
         let y0 = schedTop
         Theme.faint.setFill(); NSRect(x: 16, y: y0 - 12, width: bounds.width - 32, height: 1).fill()
         let hf = Theme.ui(14, .semibold)
         let head = tr("计划任务", "Scheduled")
         (head as NSString).draw(at: NSPoint(x: 16, y: y0), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
-        (String(sched.count) as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: y0 + 1),
-                                               withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
+        if let n = schedNote {
+            // no list to go by: not known, and why (no count)
+            (n as NSString).draw(with: NSRect(x: 16, y: y0 + 26, width: bounds.width - 32, height: schedNoteHeight(bounds.width)),
+                                 options: .usesLineFragmentOrigin, attributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+            return
+        }
+        let count = String(sched.count), cf = Theme.mono(12.5, .medium), cx = 16 + head.size(hf).width + 8
+        (count as NSString).draw(at: NSPoint(x: cx, y: y0 + 1), withAttributes: [.font: cf, .foregroundColor: Theme.muted])
+        // a list from an earlier read: as of when (a task changed since isn't known), as the timeline says it
+        if let at = usage.routinesAsOf {
+            let s = tr("· \(UsageMonitor.stamp(at)) 时的列表", "· as of \(UsageMonitor.stamp(at))")
+            (s as NSString).draw(at: NSPoint(x: cx + count.size(cf).width + 6, y: y0 + 2),
+                                 withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+        }
         let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail
         for (i, (r, d)) in sched.enumerated() {
             let rr = NSRect(x: 10, y: y0 + 30 + CGFloat(i) * schedRowH, width: bounds.width - 20, height: schedRowH - 4)
@@ -694,7 +760,7 @@ final class SidebarView: NSView, NSDraggingSource {
         window?.makeFirstResponder(self)
         let p = convert(e.locationInWindow, from: nil)
         if schedRow(at: p) != nil { onOpenRoutines?(); return }
-        guard let c = row(at: p) else { sel = nil; picked = []; needsDisplay = true; return }
+        guard let c = row(at: p) else { sel = nil; picked = []; needsDisplay = true; pickedChanged(); return }
         narrowOnUp = nil
         let f = e.modifierFlags
         if f.contains(.command) {
@@ -714,8 +780,10 @@ final class SidebarView: NSView, NSDraggingSource {
         } else {
             sel = c.id
             picked = []
+            syncOnUp = true
         }
         needsDisplay = true
+        if !syncOnUp && narrowOnUp == nil { pickedChanged() }      // ⌘- and ⇧-clicks: at once
         if e.clickCount == 2 { onOpen?(c.id); return }
         pressed = (c.id, p)
     }
@@ -726,6 +794,7 @@ final class SidebarView: NSView, NSDraggingSource {
         if hypot(p.x - pr.at.x, p.y - pr.at.y) < 5 { return }
         pressed = nil
         narrowOnUp = nil
+        syncOnUp = false
         let ids = picked.count > 1 && picked.contains(pr.id) ? rows.map(\.id).filter { picked.contains($0) } : [pr.id]
         let item = NSPasteboardItem()
         item.setString("side|" + ids.map { "c:" + $0 }.joined(separator: "\n"), forType: dragType)
@@ -736,8 +805,10 @@ final class SidebarView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with e: NSEvent) {
-        if let id = narrowOnUp { sel = id; picked = []; needsDisplay = true }
+        if let id = narrowOnUp { sel = id; picked = []; needsDisplay = true; pickedChanged() }
+        else if syncOnUp { pickedChanged() }
         narrowOnUp = nil
+        syncOnUp = false
         pressed = nil
     }
 
@@ -772,11 +843,41 @@ final class SidebarView: NSView, NSDraggingSource {
     }
 
     override func keyDown(with e: NSEvent) {
-        // space, or ⌘↓ as in Finder: open it
-        if e.keyCode == 49 || (e.keyCode == 125 && e.modifierFlags.contains(.command)), let s = sel { onOpen?(s) }
-        else if e.keyCode == 53, !picked.isEmpty { picked = []; needsDisplay = true }
-        else { super.keyDown(with: e) }
+        let cmd = e.modifierFlags.contains(.command)
+        switch e.keyCode {
+        case 125 where cmd: if let s = sel { onOpen?(s) }           // ⌘↓ as in Finder: open it
+        case 125, 126: step(e.keyCode == 125 ? 1 : -1)              // ↓ ↑: the next row, the one before
+        case 49, 36, 76:                                            // space, Return, Enter: open it
+            if let s = sel { onOpen?(s) } else { super.keyDown(with: e) }
+        case 53 where !picked.isEmpty: picked = []; needsDisplay = true; pickedChanged()
+        default: super.keyDown(with: e)
+        }
     }
+
+    /// The row `d` below (or above) the one picked, brought into view; the first (or last) when none is.
+    private func step(_ d: Int) {
+        guard !rows.isEmpty else { return }
+        let i = sel.flatMap { s in rows.firstIndex { $0.id == s } }
+        let n = i.map { max(0, min(rows.count - 1, $0 + d)) } ?? (d > 0 ? 0 : rows.count - 1)
+        sel = rows[n].id
+        picked = []
+        scrollToVisible(NSRect(x: 0, y: top + CGFloat(n) * rowH - 8, width: bounds.width, height: rowH + 16))
+        needsDisplay = true
+        pickedChanged()
+    }
+
+    // the picked row's ring is grey while the keys go elsewhere (another view, another window)
+    override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
+    override func resignFirstResponder() -> Bool { needsDisplay = true; return super.resignFirstResponder() }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let nc = NotificationCenter.default
+        for n in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            nc.removeObserver(self, name: n, object: nil)
+            if let w = window { nc.addObserver(self, selector: #selector(keyChanged), name: n, object: w) }
+        }
+    }
+    @objc private func keyChanged() { needsDisplay = true }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         context == .withinApplication ? .move : []
@@ -812,7 +913,17 @@ final class TagShelfView: NSView, NSDraggingSource {
     let store: Store
     var onHighlight: ((String?) -> Void)?
     var onManage: (() -> Void)?
+    /// The ⌄ by the heading: tuck the shelf away (the column's foot, View → Show Tags or ⌃⌘G bring it back).
+    var onHide: (() -> Void)?
     private(set) var selected: String?
+    /// Nothing lit up any more (the shelf is being tucked away: no highlight left that can't be cleared).
+    func clearHighlight() {
+        guard selected != nil else { return }
+        selected = nil
+        onHighlight?(nil)
+        needsDisplay = true
+    }
+    private lazy var hideBtn = IconButton("chevron.down", tip: tr("收起标签（拖动上边可以调高度）  ⌃⌘G", "Hide tags (drag the edge above to resize)  ⌃⌘G")) { [weak self] in self?.onHide?() }
     private var chips: [(NSRect, String?)] = []       // nil id = the "＋" chip
     private var heads: [(NSRect, String)] = []        // each category's heading (click to fold)
     private static let foldedKey = "TagShelfFolded"
@@ -831,6 +942,25 @@ final class TagShelfView: NSView, NSDraggingSource {
     required init?(coder: NSCoder) { fatalError() }
 
     override var isFlipped: Bool { true }
+
+    /// How far the chips are scrolled: the heading (title, hint, ⌄) is drawn there, so it stays put.
+    private var stick: CGFloat { enclosingScrollView?.contentView.bounds.minY ?? 0 }
+
+    override func layout() {
+        super.layout()
+        if hideBtn.superview == nil { addSubview(hideBtn) }
+        hideBtn.frame = NSRect(x: bounds.width - 38, y: stick + 7, width: 28, height: 26)
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: nil)
+        if let clip = superview as? NSClipView {
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: clip)
+        }
+    }
+    @objc private func scrolled() { needsLayout = true; needsDisplay = true }
 
     private func chipW(_ t: Tag) -> CGFloat { ceil(t.name.size(chipF).width) + (t.icon == nil ? 24 : 30) }
 
@@ -863,19 +993,14 @@ final class TagShelfView: NSView, NSDraggingSource {
     func reload() {
         if let s = selected, !store.map.tags.contains(where: { $0.id == s }) { selected = nil; onHighlight?(nil) }
         layout(width: bounds.width)
+        hideBtn.toolTip = tr("收起标签（拖动上边可以调高度）  ⌃⌘G", "Hide tags (drag the edge above to resize)  ⌃⌘G")
+        needsLayout = true
         needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
         Theme.paper.setFill(); bounds.fill()
-        Theme.faint.setFill(); NSRect(x: 16, y: 0, width: bounds.width - 32, height: 1).fill()
-        let hf = Theme.ui(14, .semibold)
-        let head = tr("标签", "Tags")
-        (head as NSString).draw(at: NSPoint(x: 16, y: 12), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
-        let hint = selected == nil ? tr("拖到条目上 · 点击高亮", "Drag onto an item · click to highlight")
-                                   : tr("再点一下取消", "Click again to clear")
-        (hint as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 14.5),
-                                withAttributes: [.font: Theme.ui(11), .foregroundColor: Theme.muted])
+        defer { drawHeading() }                 // last: over any chips scrolled under it
         let tags = store.map.tags
         let f = chipF
         let hidden = folded
@@ -916,10 +1041,28 @@ final class TagShelfView: NSView, NSDraggingSource {
         }
     }
 
+    /// The heading band (divider, title, hint) where the shelf is scrolled to, so it never scrolls away.
+    private func drawHeading() {
+        let y0 = stick
+        Theme.paper.setFill(); NSRect(x: 0, y: y0, width: bounds.width, height: top - 4).fill()
+        Theme.faint.setFill(); NSRect(x: 16, y: y0, width: bounds.width - 32, height: 1).fill()
+        let hf = Theme.ui(14, .semibold)
+        let head = tr("标签", "Tags")
+        (head as NSString).draw(at: NSPoint(x: 16, y: y0 + 12), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
+        let hint = selected == nil ? tr("拖到条目上 · 点击高亮", "Drag onto an item · click to highlight")
+                                   : tr("再点一下取消", "Click again to clear")
+        let hx = 16 + head.size(hf).width + 8
+        let hp = NSMutableParagraphStyle(); hp.lineBreakMode = .byTruncatingTail
+        (hint as NSString).draw(with: NSRect(x: hx, y: y0 + 14.5, width: max(0, bounds.width - 44 - hx), height: 16),
+                                options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                                attributes: [.font: Theme.ui(11), .foregroundColor: Theme.muted, .paragraphStyle: hp])
+    }
+
     private func chip(at p: NSPoint) -> (NSRect, String?)? { chips.first { $0.0.contains(p) } }
 
     override func mouseDown(with e: NSEvent) {
         let p = convert(e.locationInWindow, from: nil)
+        if p.y < stick + top - 4 { return }                 // the heading band (its ⌄ is a button of its own)
         if let h = heads.first(where: { $0.0.contains(p) }) {
             var f = folded
             if f.remove(h.1) == nil { f.insert(h.1) }
@@ -963,6 +1106,7 @@ final class TagShelfView: NSView, NSDraggingSource {
     override func menu(for event: NSEvent) -> NSMenu? {
         let m = NSMenu()
         m.addItem(MenuAction(title: tr("管理标签…", "Manage tags…")) { [weak self] in self?.onManage?() })
+        m.addItem(MenuAction(title: tr("收起标签  ⌃⌘G", "Hide Tags  ⌃⌘G")) { [weak self] in self?.onHide?() })
         return m
     }
 
@@ -977,6 +1121,7 @@ final class PaneDivider: NSView {
     let sideways: Bool
     var onDrag: ((CGFloat) -> Void)?        // the pointer in the window's content view
     var onToggle: (() -> Void)?
+    var onBegin: (() -> Void)?
 
     init(sideways: Bool) {
         self.sideways = sideways
@@ -985,7 +1130,7 @@ final class PaneDivider: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func resetCursorRects() { addCursorRect(bounds, cursor: sideways ? .resizeLeftRight : .resizeUpDown) }
-    override func mouseDown(with e: NSEvent) { if e.clickCount == 2 { onToggle?() } }
+    override func mouseDown(with e: NSEvent) { if e.clickCount == 2 { onToggle?() } else { onBegin?() } }
     override func mouseDragged(with e: NSEvent) {
         guard let s = superview else { return }
         let p = s.convert(e.locationInWindow, from: nil)
@@ -1012,6 +1157,19 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     private let line = ColorView(Theme.faint)
     private let sideEdge = PaneDivider(sideways: true)
     private let timelineEdge = PaneDivider(sideways: false)
+    /// The tag shelf scrolls when it's dragged shorter than its tags; its top edge drags (to resize, or down to tuck
+    /// it away, up from the column's foot to bring it back).
+    private let tagScroll = NSScrollView()
+    private let tagsEdge = PaneDivider(sideways: false)
+    /// The shelf's height when a drag of its edge began: a drag that ends tucking it away leaves that to come back to.
+    private var tagsHeightBefore: CGFloat = 0
+    /// No room for the tag shelf at this size (a short window, zoomed in): it steps aside, and showing it, tucking it
+    /// away or dragging its edge only beeps (whether it's shown, and its height, stay as they were until there's room);
+    /// the strip at the column's foot and the header's tag button say why.
+    private(set) var tagsNoRoom = false
+    /// A drag of the shelf's edge while there's no room beeps once.
+    private var tagsDragBeeped = false
+    static func noRoomText() -> String { tr("放不下标签：把窗口拉高，或按 ⌘- 缩小", "No room for the tags at this size: make the window taller or press ⌘-") }
 
     /// The few that matter most; the rest are one click away (`keysButton`).
     static func hintText() -> String {
@@ -1019,76 +1177,90 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
            "drag empty space to select · hold space to move the map · ⇥ subtopic · ⏎ sibling · ⌘F search · right-click for colours and tags")
     }
 
-    /// Every shortcut in the map: (keys, what it does).
-    static func allShortcuts() -> [(String, String)] {
-        var list: [(String, String)] = [
-            (tr("拖动空白处", "Drag on empty space"), tr("框选", "Select with a box")),
-            (tr("⇧ / ⌘ 点击", "⇧ / ⌘-click"), tr("加选 / 取消选择", "Add to or remove from the selection")),
-            (tr("按住空格、双指滑动", "Hold space, two fingers"), tr("移动导图", "Move around the map")),
-            ("⇥ / ⌥⇥", tr("新建子主题 / 父主题", "New subtopic / parent topic")),
-            ("⏎ / ⌥⏎ / ⇧⏎", tr("下方同级 / 上方同级 / 新一级主题", "Sibling below / above / new main topic")),
-            (tr("双击空白处", "Double-click empty space"), tr("新主题", "New topic")),
-            (tr("⌘⏎、双击", "⌘⏎, double-click"), tr("改名（对话名只在本机）", "Rename (chat names stay on this Mac)")),
-            ("⌫", tr("删除；置顶的对话回到左栏", "Delete; pinned chats go back to the left column")),
-            ("⌥.", tr("折叠 / 展开", "Fold / unfold")),
-            ("↑ ↓ ← →", tr("选中那个方向最近的条目", "Select the nearest item that way")),
-            ("⌥↑ ⌥↓ ⌥← ⌥→", tr("往那个方向移动它", "Move it that way")),
-            ("⌘↑", tr("回到所在的主题", "Up to the topic it's in")),
-            ("⌘A", tr("全选", "Select all")),
-            ("⌘Z / ⇧⌘Z", tr("撤销 / 重做", "Undo / redo")),
-            ("⌘F", tr("搜索；⏎ 下一个", "Search; ⏎ for the next match")),
-            (tr("右键", "Right-click"), tr("分支颜色、图形、标签", "Branch colour, shape, tags")),
-            (tr("⌘↓、轻按空格、悬停对话 → ↗", "⌘↓, tap space, hover a chat → ↗"), tr("在它的 App 里打开", "Open it in its app")),
-            (tr("⇧⌘U、悬停对话 → ✉", "⇧⌘U, hover a chat → ✉"), tr("标为未读 / 已读", "Mark unread / read")),
-            ("⌃⌘S / ⌃⌘T", tr("显示或隐藏左栏 / 时间线", "Show or hide the left column / timeline")),
-            ("⌘+ / ⌘-", tr("整个窗口放大 / 缩小", "Everything in the window bigger / smaller")),
-            (tr("双指捏合、⌘0", "Pinch, ⌘0"), tr("缩放导图、适应窗口", "Zoom the map, fit it to the window")),
-            ("⌘E / ⇧⌘E", tr("导出导图 PDF / 导出对话", "Export the map as PDF / export chats")),
-        ]
-        if Prefs.hotKeyEnabled { list.append((Prefs.hotKeyLabel(), tr("在任何地方呼出 / 收起导图", "Show / hide the map from anywhere"))) }
-        return list
-    }
-
+    /// The button under the map: the map's own shortcuts (the popover), not all of them (its last button opens those).
+    static func keysName() -> String { tr("导图快捷键", "Map shortcuts") }
     static func keysTitle() -> NSAttributedString {
-        NSAttributedString(string: tr("全部快捷键", "All shortcuts"),
-                           attributes: [.font: Theme.ui(11 * Prefs.uiScale, .semibold), .foregroundColor: Theme.ink])
+        NSAttributedString(string: keysName(), attributes: [.font: Theme.ui(11 * Prefs.uiScale, .semibold), .foregroundColor: Theme.ink])
+    }
+    static func keysTip() -> String {
+        tr("导图上的按键和鼠标操作；全部快捷键和演示在「设置 → 快捷键」", "The map's keys and mouse moves; all shortcuts, with demos, are in Settings → Shortcuts")
     }
 
-    /// All the shortcuts, in a popover under the button.
+    /// Settings → Shortcuts, opened from the popover's button.
+    var onShowShortcuts: (() -> Void)?
+    private weak var keysPopover: NSPopover?
+
+    /// The map's shortcuts in a popover under the button: the same rows (and keycaps) as Settings → Shortcuts, which
+    /// has the rest, with demos, one click away.
     @objc private func showKeys(_ sender: NSButton) {
-        let rows = MainWindow.allShortcuts().map { k, what -> [NSView] in
-            let key = NSTextField(labelWithString: k)
-            key.font = Theme.ui(12, .semibold)
-            key.textColor = Theme.ink
-            let text = NSTextField(labelWithString: what)
-            text.font = Theme.ui(12)
-            text.textColor = Theme.muted
-            return [key, text]
-        }
-        let grid = NSGridView(views: rows)
-        grid.rowSpacing = 7
-        grid.columnSpacing = 18
-        grid.column(at: 0).xPlacement = .trailing
-        grid.translatesAutoresizingMaskIntoConstraints = false
+        let stack = keysList()
         let vc = NSViewController()
         vc.view = NSView()
-        vc.view.addSubview(grid)
+        vc.view.addSubview(stack)
         NSLayoutConstraint.activate([
-            grid.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 16),
-            grid.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -16),
-            grid.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor, constant: -18),
+            stack.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -14),
+            stack.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor, constant: -16),
         ])
         let pop = NSPopover()
         pop.contentViewController = vc
         pop.behavior = .transient
         pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+        keysPopover = pop
+    }
+
+    /// What the popover holds: the map's rows (keys, then mouse), and the button to all of them.
+    private func keysList() -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 2
+        let places = [ShortcutPlace.mapKeys, .mapMouse]
+        let rows = ShortcutTable.all().filter { places.contains($0.place) }
+        let keysW = min(200, rows.map { Keycaps.width($0.parts, .list) }.max() ?? 160)
+        for place in places {
+            let head = NSTextField(labelWithString: place.title)
+            head.font = Theme.ui(11, .semibold)
+            head.textColor = Theme.muted
+            stack.addArrangedSubview(head)
+            stack.setCustomSpacing(6, after: head)
+            for r in rows where r.place == place {
+                let keys = KeyComboView(r.parts)
+                keys.translatesAutoresizingMaskIntoConstraints = false
+                keys.widthAnchor.constraint(equalToConstant: keysW).isActive = true
+                keys.heightAnchor.constraint(equalToConstant: 22).isActive = true
+                let text = NSTextField(labelWithString: r.label)
+                text.font = Theme.ui(12)
+                text.textColor = Theme.ink
+                let line = NSStackView(views: [keys, text])
+                line.spacing = 12
+                line.toolTip = r.note
+                line.setAccessibilityElement(true)
+                line.setAccessibilityLabel(r.label + tr("，", ", ") + Keycaps.spoken(r.parts))
+                stack.addArrangedSubview(line)
+            }
+            if let last = stack.arrangedSubviews.last { stack.setCustomSpacing(12, after: last) }
+        }
+        let more = NSButton(title: tr("全部快捷键和演示…", "All shortcuts, with demos…"), target: self, action: #selector(openShortcuts))
+        more.bezelStyle = .rounded
+        stack.addArrangedSubview(more)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }
+    @objc private func openShortcuts() { keysPopover?.close(); onShowShortcuts?() }
+
+    /// The button's name, hover text and what VoiceOver reads, in the app's language.
+    private func relabelKeys() {
+        keysButton.attributedTitle = MainWindow.keysTitle()
+        keysButton.toolTip = MainWindow.keysTip()
+        keysButton.setAccessibilityLabel(MainWindow.keysName())
     }
 
     /// Language changed: refresh every fixed label.
     func relabel() {
         hint.stringValue = MainWindow.hintText()
-        keysButton.attributedTitle = MainWindow.keysTitle()
+        relabelKeys()
         window.title = "KIKUmap"
         layoutPanes()                   // the button and the hint are sized to the new words
         header.relabel()
@@ -1131,10 +1303,18 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         sideScroll.documentView = sidebar
         root.addSubview(sideScroll)
 
-        tags.frame = NSRect(x: 0, y: tlH, width: sideW, height: 80)
-        tags.autoresizingMask = [.maxYMargin]
-        root.addSubview(tags)
+        tagScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: 80)
+        tagScroll.hasVerticalScroller = true
+        tagScroll.autohidesScrollers = true
+        tagScroll.drawsBackground = false
+        tagScroll.documentView = tags
+        root.addSubview(tagScroll)
         tags.onHighlight = { [weak self] id in self?.map.highlightTag = id }
+        tags.onHide = { [weak self] in self?.toggleTags() }
+        // one selection across both: rows picked in the left column select their chats on the map, and the other way
+        sidebar.onPick = { [weak self] ids, lead in self?.map.selectChats(ids, lead: lead) }
+        map.onChatsSelected = { [weak self] ids, lead in self?.sidebar.show(picked: ids, lead: lead) }
+        map.columnPick = { [weak self] in self?.sidebar.pick ?? ([], nil) }
         timeline.onHeightChange = { [weak self] in self?.layoutPanes() }
         map.onScale = { [weak self] step in self?.scaleUI(by: step) }
 
@@ -1195,7 +1375,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
             .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
         keysButton.imagePosition = .imageLeading
         keysButton.contentTintColor = Theme.ink
-        keysButton.attributedTitle = MainWindow.keysTitle()
+        relabelKeys()
         keysButton.target = self
         keysButton.action = #selector(showKeys(_:))
         root.addSubview(hint)
@@ -1207,7 +1387,10 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 
         // the column's and the timeline's edges: drag to resize or tuck away
         sideEdge.onDrag = { [weak self] x in
-            if x < 120 { Prefs.sideHidden = true } else { Prefs.sideHidden = false; Prefs.sideWidth = min(440, max(200, x)) }
+            if x < 120 {
+                if !Prefs.sideHidden { self?.tags.clearHighlight() }
+                Prefs.sideHidden = true
+            } else { Prefs.sideHidden = false; Prefs.sideWidth = min(440, max(200, x)) }
             self?.layoutPanes()
         }
         sideEdge.onToggle = { [weak self] in self?.toggleSidebar() }
@@ -1216,10 +1399,39 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
             self?.layoutPanes()
         }
         timelineEdge.onToggle = { [weak self] in self?.toggleTimeline() }
+        tagsEdge.onBegin = { [weak self] in
+            guard let self else { return }
+            self.tagsDragBeeped = false
+            self.tagsHeightBefore = Prefs.tagsHidden ? Prefs.tagsHeight : self.tagScroll.frame.height / Prefs.uiScale
+        }
+        tagsEdge.onDrag = { [weak self] y in
+            guard let self else { return }
+            // no room for the shelf at this size: a drag changes nothing (it would only lose the height it was given)
+            if self.tagsNoRoom {
+                if !self.tagsDragBeeped { self.tagsDragBeeped = true; NSSound.beep() }
+                return
+            }
+            let h = y - self.timeline.frame.maxY, s = Prefs.uiScale
+            if h < 40 * s {
+                if !Prefs.tagsHidden { self.tags.clearHighlight() }
+                Prefs.tagsHidden = true
+                Prefs.tagsHeight = self.tagsHeightBefore          // brought back, it comes at the height it had
+                self.layoutPanes()
+            } else {
+                Prefs.tagsHidden = false
+                Prefs.tagsHeight = h / s
+                self.layoutPanes()
+                // what's shown (it can't grow past its tags); never 0 (the room gone mid-drag: a timeline row more)
+                if self.tagScroll.frame.height > 0 { Prefs.tagsHeight = self.tagScroll.frame.height / s }
+            }
+        }
+        tagsEdge.onToggle = { [weak self] in self?.toggleTags() }
         root.addSubview(sideEdge)
         root.addSubview(timelineEdge)
+        root.addSubview(tagsEdge)            // over the timeline's edge where they meet, in the column
         header.onToggleSide = { [weak self] in self?.toggleSidebar() }
         header.onToggleTimeline = { [weak self] in self?.toggleTimeline() }
+        header.onToggleTags = { [weak self] in self?.toggleTags() }
         layoutPanes()
 
         window.center()
@@ -1249,7 +1461,9 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         }
         sideScroll.magnification = s
         let midH = H - headH - tlH
-        [sideScroll, tags, line].forEach { $0.isHidden = sideW == 0 }
+        [sideScroll, line].forEach { $0.isHidden = sideW == 0 }
+        // (with the column tucked away, showing the tags brings it back: that works whatever the room)
+        if sideW == 0 { tagScroll.isHidden = true; tagsEdge.isHidden = true; tagsNoRoom = false; header.tagsNoRoom = false }
         line.frame = NSRect(x: sideW, y: tlH, width: 1, height: midH)
         sideScroll.frame = NSRect(x: 0, y: tlH, width: sideW, height: midH)
         let mapX = sideW == 0 ? 0 : sideW + 1
@@ -1284,19 +1498,64 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 
     func toggleSidebar() {
         Prefs.sideHidden.toggle()
+        if Prefs.sideHidden { tags.clearHighlight() }      // the tags go with the column: nothing left lit up by them
         layoutPanes()
         if Prefs.sideHidden { window.makeFirstResponder(map) }
     }
     func toggleTimeline() { Prefs.timelineHidden.toggle(); layoutPanes() }
+    /// Tucks the tag shelf away or brings it back (with the column, if that was tucked away too). Tucked away, nothing
+    /// stays lit up by a tag you could no longer click off. No room for it at this size: nothing to show or tuck away,
+    /// so only a beep (whether it's shown stays as it was; the strip and the header's tag button say why).
+    func toggleTags() {
+        if tagsNoRoom && !Prefs.sideHidden { NSSound.beep(); return }
+        if Prefs.tagsHidden || Prefs.sideHidden {
+            Prefs.tagsHidden = false
+            Prefs.sideHidden = false
+        } else {
+            tags.clearHighlight()
+            Prefs.tagsHidden = true
+        }
+        layoutPanes()
+    }
 
-    /// The tag shelf grows with its tags; the pinned list takes the rest of the column.
+    /// The tag shelf: as tall as its tags need (up to about half the column), or as tall as it was dragged (scrolling
+    /// when its tags need more), or tucked away; the pinned list takes the rest of the column.
     private func layoutLeft() {
-        let sideW = sideScroll.frame.width, bottom = timeline.frame.maxY, s = Prefs.uiScale
-        let h = min(tags.layout(width: sideW / s), max(320, (header.frame.minY - bottom) / s * 0.55)) * s
-        tags.frame = NSRect(x: 0, y: bottom, width: sideW, height: h)
-        tags.bounds = NSRect(x: 0, y: 0, width: sideW / s, height: h / s)
-        let top = header.frame.minY
-        sideScroll.frame = NSRect(x: 0, y: bottom + h, width: sideW, height: max(60, top - bottom - h))
+        let sideW = sideScroll.frame.width, bottom = timeline.frame.maxY, s = Prefs.uiScale, top = header.frame.minY
+        let room = top - bottom
+        let need = tags.layout(width: sideW / s) * s
+        let wanted = Prefs.tagsHeight > 0 ? Prefs.tagsHeight * s : min(need, max(320 * s, room * 0.55))
+        // never taller than its tags, nor than leaves the list its heading and a row; never shorter than its heading
+        let shelf = max(min(wanted, need, room - 128 * s), min(need, 44 * s))
+        // a short window, zoomed in, has no room for its heading and 60 points of the list: no shelf then, rather than
+        // the list pushed up over the header (and no tag left lit up that can't be clicked off). Shown or tucked away,
+        // it stays set as it was until there's room; the strip and the tag button say why.
+        tagsNoRoom = shelf > room - 60
+        let h: CGFloat = Prefs.tagsHidden || tagsNoRoom ? 0 : shelf
+        if tagsNoRoom && !Prefs.tagsHidden { tags.clearHighlight() }
+        header.tagsNoRoom = tagsNoRoom
+        tagsEdge.toolTip = tagsNoRoom ? MainWindow.noRoomText() : nil
+        tagScroll.isHidden = h == 0
+        tagScroll.frame = NSRect(x: 0, y: bottom, width: sideW, height: h)
+        if h > 0 {
+            tagScroll.allowsMagnification = true
+            if s > tagScroll.maxMagnification { tagScroll.maxMagnification = s; tagScroll.minMagnification = s }
+            else { tagScroll.minMagnification = s; tagScroll.maxMagnification = s }
+            tagScroll.magnification = s
+            // laid out for the width the chips really get: a scroll bar that comes (or goes) changes it once
+            func fit() {
+                let vis = tagScroll.contentView.bounds.size
+                tags.frame = NSRect(x: 0, y: 0, width: vis.width, height: max(tags.layout(width: vis.width), vis.height))
+            }
+            fit(); tagScroll.tile(); fit()
+            tags.reload()
+        }
+        sideScroll.frame = NSRect(x: 0, y: bottom + h, width: sideW, height: max(0, room - h))
+        tagsEdge.isHidden = false
+        // tucked away, a strip just above the timeline's edge brings it back (that edge keeps working below it)
+        tagsEdge.frame = h > 0 ? NSRect(x: 0, y: bottom + h - 3, width: sideW, height: 6)
+                               : NSRect(x: 0, y: max(bottom + 3, timelineEdge.frame.maxY), width: sideW, height: 5)
+        window.invalidateCursorRects(for: tagsEdge)
     }
 
     func windowDidResize(_ notification: Notification) { layoutPanes() }
@@ -1319,7 +1578,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         window.orderFrontRegardless()
         reload()
         window.makeFirstResponder(map)
-        if map.sel == nil { map.select(store.map.root.id) }
+        if map.sel == nil { map.select(store.map.root.id, notify: false) }     // the window's own choice: the column keeps its pick
     }
 
     func hide() { window.orderOut(nil) }

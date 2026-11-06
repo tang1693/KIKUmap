@@ -298,7 +298,7 @@
         <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span><span class="stars" data-stars hidden></span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.8</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.8 版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.0.9</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.0.9 版</span></p>
       <p class="ph"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
       <p class="ph-when" id="ph-when" hidden></p>
       <figure class="shot"><img src="demo/drag.gif" width="1600" height="1000" alt="Dragging the Work topic across the map: the other topics slide apart to make room, and it lands where the gap was"></figure>
@@ -354,8 +354,8 @@
         <div class="text">
           <p class="eyebrow">04</p>
           <h3><span lang="en">Tags</span><span lang="zh">标签</span></h3>
-          <p lang="en">Drag a tag onto a chat. Click a tag to highlight every chat that has it.</p>
-          <p lang="zh">把标签拖到对话上。点一下标签，高亮所有带它的对话。</p>
+          <p lang="en">Drag a tag onto a chat. Click a tag to highlight every chat that has it. Drag the tags' top edge to resize them, or tuck them away.</p>
+          <p lang="zh">把标签拖到对话上。点一下标签，高亮所有带它的对话。拖动标签区的上边可以调高度，也可以整个收起。</p>
         </div>
         <figure class="shot"><img src="demo/tags.gif" width="1600" height="1000" loading="lazy" alt="Clicking the In progress tag highlights the chats that have it; then the tag is dragged onto a chat"></figure>
       </div>
@@ -451,8 +451,8 @@
       <div class="perms">
         <div class="perm">
           <b lang="en">Claude's chats</b><b lang="zh">Claude 的对话</b>
-          <p lang="en">Read from the Claude app's sidebar. The one required permission.</p>
-          <p lang="zh">从 Claude App 的侧栏读取。这是唯一必需的权限。</p>
+          <p lang="en">Read from the Claude app's sidebar (and ChatGPT's, for its ordinary chats). The one required permission.</p>
+          <p lang="zh">从 Claude App 的侧栏读取（ChatGPT 的普通对话也从它的左栏读）。这是唯一必需的权限。</p>
           <span class="tag"><span lang="en">Accessibility</span><span lang="zh">辅助功能</span></span>
         </div>
         <div class="perm">
@@ -519,13 +519,13 @@
         </details>
         <details>
           <summary><span lang="en">What does it work with?</span><span lang="zh">支持哪些 App？</span></summary>
-          <p lang="en">The Claude desktop app, Claude Code (Terminal, VS Code, Cursor, the app's Code mode), the ChatGPT desktop app and Codex in VS Code or the terminal. Chats pinned in ChatGPT show running and unread for Codex chats; the app keeps no such state for its other chats. Not shown: anything running on another computer or in the cloud.</p>
-          <p lang="zh">Claude 桌面 App、Claude Code（终端、VS Code、Cursor、App 的 Code 模式）、ChatGPT 桌面 App，以及 VS Code 或终端里的 Codex。ChatGPT 里置顶的对话中，Codex 对话能显示「进行中 / 未读」，其他对话 App 没在本机存这些状态。不显示：在别的电脑或云端运行的任何东西。</p>
+          <p lang="en">The Claude desktop app, Claude Code (Terminal, VS Code, Cursor, the app's Code mode), the ChatGPT desktop app and Codex in VS Code or the terminal. Chats pinned in ChatGPT show running and unread. Codex chats are supported best (from the app's files, even with its window closed); other chats less well (from ChatGPT's window, while part of it can be seen). Not shown: anything running on another computer or in the cloud.</p>
+          <p lang="zh">Claude 桌面 App、Claude Code（终端、VS Code、Cursor、App 的 Code 模式）、ChatGPT 桌面 App，以及 VS Code 或终端里的 Codex。ChatGPT 里置顶的对话都能显示「进行中 / 未读」。Codex 对话支持得最好（读 App 的文件，窗口关着也准）；其他对话支持有限（读 ChatGPT 的窗口，窗口要露出一部分）。不显示：在别的电脑或云端运行的任何东西。</p>
         </details>
         <details>
           <summary><span lang="en">Claude's window is closed. What happens?</span><span lang="zh">Claude 的窗口关了会怎样？</span></summary>
-          <p lang="en">⌘W only hides it. KIKUmap reads Claude's chats from the window, so it waits until the window is back on the current desktop; running chats show "running?" meanwhile. Claude Code and ChatGPT aren't affected.</p>
-          <p lang="zh">⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面；在那之前，在跑的对话显示「在跑？」。Claude Code 和 ChatGPT 不受影响。</p>
+          <p lang="en">⌘W only hides it. KIKUmap reads Claude's chats from the window, so it waits until the window is back on the current desktop; running chats show "running?" meanwhile. Claude Code and Codex chats aren't affected; ChatGPT's other chats are read from ChatGPT's window the same way.</p>
+          <p lang="zh">⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面；在那之前，在跑的对话显示「在跑？」。Claude Code 和 Codex 对话不受影响；ChatGPT 的其他对话也是这样从 ChatGPT 的窗口里读的。</p>
         </details>
         <details>
           <summary><span lang="en">Why "Open Anyway"?</span><span lang="zh">为什么要点「仍要打开」？</span></summary>

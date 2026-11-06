@@ -20,6 +20,9 @@ final class Permissions {
     /// Granted (also when the database it opens couldn't be read as expected: that's not a permission problem).
     var fullDisk: Bool { notifications.recheck(); return notifications.status == .ok || notifications.status == .unreadable }
     var accessibility: Bool { AXIsProcessTrusted() }
+    /// Accessibility is of use on this Mac: the Claude app or ChatGPT is here (it reads their windows; not the older
+    /// ChatGPT app's). Without either, the intro and Settings say it isn't needed, and why.
+    var accessNeeded: Bool { sidebar.status != .notInstalled || GPTWatcher.installed }
     var usageOK: Bool { usage.status == .ok }
 
     static func openPane(_ anchor: String) {
@@ -422,7 +425,37 @@ final class ColorPopUp: NSPopUpButton {
 final class HotKeyField: NSButton {
     var onChange: ((UInt32, UInt32) -> Void)?
     var onRecording: ((Bool) -> Void)?
+    /// A combination turned down while recording (KIKUmap's own menus use it; `ownText` says so under the field).
+    var onRefused: ((UInt32, UInt32) -> Void)?
     private var recording = false { didSet { refresh(); onRecording?(recording) } }
+
+    /// KIKUmap's own menu keys with two of ⌃ ⌥ ⌘ (the menus in App.swift), by the letter the shortcut's label shows: a
+    /// shortcut for every app gets the keys before the menus, so as one of these it would stop that item working here.
+    private static var own: [(key: String, mods: UInt32, item: String)] {
+        let cc = UInt32(controlKey | cmdKey)
+        return [("S", cc, tr("显示 / 隐藏左栏", "Show / Hide Left Column")), ("G", cc, tr("显示 / 隐藏标签", "Show / Hide Tags")),
+                ("T", cc, tr("显示 / 隐藏时间线", "Show / Hide Timeline")), ("H", UInt32(optionKey | cmdKey), tr("隐藏其他", "Hide Others"))]
+    }
+    /// The KIKUmap menu item this combination belongs to (nil: none).
+    static func ownUse(code: UInt32, mods: UInt32) -> String? {
+        let key = Prefs.keyName(code)
+        return own.first { $0.key == key && $0.mods == mods }?.item
+    }
+    /// "KIKUmap uses ⌃⌘G (Show / Hide Tags)": why such a combination isn't taken, or isn't active (short: it's one line).
+    static func ownText(code: UInt32, mods: UInt32) -> String? {
+        ownUse(code: code, mods: mods).map { item in
+            let k = Prefs.hotKeyLabel(code: code, mods: mods)
+            return tr("KIKUmap 自己用 \(k)（\(item)）", "KIKUmap uses \(k) (\(item))")
+        }
+    }
+    /// The longer why, for the tooltip.
+    static func ownWhy(code: UInt32, mods: UInt32) -> String? {
+        ownUse(code: code, mods: mods).map { item in
+            let k = Prefs.hotKeyLabel(code: code, mods: mods)
+            return tr("在任何 App 里都能按的快捷键会比 KIKUmap 的菜单先拿到按键：用 \(k) 的话，「\(item)」在 KIKUmap 里就按不出来了。换一个组合吧。",
+                      "A shortcut that works in any app gets the keys before KIKUmap's menus, so with \(k), \(item) would stop working in KIKUmap. Pick another combination.")
+        }
+    }
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 150, height: 28))
@@ -473,6 +506,10 @@ final class HotKeyField: NSButton {
             if f.contains(.command) && strong == 1 { recording = false; return false }   // ⌘W, ⌘Q… keep their meaning
             NSSound.beep(); return true
         }
+        // one of KIKUmap's own (⌃⌘G…): not taken, still recording, and the line under it says why
+        if HotKeyField.ownUse(code: UInt32(e.keyCode), mods: mods) != nil {
+            NSSound.beep(); onRefused?(UInt32(e.keyCode), mods); return true
+        }
         recording = false
         onChange?(UInt32(e.keyCode), mods)
         refresh()
@@ -500,6 +537,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private weak var loginBox: NSButton?
     private var lastTab = 0
     private weak var hotKeyField: HotKeyField?
+    /// Settings → Shortcuts (kept: it plays its demos and is rebuilt when the shortcut changes).
+    private var shortcutsPage: ShortcutsPage?
 
     var onLanguage: (() -> Void)?
     var onHotKey: (() -> Void)?
@@ -715,6 +754,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let done = soundPop({ Prefs.soundDone }) { Prefs.soundDone = $0 }
         let input = soundPop({ Prefs.soundInput }) { Prefs.soundInput = $0 }
         let quiet = check(tr("正在看 Claude App 时不响", "Stay quiet while the Claude app is in front"), Prefs.quietWhenClaudeFront) { Prefs.quietWhenClaudeFront = $0 }
+        let quietGPT = check(tr("正在看 ChatGPT App 时不响", "Stay quiet while the ChatGPT app is in front"), Prefs.quietWhenGPTFront) { Prefs.quietWhenGPTFront = $0 }
 
         // the chat's name, read aloud after the sound
         let speak = check(tr("响完再念出是哪个对话", "Then say which chat it was"), Prefs.speak) { Prefs.speak = $0 }
@@ -740,14 +780,15 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             [label(tr("做完了", "Finished"), width: 140), done],
             [label(tr("需要你操作", "Needs your input"), width: 140), input],
             [NSGridCell.emptyContentView, quiet],
+            [NSGridCell.emptyContentView, quietGPT],
             [NSGridCell.emptyContentView, speak],
             [label(tr("念的内容", "What it says"), width: 140), NSStackView(views: [doneText, label(tr("做完了", "finished"), small: true, width: 120)])],
             [NSGridCell.emptyContentView, NSStackView(views: [inputText, label(tr("在等你", "waiting for you"), small: true, width: 120)])],
             [label(tr("声音", "Voice"), width: 140), voicePop],
             [label(tr("语速", "Speed"), width: 140), NSStackView(views: [ratePop, test])],
         ])
-        let note = label(tr("Claude App 的对话：KIKUmap 从 Claude 窗口的侧边栏看到它们做完，所以窗口要开在你用的桌面上。开了「完全磁盘访问」（设置 → 授权），Claude 问「允许吗？」或等你回答时、Cowork 任务做完时，窗口关着也会提醒（普通对话回复完 Claude 不发通知）。Claude Code 会话靠 设置 → 授权 里连接的 hook。",
-                            "Claude app chats: KIKUmap sees them finish in Claude's sidebar, so keep its window open on the desktop you use. With Full Disk Access (Settings → Access) you're also told, even with the window closed, when Claude asks \"Allow this?\" or waits for an answer, and when a Cowork task finishes (Claude sends no notification when an ordinary chat's reply finishes). Claude Code sessions use the hooks connected in Settings → Access."), small: true)
+        let note = label(tr("Claude App 的对话：KIKUmap 从 Claude 窗口的侧边栏看到它们做完，所以窗口要开在你用的桌面上。开了「完全磁盘访问」（设置 → 授权），Claude 问「允许吗？」或等你回答时、Cowork 任务做完时，窗口关着也会提醒（普通对话回复完 Claude 不发通知）。ChatGPT 的普通对话：从 ChatGPT 窗口的左栏看到它们做完，窗口要露出一部分。Claude Code 会话靠 设置 → 授权 里连接的 hook。",
+                            "Claude app chats: KIKUmap sees them finish in Claude's sidebar, so keep its window open on the desktop you use. With Full Disk Access (Settings → Access) you're also told, even with the window closed, when Claude asks \"Allow this?\" or waits for an answer, and when a Cowork task finishes (Claude sends no notification when an ordinary chat's reply finishes). ChatGPT's ordinary chats: KIKUmap sees them finish in ChatGPT's sidebar, so let part of its window show. Claude Code sessions use the hooks connected in Settings → Access."), small: true)
         let voiceNote = label(tr("{name} 会换成对话名。名字会念出声，周围的人也听得到。想要更自然的声音：系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 管理声音，下载带 ★ 的高质量声音。",
                                  "{name} becomes the chat's name. It's said out loud, so people nearby hear it too. For a more natural voice: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download a Premium or Enhanced one (★)."), small: true)
         return vstack([g, voiceNote, note], spacing: 18)
@@ -783,6 +824,22 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                                "KIKUmap is free. If it saves you time, you can buy me a coffee; a GitHub star or a bug report helps just as much."), small: true)
         let fine = label(tr("个人独立开源项目，与 Anthropic 无关。MIT 协议。", "An independent open-source project, not affiliated with Anthropic. MIT License."), small: true)
         return vstack([top, by, story, links, tip, tipNote, fine], spacing: 14)
+    }
+
+    /// The Accessibility row's state on a Mac with neither the Claude app nor ChatGPT (or only the older ChatGPT app,
+    /// whose window isn't read: `accessNotNeededOlderGPT`), and the ChatGPT row's when only Codex outside the app is
+    /// read (the older ChatGPT app, or none). Short, as a row's state shares a line with its name and button: a longer
+    /// one squeezes the name.
+    static var accessNotNeeded: String { tr("用不上：这台 Mac 上没有 Claude App，也没有 ChatGPT", "Not needed: no Claude or ChatGPT app on this Mac") }
+    static var accessNotNeededOlderGPT: String { tr("用不上：没有 Claude App，也没有新版 ChatGPT", "Not needed: no Claude app or current ChatGPT") }
+    /// On hovering that one: why the older ChatGPT app doesn't count.
+    static var accessNotNeededOlderGPTWhy: String {
+        tr("这台 Mac 上是旧版 ChatGPT App，KIKUmap 不读它的窗口。辅助功能只用来读 Claude App 和新版 ChatGPT（Codex 内核）的窗口。",
+           "This Mac has the older ChatGPT app, whose window KIKUmap doesn't read. Accessibility is only for reading the windows of the Claude app and the current ChatGPT app (built on Codex).")
+    }
+    static func codexOnly(olderApp: Bool) -> String {
+        olderApp ? tr("已开启 · 旧版 ChatGPT App：只读编辑器、终端里的 Codex", "On · older ChatGPT app: Codex in editors and terminal only")
+                 : tr("已开启 · 没有 ChatGPT App，只读编辑器、终端里的 Codex", "On · no ChatGPT app: Codex in editors and terminal only")
     }
 
     private func access() -> NSView {
@@ -826,12 +883,15 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     return Perm(text: on, on: true, enabled: false)
                 }, { p.openFullDisk() }),
             row(tr("辅助功能", "Accessibility"),
-                tr("读 Claude App 侧边栏 → 知道哪些对话还在跑、你在 Claude 里看过哪个。",
-                   "Reads the Claude app's sidebar → knows which chats are still running and which you've read."),
+                tr("读 Claude App 侧边栏 → 知道哪些对话还在跑、你在 Claude 里看过哪个；也读 ChatGPT 窗口的左栏 → 知道它的普通对话在不在跑、有没有未读。",
+                   "Reads the Claude app's sidebar → knows which chats are still running and which you've read; and ChatGPT's sidebar → knows whether its ordinary chats are running or unread."),
                 tr("打开设置", "Open Settings"), {
                     let trusted = AXIsProcessTrusted()
-                    if !trusted && p.sidebar.status == .notInstalled {
-                        return Perm(text: tr("用不上：这台 Mac 上没有 Claude App", "Not needed: no Claude app on this Mac"), on: false, enabled: true)
+                    if !trusted && !p.accessNeeded {
+                        // (only the older ChatGPT app here: that's said, not that there's no ChatGPT)
+                        return GPTWatcher.oldAppOnly
+                            ? Perm(text: SettingsWindow.accessNotNeededOlderGPT, on: false, enabled: true, why: SettingsWindow.accessNotNeededOlderGPTWhy)
+                            : Perm(text: SettingsWindow.accessNotNeeded, on: false, enabled: true)
                     }
                     return Perm(text: trusted ? on : off, on: trusted, enabled: !trusted)
                 }, { p.openAccessibility() }),
@@ -867,17 +927,17 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
                     return Perm(text: on, on: true, enabled: false)
                 }, { p.connectCode() }),
             row("ChatGPT",
-                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的东西（~/.codex，只读）：在 App 里置顶的对话，以及 Codex 对话（含 VS Code、终端里的 Codex）的列表、未读和用量 → Codex 对话也显示「进行中 / 未读」，小组件也能显示 ChatGPT 的用量。普通对话的「进行中 / 未读」不存在本机，所以只显示，点一下打开 ChatGPT。不改任何东西，不上传。",
-                   "Reads what the ChatGPT desktop app keeps on this Mac (~/.codex, read-only): the chats pinned in the app, and Codex chats' list, unread dots and usage (Codex in VS Code or the terminal too) → Codex chats show as running / unread too, and the widget can show ChatGPT's usage. Ordinary chats' running and unread aren't kept on this Mac, so they show without status, and a click brings up ChatGPT. Changes nothing, uploads nothing."),
+                tr("读 ChatGPT 桌面 App 存在这台 Mac 上的东西（~/.codex，只读）：在 App 里置顶的对话，以及 Codex 对话（含 VS Code、终端里的 Codex）的列表、未读和用量，小组件也能显示 ChatGPT 的用量。Codex 对话支持得最好：「进行中 / 未读」窗口关着也准。普通对话支持有限：「进行中 / 未读」只能从 ChatGPT 的窗口里看（要「辅助功能」，窗口得露出一部分），点一下打开 ChatGPT。不改任何东西，不上传。",
+                   "Reads what the ChatGPT desktop app keeps on this Mac (~/.codex, read-only): the chats pinned in the app, and Codex chats' list, unread dots and usage (Codex in VS Code or the terminal too); the widget can show ChatGPT's usage. Codex chats are supported best: running / unread stay right even with the window closed. Ordinary chats are supported less well: their running / unread can only be read off ChatGPT's window (with Accessibility, while part of it shows), and a click brings up ChatGPT. Changes nothing, uploads nothing."),
                 tr("连接", "Connect"), {
                     guard GPTWatcher.enabled else { return Perm(text: off, on: false, enabled: true) }
                     guard GPTWatcher.available else { return Perm(text: tr("已开启 · 还没找到它的数据", "On · its data isn't there yet"), on: false, enabled: true) }
                     if let e = p.gptError?() { return Perm(text: tr("已开启 · 读不了", "On · can't read it"), on: false, enabled: false, why: e) }
                     if !GPTWatcher.installed && GPTWatcher.oldAppOnly {
-                        return Perm(text: tr("已开启 · 旧版 ChatGPT App：只读编辑器、终端里的 Codex", "On · older ChatGPT app: Codex in editors and the terminal only"), on: true, enabled: false,
+                        return Perm(text: SettingsWindow.codexOnly(olderApp: true), on: true, enabled: false,
                                     why: tr("更新到新版 ChatGPT App（Codex 内核），才能看到在它里面置顶的对话。", "Update to the current ChatGPT app (built on Codex) to see the chats you pin there."))
                     }
-                    if !GPTWatcher.installed { return Perm(text: tr("已开启 · 没有 ChatGPT App，只读编辑器、终端里的 Codex", "On · no ChatGPT app: Codex in editors and the terminal only"), on: true, enabled: false) }
+                    if !GPTWatcher.installed { return Perm(text: SettingsWindow.codexOnly(olderApp: false), on: true, enabled: false) }
                     return Perm(text: on, on: true, enabled: false)
                 }, { [weak self] in p.connectGPT(); self?.refreshPerms() }),
             row(tr("ChatGPT 用量（试验性）", "ChatGPT usage (experimental)"),
@@ -903,8 +963,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let tip = label(tr("如果这里显示未开启、但系统设置里已经勾上：先退出并重新打开 KIKUmap；还是不行（比如重装之后），在系统设置里把 KIKUmap 删掉（−）再重新加一次。",
                            "If access shows as off here but it's ticked in System Settings: quit and reopen KIKUmap first; if it's still off (after reinstalling, say), remove KIKUmap there (−) and add it again."), small: true)
         let diag = button(tr("诊断报告", "Diagnostic report")) { [weak self] in self?.onDiagnose?() }
-        diag.toolTip = tr("写一份 kikumap-check.txt：哪些正常、哪些不行。不含对话标题、内容和密码，可以直接发给帮你看的人。",
-                          "Writes kikumap-check.txt: what works and what doesn't. No chat titles, messages or passwords, so you can send it to whoever helps.")
+        diag.toolTip = tr("写一份 kikumap-check.txt：哪些正常、哪些不行；ChatGPT 开着的话，再写一份 chatgpt-window-时间.txt（它窗口的结构）。都不含对话标题、内容和密码，可以直接发给帮你看的人。",
+                          "Writes kikumap-check.txt: what works and what doesn't; with ChatGPT open, also chatgpt-window-time.txt (its window's layout). No chat titles, messages or passwords, so you can send them to whoever helps.")
         let unhook = button(tr("断开 Claude Code", "Disconnect Claude Code")) { [weak self] in p.disconnectCode(); self?.refreshPerms() }
         let usageOff = button(tr("关闭 Claude 用量", "Turn off Claude usage")) { [weak self] in p.disconnectUsage(); self?.refreshPerms() }
         let gptOff = button(tr("断开 ChatGPT", "Disconnect ChatGPT")) { [weak self] in p.disconnectGPT(); self?.refreshPerms() }
@@ -931,38 +991,53 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private func shortcuts() -> NSView {
         let field = HotKeyField()
         hotKeyField = field
+        field.setAccessibilityLabel(tr("呼出 / 收起导图的快捷键", "Shortcut to show or hide the map"))
+        // what the shortcut does right now, in one line under it
+        let status = label("", small: true, width: 350)
+        status.maximumNumberOfLines = 1
+        status.lineBreakMode = .byTruncatingTail
+        /// `refused`: a combination of KIKUmap's own just pressed while recording.
+        func refresh(recording: Bool = false, refused: (code: UInt32, mods: UInt32)? = nil) {
+            // the one saved is KIKUmap's own (an older build took it): not active, and why
+            let saved = (Prefs.hotKeyCode, Prefs.hotKeyMods)
+            let notActive = HotKeyField.ownText(code: saved.0, mods: saved.1).map { tr("没有生效：", "Not active: ") + $0 + tr("。", ".") }
+                ?? tr("没有生效：macOS 没接受这个组合，换一个试试。", "Not active: macOS didn't accept it. Try another combination.")
+            status.stringValue = refused.flatMap { HotKeyField.ownText(code: $0.code, mods: $0.mods) }.map { $0 + tr("，换一个。", ": press another.") }
+                ?? (recording ? tr("录制中：按下新组合（要有 ⌃ ⌥ ⌘ 里的两个），esc 取消。", "Recording: press the new keys (two of ⌃ ⌥ ⌘); esc cancels.")
+                : !Prefs.hotKeyEnabled ? tr("已关闭：勾上「启用」就能在任何 App 里用。", "Off: tick Enabled to use it from any app.")
+                : Prefs.hotKeyError != nil ? notActive
+                : tr("在任何 App 里按它，呼出或收起导图。", "Press it in any app to show or hide the map."))
+            status.textColor = refused != nil || (Prefs.hotKeyEnabled && Prefs.hotKeyError != nil && !recording) ? .labelColor : .secondaryLabelColor
+            if let r = refused { status.toolTip = HotKeyField.ownWhy(code: r.code, mods: r.mods); return }
+            status.toolTip = Prefs.hotKeyError.map { e in
+                HotKeyField.ownWhy(code: saved.0, mods: saved.1)
+                    ?? tr("macOS 拒绝注册（错误 \(e)）：可能已有别的 App 或系统快捷键在用这个组合。", "macOS refused it (error \(e)); another app or a system shortcut may be using this combination.")
+            } ?? status.stringValue
+        }
         field.onChange = { [weak self] code, mods in
             Prefs.hotKeyCode = code; Prefs.hotKeyMods = mods
             self?.onHotKey?()
+            refresh(); self?.shortcutsPage?.rebuild()
         }
-        field.onRecording = { [weak self] on in self?.onSuspendHotKey?(on) }
-        let on = check(tr("启用", "Enabled"), Prefs.hotKeyEnabled) { [weak self] v in Prefs.hotKeyEnabled = v; self?.onHotKey?() }
+        field.onRecording = { [weak self] on in self?.onSuspendHotKey?(on); refresh(recording: on) }
+        field.onRefused = { code, mods in refresh(recording: true, refused: (code, mods)) }
+        let on = check(tr("启用", "Enabled"), Prefs.hotKeyEnabled) { [weak self] v in
+            Prefs.hotKeyEnabled = v; self?.onHotKey?()
+            refresh(); self?.shortcutsPage?.rebuild()
+        }
         let reset = button(tr("恢复 ⌃⌥C", "Reset to ⌃⌥C")) { [weak self] in
             Prefs.hotKeyCode = UInt32(kVK_ANSI_C); Prefs.hotKeyMods = UInt32(controlKey | optionKey)
             field.refresh(); self?.onHotKey?()
+            refresh(); self?.shortcutsPage?.rebuild()
         }
-        let g = grid([[label(tr("调出 / 收起导图", "Show / hide the map"), width: 140), NSStackView(views: [field, on, reset])]])
-        let keys: [(String, String, String)] = [
-            ("⇥ / ⌥⇥", "新子主题 / 新父主题", "new child / parent topic"),
-            ("⏎ / ⌥⏎ / ⇧⏎", "下方同级 / 上方同级 / 新主主题", "sibling below / above / new main topic"),
-            ("⌘⏎ · F2 · 双击", "改名（对话名只在本地）", "rename (chat names stay local)"),
-            ("⌫ / ⌥⌫", "删除（连同 / 不连同下面的）", "delete (with / without children)"),
-            ("⌥.", "折叠 / 展开", "fold / unfold"),
-            ("⌥↑ ⌥↓ ⌥← ⌥→", "往那个方向移动（↑↓ 移过上下的条目，←→ 换一级）", "move it that way (↑↓ past the item above or below, ←→ a level)"),
-            ("⌘Z / ⇧⌘Z", "撤销 / 重做", "undo / redo"),
-            ("⌘↓ · Space", "在它的 App 里打开对话", "open the chat in its app"),
-            ("⌘= ⌘- ⌘0", "放大 / 缩小 / 适应窗口", "zoom in / out / fit"),
-        ]
-        let rows: [[NSView]] = keys.map { k in
-            let a = NSTextField(labelWithString: k.0)
-            a.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
-            return [a, label(tr(k.1, k.2))]
-        }
-        let list = NSGridView(views: rows)
-        list.rowSpacing = 6
-        list.columnSpacing = 18
-        list.column(at: 0).xPlacement = .trailing
-        return vstack([g, label(tr("导图里的按键（和 MindNode 一样）", "Keys in the map (same as MindNode)"), bold: true), list], spacing: 18)
+        let g = grid([[label(tr("调出 / 收起导图", "Show / hide the map"), width: 140), NSStackView(views: [field, on, reset])],
+                      [NSGridCell.emptyContentView, status]])
+        g.rowSpacing = 6
+        refresh()
+        // every shortcut by where it works, with a stage that acts each one out
+        let page = ShortcutsPage(top: g)
+        shortcutsPage = page
+        return page.view
     }
 
     private func archivePage() -> NSView {
