@@ -58,8 +58,8 @@ Chats pinned in Claude and in the ChatGPT app, plus Claude Code sessions, line u
 <td width="55%"><img src="docs/demo/tags.gif" width="100%" alt="Clicking the In progress tag highlights the chats that have it; the tag is then dragged onto a chat"></td>
 <td>
 
-### 3. Colours, shapes and tags
-Give a topic a colour and a shape. Tag chats, and click a tag to highlight every chat that has it. Drag the top edge of the tags to make them taller or shorter, or tuck them away (⌃⌘G). In a short window zoomed in, they step aside until there's room: make the window taller or press ⌘-.
+### 3. Colors, shapes and tags
+Give a topic a color and a shape. Tag chats, and click a tag to highlight every chat that has it. Drag the top edge of the tags to make them taller or shorter, or tuck them away (⌃⌘G). In a short window zoomed in, they step aside until there's room: make the window taller or press ⌘-.
 
 </td>
 </tr>
