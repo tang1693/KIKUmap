@@ -33,7 +33,9 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         super.init()
     }
 
+    /// (While an export or import runs, nothing else can start: that's said instead, as Settings greys its buttons.)
     func show() {
+        if let why = archive.busyNote { Archive.say(why.title, why.text); return }
         window?.orderOut(nil)
         build()
         Front.activate()
@@ -72,9 +74,11 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         list.orientation = .vertical
         list.alignment = .leading
         list.spacing = 4
+        // (only Claude chats are exported: ChatGPT chats and Claude Code or Codex sessions aren't counted)
+        func claude(_ id: String) -> Bool { store.chat(id)?.outsideClaude == false }
         func count(_ n: MapNode) -> Int {
             var c = 0
-            map.walkChats(n) { if self.store.chat($0) != nil { c += 1 } }
+            map.walkChats(n) { if claude($0) { c += 1 } }
             return c
         }
         let known = Archive.knownTopics
@@ -93,14 +97,16 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         }
         add(map.root, 0)
         // chats dropped right on the map, not in a topic: a box of their own
-        let onMap = map.root.children.compactMap { $0.chatId }.filter { store.chat($0) != nil }.count
+        let onMap = map.root.children.compactMap { $0.chatId }.filter(claude).count
         if onMap > 0 {
             let b = check(tr("直接放在导图上的对话（不在主题里）", "Chats right on the map (not in a topic)") + "  ·  \(onMap)", chosen == nil || chosen!.contains(map.root.id))
             list.addArrangedSubview(b)
             checks.append((b, map.root.id))
         }
         let placed = map.placedChats()
-        let loose = store.pinnedList().filter { !placed.contains($0.id) }.count
+        let loose = store.pinnedList().filter { !placed.contains($0.id) && !$0.outsideClaude }.count
+        // there are some of those others, on the map or pinned: said under the list's heading
+        let others = placed.contains { store.chat($0)?.outsideClaude == true } || store.pinnedList().contains(where: \.outsideClaude)
         let un = check(tr("没放进导图的置顶对话", "Pinned chats not on the map") + "  ·  \(loose)", Archive.withUnplaced)
         unplaced = un
         list.addArrangedSubview(un)
@@ -136,9 +142,13 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             self?.updateAutoNote()
         }
         memory = mem
-        let memNote = label(tr("会在每个对话里多一轮问答（用一点额度）；运行时 Claude 窗口会自己切换对话。没变化、未读、正在跑的会跳过。",
-                               "Adds one exchange to each chat (uses a little quota); the Claude window switches chats while it runs. Unchanged, unread and running chats are skipped."), small: true, width: 470)
-        let fil = check(tr("提示词、完整对话、全部 artifacts 和附件", "Prompts, the whole conversation, every artifact and attachment"), Archive.withFiles)
+        let memNote = label(tr("每个对话会多一轮问答，用掉一点额度。运行时 Claude 窗口会自己切换对话。没变化、未读、在跑的对话会跳过。",
+                               "Each chat gets one more exchange, which uses a little quota. The Claude window switches chats while it runs. Unchanged, unread and running chats are skipped.")
+                            + "\n" + tr(AppDelegate.summaryClipboard.zh + "。", AppDelegate.summaryClipboard.en + "."), small: true, width: 470)
+        // (kept when the export starts, like the topics; the note under "Keep it updated" follows it at once)
+        let fil = ClosureCheck(title: tr("提示词、完整对话、全部 artifacts 和附件", "Prompts, the whole conversation, every artifact and attachment"), on: Archive.withFiles) { [weak self] _ in
+            self?.updateAutoNote()
+        }
         files = fil
         zip = ClaudeExport.newestZip()
         let zl = label("", small: true, width: 470)
@@ -155,8 +165,8 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         pick.controlSize = .small
         let how = ClosureButton(title: tr("怎么拿到？", "How do I get it?")) {
             Permissions.alert(tr("Claude 官方导出包", "Claude's data export"),
-                              tr("在 Claude 里：设置 → 隐私 → 导出数据。几分钟后邮件里有下载链接。下载后点「选择 zip…」选它；开了完全磁盘访问的话，放在「下载」文件夹里就会自动找到。\n\n提示词、完整对话和 artifact 的内容只有这个导出包里是全的；开了完全磁盘访问和自动更新的话，以后每次下载新的导出包，文件会自己更新。",
-                                 "In Claude: Settings → Privacy → Export data. A few minutes later an email has the download link. Then click \"Choose zip…\" and pick it; with Full Disk Access, a zip left in Downloads is found by itself.\n\nOnly this export has the complete prompts, conversations and artifact contents; with Full Disk Access and automatic updates on, every new export you download updates the files by itself."))
+                              tr("在 Claude 里：设置 → 隐私 → 导出数据。几分钟后，你会收到一封带下载链接的邮件。下载后点「选择 zip…」选它。KIKUmap 有完全磁盘访问的话，放在「下载」里就会自己找到。\n\n完整的提示词、对话和 artifact 只有这个导出包里有。开了完全磁盘访问和「自动更新」后，以后每次下载新的导出包，文件都会自己更新。",
+                                 "In Claude: Settings → Privacy → Export data. A few minutes later you get an email with a download link. Download the zip, then click \"Choose zip…\" and pick it. If KIKUmap has Full Disk Access, a zip in Downloads is found by itself.\n\nOnly this export has the full prompts, conversations and artifacts. With Full Disk Access and \"Keep it updated\" on, each new export you download updates the files by itself."))
         }
         how.controlSize = .small
 
@@ -174,10 +184,10 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             self?.folderLabel?.stringValue = u.path
         }
         change.controlSize = .small
-        // without Full Disk Access, macOS asks before an app may write into Documents, Desktop or Downloads
-        let folderNote = label(tr("第一次导出到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 KIKUmap 存到这里。",
-                                  "The first export into Documents, Desktop or Downloads, macOS asks once whether KIKUmap may save there."), small: true, width: 470)
-        folderNote.isHidden = ClaudeExport.canLookInDownloads
+        // without Full Disk Access, macOS asks before an app may write into Documents, Desktop or Downloads, or onto an
+        // external or network disk (for a folder picked here, maybe only after KIKUmap restarts)
+        let folderNote = label(Archive.asksNote ?? "", small: true, width: 470)
+        folderNote.isHidden = Archive.asksNote == nil
         // on or off at once, Cancel or not. On, it keeps the files up to date by itself (no Claude, so no yes needed;
         // summaries on the schedule wait for Export and your yes). Off, it stops, and that yes goes with it
         let auto = ClosureCheck(title: tr("自动更新", "Keep it updated"), on: Archive.auto) { [weak self] on in
@@ -196,7 +206,11 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         self.autoNote = autoNote
         updateAutoNote()
 
-        let imp = ClosureButton(title: tr("导入到当前账号…", "Import into this account…")) { [weak self] in self?.window?.close(); self?.onImport?() }
+        let imp = ClosureButton(title: tr("导入到当前账号…", "Import into this account…")) { [weak self] in
+            // (a run under way: said, and this window stays as it is)
+            if let why = self?.archive.busyNote { Archive.say(why.title, why.text); return }
+            self?.window?.close(); self?.onImport?()
+        }
         let cancel = ClosureButton(title: tr("取消", "Cancel")) { [weak self] in self?.window?.close() }
         cancel.keyEquivalent = "\u{1b}"
         let go = ClosureButton(title: tr("导出", "Export")) { [weak self] in self?.start() }
@@ -211,7 +225,8 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             let s = NSStackView(views: [v]); s.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0); return s
         }
         let stack = NSStackView(views: [
-            label(tr("选主题：它下面的对话（置顶的、没置顶的）都会导出，每个对话一个文件夹。", "Pick topics: every chat under them, pinned or not, is exported — one folder per chat."), width: 500),
+            label(tr("选主题：主题下的 Claude 对话都会导出，置顶的和没置顶的都算。每个对话一个文件夹。", "Pick topics. Every Claude chat under them is exported, pinned or not, each in a folder of its own.")
+                  + (others ? tr("ChatGPT 对话和 Claude Code、Codex 会话不导出，数字里也不算。", " ChatGPT chats and Claude Code or Codex sessions aren't exported or counted.") : ""), width: 500),
             scroll, row([all, none]),
             label(tr("每个文件夹里放", "Each folder holds"), bold: true),
             mem, indent(memNote),
@@ -251,13 +266,20 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         window = w
     }
 
-    /// The note under "Keep it updated", as things stand now: on, with summaries ticked, but no yes yet for Claude
-    /// writing them while you're away (just ticked, or Claude was closed at the last export) — only the files for now.
+    /// The note under "Keep it updated": what it keeps up to date, as the boxes above are checked now (unchecked, that
+    /// isn't updated), and when; on, with summaries checked, but no yes yet for Claude writing them while you're away
+    /// (just checked, or Claude was closed at the last export) — only the files for now.
     private func updateAutoNote() {
-        let notYet = auto?.state == .on && memory?.state == .on && !Archive.autoMemoryAgreed
-        autoNote?.stringValue = tr("开了完全磁盘访问时，「下载」里有新的导出包就马上更新文件；总结按这个频率、在电脑闲置 10 分钟以上时更新。",
-                                   "With Full Disk Access, a new export zip in Downloads updates the files right away; summaries follow this schedule, while the Mac has been idle for 10 minutes.")
-            + (notYet ? tr("\n按计划写总结还没开始：点「导出」、在提示里同意后才会。",
+        let withFiles = files?.state == .on, withMemory = memory?.state == .on
+        let notYet = auto?.state == .on && withMemory && !Archive.autoMemoryAgreed
+        var said: [String] = []
+        if withFiles { said.append(tr("开了完全磁盘访问的话，「下载」里一有新的导出包，文件就马上更新。", "With Full Disk Access, a new export zip in Downloads updates the files right away.")) }
+        // (when they're due, Claude must be open, with Accessibility on: else they wait until it is)
+        if withMemory { said.append(tr("总结按选的频率更新：要 Mac 闲置 10 分钟以上，而且 Claude App 开着、「辅助功能」也开着时才写。",
+                                       "Summaries are updated on this schedule, once the Mac has been idle for 10 minutes, with the Claude app open and Accessibility on.")) }
+        if said.isEmpty { said.append(tr("上面两项都没勾，没有要更新的。", "Nothing to keep up to date: neither box above is checked.")) }
+        autoNote?.stringValue = said.joined(separator: tr("", " "))
+            + (notYet ? tr("\n按计划写总结还没开始：点「导出」并在提示里同意后才开始。",
                            "\nSummaries aren't written on the schedule yet: that starts once you click Export and agree.") : "")
     }
 
@@ -277,6 +299,9 @@ final class ExportWindow: NSObject, NSWindowDelegate {
     }
 
     private func start() {
+        // a run under way (one on the schedule may have started while this window was open): nothing more can start,
+        // and nothing here is saved yet, the folder least of all (that run is still saving to the one it began with)
+        if let why = archive.busyNote { Archive.say(why.title, why.text); return }
         let topics = Set(checks.filter { $0.0.state == .on }.map { $0.1 })
         // the choices are saved for the run (the items and the question below read them), and put back as they were
         // unless it starts: Cancel, or a "no" here, changes nothing. ("Keep it updated", and memory unticked, took
@@ -293,16 +318,24 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         if let i = every?.indexOfSelectedItem, Archive.everyChoices.indices.contains(i) { Archive.everyDays = Archive.everyChoices[i] }
         if let f = folder { Archive.folder = f }
         // the same choice the scheduled export uses (nothing ticked: only what's ticked, i.e. nothing on the map)
-        let items = archive.items(topics: checks.isEmpty ? nil : Archive.topics, unplaced: Archive.withUnplaced)
+        let chosen = archive.chosen(topics: checks.isEmpty ? nil : Archive.topics, unplaced: Archive.withUnplaced)
+        let items = chosen.items
+        // only ChatGPT chats and Claude Code or Codex sessions there: as good as nothing (none of them is exported)
+        if items.isEmpty && chosen.others > 0 {
+            Archive.say(tr("没有要导出的对话", "Nothing to export"),
+                        tr("选的部分里只有 ChatGPT 对话和 Claude Code、Codex 会话，这些不导出：只导出 Claude 对话。",
+                           "What you picked holds only ChatGPT chats and Claude Code or Codex sessions. Those aren't exported: only Claude chats are."))
+            return
+        }
         guard !items.isEmpty else {
-            Permissions.alert(tr("没有要导出的对话", "Nothing to export"), tr("勾选的部分里还没有对话。", "What you ticked has no chats yet."))
+            Permissions.alert(tr("没有要导出的对话", "Nothing to export"), tr("勾选的部分里还没有对话。", "What you checked has no chats yet."))
             return
         }
         let withFiles = Archive.withFiles && zip != nil
         var withMemory = Archive.withMemory
         guard withFiles || withMemory else {
-            Permissions.alert(tr("没有可导出的内容", "Nothing to include"),
-                              tr("勾上 memory，或者先下载 Claude 的官方导出包。", "Tick memory, or download Claude's data export first."))
+            Permissions.alert(tr("没选要导出的内容", "Nothing chosen to export"),
+                              tr("勾上 memory.md；或者勾上「提示词、完整对话…」，并选好 Claude 的官方导出包。", "Check memory.md, or check \"Prompts, the whole conversation…\" and choose Claude's data export."))
             return
         }
         // summaries need the Claude app open, with Accessibility on: said before anything starts, not left out quietly
@@ -316,8 +349,10 @@ final class ExportWindow: NSObject, NSWindowDelegate {
             withMemory = false
         }
         if withMemory {
-            guard let ok = confirmMemory, ok(items.filter { !$0.outsideClaude }.count, Archive.auto) else { return }
+            guard let ok = confirmMemory, ok(items.count, Archive.auto) else { return }
         }
+        // (a run can't have started during the questions above, as they wait for you; were one going, nothing's kept)
+        if let why = archive.busyNote { Archive.say(why.title, why.text); return }
         // Claude writes summaries on the schedule only with this yes, given just now with automatic updates on
         Archive.autoMemoryAgreed = withMemory && Archive.auto
         started = true
@@ -334,8 +369,8 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         a.messageText = tr("现在没法写总结", "Summaries can't be written now")
         a.informativeText = tr("要写总结，得先打开 Claude App，并开启「辅助功能」权限。\n\n先只导出文件（提示词、完整对话、artifacts 和附件）吗？总结这次不写。",
                                "For the summaries, open the Claude app and turn on Accessibility first.\n\nExport just the files for now (prompts, the whole conversation, artifacts and attachments)? No summaries are written this time.")
-            + (scheduled ? tr("按计划也不写，直到你在 Claude 打开时再点「导出」并同意。", " Nor on the schedule, until you export again with Claude open and agree.") : "")
-        a.addButton(withTitle: tr("只导出文件", "Export the files"))
+            + (scheduled ? tr("之后按计划也不写，直到你在 Claude 打开时再点「导出」并同意。", " They aren't written on the schedule either, until you export again with Claude open and agree.") : "")
+        a.addButton(withTitle: tr("只导出文件", "Export files only"))
         a.addButton(withTitle: tr("取消", "Cancel"))
         NSApp.activate(ignoringOtherApps: true)
         return a.runModal() == .alertFirstButtonReturn

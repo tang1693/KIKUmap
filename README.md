@@ -37,11 +37,11 @@
 
 <table>
 <tr>
-<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon counting running chats in a turning ring, then a red unread badge, then an exclamation mark when a chat needs approval"></td>
+<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="The menu-bar icon counting running chats in a turning ring, then a red unread badge, then an exclamation mark when a chat is waiting for you"></td>
 <td>
 
 ### 1. Status in the menu bar
-A ring counts running chats. A red badge counts finished, unread ones, with **!** when one needs approval. An optional sound or voice says which chat is done.
+A ring counts running chats. A red badge counts finished, unread ones, with **!** when one is waiting for you (to approve or answer, or it stopped on an error). An optional sound or voice says which chat is done.
 
 </td>
 </tr>
@@ -60,6 +60,8 @@ Chats pinned in Claude and in the ChatGPT app, plus Claude Code sessions, line u
 
 ### 3. Colors, shapes and tags
 Give a topic a color and a shape. Tag chats, and click a tag to highlight every chat that has it. Drag the top edge of the tags to make them taller or shorter, or tuck them away (⌃⌘G). In a short window zoomed in, they step aside until there's room: make the window taller or press ⌘-.
+
+Settings → Colors has eight color sets for the whole window (Classic, KIKU flower, Bauhaus black, Retro, Deep sea, Neon, Sunset, Candy), or pick each color yourself.
 
 </td>
 </tr>
@@ -85,7 +87,7 @@ When each chat ran, and the scheduled tasks coming up, with countdowns.
 <td>
 
 ### 6. Export and import
-Each chat as files: a summary, prompts, the conversation and artifacts. Import them into another Claude account.
+Each Claude chat as files: a summary, prompts, the conversation and artifacts. Import them into another Claude account.
 
 </td>
 <td width="55%"><img src="docs/demo/export.gif" width="100%" alt="The export window and the folder of Markdown files and artifacts it writes"></td>
@@ -103,10 +105,10 @@ Time worked in the last 24 hours and the last 7 days, plus Claude and ChatGPT us
 <td>
 
 ### 8. Statistics
-Time per chat over 7, 14, 30 or 90 days. ⌘Y.
+Time per chat and session over 7, 14, 30 or 90 days. ⌘Y.
 
 </td>
-<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: time per chat in bars over seven days"></td>
+<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="Statistics: time per chat and session in bars over seven days"></td>
 </tr>
 </table>
 
@@ -116,7 +118,7 @@ Time per chat over 7, 14, 30 or 90 days. ⌘Y.
 <td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="Search"><br><b>Search</b> topics, chats and tags.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="Today in the menu"><br><b>Today</b>: which chats worked, and how long.</td>
+<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="Today in the menu"><br><b>Today</b>: which chats and sessions worked, and how long.</td>
 <td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="Usage in the menu"><br><b>Usage</b> for the session and the week.</td>
 </tr>
 <tr>
@@ -159,6 +161,7 @@ open Install.command
 - Everything stays on the Mac, in `~/Library/Application Support/ClaudeConsole/`.
 - One permission is required: **Accessibility**, to read the chat lists in the Claude and ChatGPT windows. Every permission is explained before macOS asks.
 - No network requests, except the optional usage lookups (off by default) to Anthropic and OpenAI. Those read the sign-ins Claude Code and Codex already keep on the Mac, and never save them. Neither company has said apps may do this, so these lookups could be blocked.
+- Export (with summaries) and Import paste through the clipboard. What KIKUmap pastes is marked for clipboard history apps to skip and kept off your other devices. Each summary comes through Claude's own Copy button, which a clipboard history app may keep. Your clipboard is put back after each step.
 
 <details>
 <summary>What each source and permission is for</summary>
@@ -166,10 +169,11 @@ open Install.command
 | Shows | Comes from | Permission |
 |---|---|---|
 | Running, unread, pinned Claude chats | The Claude app's sidebar | Accessibility |
-| Approval requests and finished Cowork tasks, also with Claude's window closed (optional) | Claude's notifications in Notification Center | Full Disk Access |
+| Claude waiting for you (to approve or answer) and finished Cowork tasks, also with Claude's window closed (optional) | Claude's notifications in Notification Center | Full Disk Access |
 | Claude Code sessions | Claude Code hooks in `~/.claude/settings.json` (backed up first) | none |
 | ChatGPT chats | The ChatGPT app's files in `~/.codex` (read-only) | none |
 | Running, done and unread for ordinary ChatGPT chats (not Codex) | The sidebar in ChatGPT's window, while part of the window can be seen | Accessibility |
+| A finished session you're looking at counts as read | The window titles of its editor or terminal, while that app is in front | Accessibility |
 | Desktop widget | One file KIKUmap writes for it (`widget.json`) | none |
 | Claude usage and scheduled tasks (optional) | Anthropic's usage API, with Claude Code's sign-in | Keychain |
 | ChatGPT usage (optional, experimental) | OpenAI's usage interface, with Codex's sign-in | none |
@@ -225,7 +229,13 @@ Notarizing needs a paid Apple developer account, and KIKUmap is free. Building f
 <details>
 <summary><b>Claude's window is closed. What happens?</b></summary>
 
-⌘W only hides it. KIKUmap reads Claude's chats from the window, so it can't see them until the window is back on the current desktop; meanwhile running chats show "running?". Claude Code and Codex chats aren't affected. ChatGPT's ordinary chats are read from ChatGPT's window the same way, while part of it can be seen.
+⌘W only hides it. KIKUmap reads Claude's chats from the window, so it can't see them until the window is back on the current desktop; meanwhile running chats show "running?". Once it's back, one found done says "done after 14:00" (when it was last seen running), since when it finished isn't known. Claude Code and Codex chats aren't affected. ChatGPT's ordinary chats are read from ChatGPT's window the same way, while part of it can be seen.
+</details>
+
+<details>
+<summary><b>A session finished while I watched it. Why is it still unread?</b></summary>
+
+KIKUmap marks a finished session read by itself only when the window in front can only be that session's: for Claude Code, its folder's window in VS Code or Cursor, or a terminal window whose title shows both its folder and `claude`; for Codex, its folder's window in VS Code. If another window or tab could be showing it too, such as another editor window on its folder or a folder above it, it stays unread. Codex sessions in a terminal stay unread too (KIKUmap can't tell which terminal runs them). Open it from KIKUmap, or select it and press ⇧⌘U, to mark it read.
 </details>
 
 <details>

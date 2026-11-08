@@ -52,8 +52,11 @@ struct Routine {
 /// Off until you turn it on: the Keychain is never touched before you've said yes.
 @MainActor
 final class UsageMonitor: NSObject {
-    /// `limited`: Anthropic asked to check less often (it's waited out); `locked`: the login keychain is locked.
-    enum Status { case unknown, ok, noLogin, denied, expired, noScope, error, limited, locked }
+    /// `limited`: Anthropic asked to check less often (it's waited out); `locked`: the login keychain is locked;
+    /// `refused`: turned away for another reason (blocked on the way, or not allowed), tried again at the usual pace;
+    /// `offline`: no answer, or Anthropic's servers in trouble; `error`: an answer it can't read; `keychain`: the
+    /// Keychain gave an error reading the sign-in (as ChatGPT's lookup tells them apart).
+    enum Status { case unknown, ok, noLogin, denied, expired, noScope, error, limited, locked, refused, offline, keychain }
     struct Window {
         var percent: Double
         var resets: Date?
@@ -95,14 +98,27 @@ final class UsageMonitor: NSObject {
     private struct Account { let key: String; let label: String; let org: String?; let tier: String? }
 
     private var token: Token?
+    /// Whose sign-in the token and the numbers are (an account's key, or `signedOut`); nil: not known (~/.claude.json
+    /// couldn't be read when they were read), taken from the next good read.
     private var tokenAccount: String?
     private var tokenOrg: String?
     private var accountTier: String?
     private var lastRead = Date.distantPast
+    /// The sign-in is read again every 15 minutes while there's none to use. A 5-minute tick that comes a moment short
+    /// of them still counts (it would otherwise be 20).
+    private static let readEvery: TimeInterval = 900 - 30
     /// When usage was last asked for: not more than every ten minutes on its own (Claude Code's editor meters ask
     /// the same place with the same sign-in, and Anthropic turns too many away with 429).
     private var lastFetch = Date.distantPast
-    private static let fetchEvery: TimeInterval = 600
+    nonisolated private static let fetchEvery: TimeInterval = 600
+    /// The next lookup on its own, ten minutes after the last one (the 5-minute timer alone often comes a moment short
+    /// of that and leaves it to the tick after: 15 minutes).
+    private var nextLookup: Timer?
+    /// Claude Code's account and sign-in, read off the main thread; and a request sent, its status code, answer and
+    /// Retry-After handed back on the main thread (nil: to api.anthropic.com). A test stands in for each.
+    private var readAccountFile: @Sendable () -> Account? = { UsageMonitor.readAccount() }
+    private var readSignIn: @Sendable (Bool) -> Read = { UsageMonitor.readCredentials(interactive: $0) }
+    private var send: ((URLRequest, @escaping (Int, Any?, Double?) -> Void) -> Void)?
     /// The windows the last answer had, logged when they change (a plan without the 5-hour limit, a model's week).
     private var windowNames = ""
     private var busy = false
@@ -128,16 +144,19 @@ final class UsageMonitor: NSObject {
         switch status {
         case .ok, .unknown: return ""
         case .noLogin: return tr("Claude Code 还没用 Claude 账号登录", "Claude Code isn't signed in with a Claude account")
-        case .denied: return tr("没有读取 Claude Code 登录的权限", "Not allowed to read Claude Code's sign-in")
+        case .denied: return tr("钥匙串没让 KIKUmap 读 Claude Code 的登录", "The Keychain didn't let KIKUmap read Claude Code's sign-in")
         case .expired: return tr("Claude Code 的登录过期了，用一下 Claude Code 就会续上", "Claude Code's sign-in expired — using Claude Code renews it")
         case .noScope: return tr("Claude Code 的登录不含用量权限，重新 /login 一次", "Claude Code's sign-in can't read usage — run /login again")
-        case .error: return tr("用量暂时读取失败", "Couldn't read usage right now")
+        case .offline: return tr("连不上 Anthropic，读不到用量", "Can't reach Anthropic to read usage")
+        case .error: return tr("Anthropic 回的用量读不懂", "Anthropic's answer on usage couldn't be read")
+        case .keychain: return tr("钥匙串出错，读不了 Claude Code 的登录", "The Keychain gave an error reading Claude Code's sign-in")
         case .limited:
             // once that time has come, the read is on its way: a time that has passed isn't shown
             guard let h = holdUntil, h > Date() else { return tr("Anthropic 让晚点再查用量，马上再试", "Anthropic asked to check usage less often — trying again shortly") }
             let at = Clock.format(h, "HH:mm", "HH:mm")
             return tr("Anthropic 让晚点再查用量，\(at) 再试", "Anthropic asked to check usage less often — trying again at \(at)")
         case .locked: return tr("钥匙串锁着，解锁 Mac 后自动再读", "Your login keychain is locked — it reads again once the Mac is unlocked")
+        case .refused: return tr("用量查询被拒绝了，可能是被拦下了", "The usage request was refused — it may be blocked")
         }
     }
 
@@ -184,7 +203,7 @@ final class UsageMonitor: NSObject {
         guard UsageMonitor.enabled else { return nil }
         switch status {
         case .unknown: return nil
-        case .ok: return routinesFailed ? tr("列表没读到，过几分钟再试", "The list couldn't be read; trying again in a few minutes") : nil
+        case .ok: return routinesFailed ? tr("列表没读到，十来分钟后再试", "The list couldn't be read; trying again in 10 minutes or so") : nil
         default: return hint
         }
     }
@@ -245,11 +264,12 @@ final class UsageMonitor: NSObject {
         refresh()
     }
 
-    /// The refresh button: read now, quietly (never brings up macOS's Keychain dialog).
+    /// The refresh button (Refresh, ⌘R, the To-do's Try now): read now, but not twice a minute, and quietly (never
+    /// brings up macOS's Keychain dialog).
     func refreshNow() {
         guard UsageMonitor.enabled else { return }
         lastRead = .distantPast
-        refresh()
+        refresh(click: true)
     }
 
     /// From a click: read the sign-in again (macOS may ask).
@@ -261,54 +281,65 @@ final class UsageMonitor: NSObject {
         refresh(userAction: true)
     }
 
-    func refresh(userAction: Bool = false) {
+    /// `userAction`: from a click that may bring up macOS's Keychain dialog; `click`: from a click that may not.
+    func refresh(userAction: Bool = false, click: Bool = false) {
         guard UsageMonitor.enabled, !busy else { return }
         busy = true
+        let readAccount = readAccountFile
         DispatchQueue.global(qos: .utility).async {
-            let acct = UsageMonitor.readAccount()
+            let acct = readAccount()
             DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated { self?.go(acct, userAction: userAction) }
+                MainActor.assumeIsolated { self?.go(acct, userAction: userAction, click: click || userAction) }
             }
         }
     }
 
-    private func go(_ acct: Account?, userAction: Bool) {
+    /// `acct` nil: ~/.claude.json couldn't be read this time (Claude Code may be writing it): whose sign-in it is
+    /// isn't known now, which isn't another account; what's known stays.
+    private func go(_ acct: Account?, userAction: Bool, click: Bool) {
         busy = false
         guard UsageMonitor.enabled else { return }
-        account = acct?.label.isEmpty == false ? acct?.label : nil
-        accountTier = acct?.tier
-        // Claude Code signed in to another account (or organization): what was read belongs to the old one. Read
-        // again in a moment (its new sign-in may still be being written).
-        if (token != nil || updated != nil) && acct?.key != tokenAccount {
-            token = nil; session = nil; weekly = nil; sonnet = nil; plan = nil; routines = []; updated = nil
-            routinesAt = nil; routinesFailed = false
-            holdUntil = nil; failures = 0                   // a wait Anthropic asked for was the old sign-in's
-            lastRead = .distantPast
-            tokenAccount = acct?.key
-            log?("Claude Code's account changed: usage read again")
-            set(.unknown)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in MainActor.assumeIsolated { self?.refresh() } }
-            return
+        if let acct {
+            account = acct.label.isEmpty ? nil : acct.label
+            accountTier = acct.tier
+            if token != nil || updated != nil {
+                // Claude Code signed in to another account (or organization), or signed out: what was read belongs to
+                // the old one. Read again in a moment (its new sign-in may still be being written).
+                if let was = tokenAccount, acct.key != was {
+                    token = nil; session = nil; weekly = nil; sonnet = nil; plan = nil; routines = []; updated = nil
+                    routinesAt = nil; routinesFailed = false
+                    holdUntil = nil; failures = 0           // a wait Anthropic asked for was the old sign-in's
+                    lastRead = .distantPast
+                    tokenAccount = acct.key
+                    log?("Claude Code's account changed: usage read again")
+                    set(.unknown)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in MainActor.assumeIsolated { self?.refresh() } }
+                    return
+                }
+                // read while it wasn't known whose it is: this account's, as far as anyone can tell
+                if tokenAccount == nil { tokenAccount = acct.key; tokenOrg = acct.org }
+            }
         }
         // Anthropic asked to wait (the account above is still checked meanwhile)
         if !userAction, let h = holdUntil, h > Date() { return }
         if let t = token, !t.isExpired {
             // on its own, not more than every ten minutes; a click (the refresh button) reads now, but not twice a minute
             let since = Date().timeIntervalSince(lastFetch)
-            if (0..<(userAction ? 60 : UsageMonitor.fetchEvery)).contains(since) { return }
+            if (0..<(click ? 60 : UsageMonitor.fetchEvery)).contains(since) { return }
             fetch(t); return
         }
-        // re-read the sign-in at most every 15 minutes, and after a few quiet refusals only on a click
+        // re-read the sign-in every 15 minutes or so, and after a few quiet refusals only on a click
         if !userAction {
             if status == .denied && quietDenials >= 3 { return }
-            if (0..<900).contains(Date().timeIntervalSince(lastRead)) { return }
+            if (0..<UsageMonitor.readEvery).contains(Date().timeIntervalSince(lastRead)) { return }
         }
         busy = true
         lastRead = Date()
         // only a click (after the explanation) may bring up macOS's Keychain dialog; on its own it reads quietly
+        let readAccount = readAccountFile, signIn = readSignIn
         DispatchQueue.global(qos: .utility).async {
-            let a = UsageMonitor.readAccount()
-            let r = UsageMonitor.readCredentials(interactive: userAction)
+            let a = readAccount()
+            let r = signIn(userAction)
             DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated { self?.got(r, account: a, interactive: userAction) }
             }
@@ -320,6 +351,8 @@ final class UsageMonitor: NSObject {
         busy = false
         timer?.invalidate()
         timer = nil
+        nextLookup?.invalidate()
+        nextLookup = nil
         DistributedNotificationCenter.default().removeObserver(self)
         token = nil
         session = nil
@@ -344,8 +377,8 @@ final class UsageMonitor: NSObject {
         switch r {
         case .token(let t):
             quietDenials = 0
-            tokenAccount = a?.key
-            tokenOrg = a?.org
+            // whose it is: Claude Code's account now (while ~/.claude.json can't be read, the one known before, if any)
+            if let a { tokenAccount = a.key; tokenOrg = a.org }
             if t.isExpired { token = nil; set(.expired); return }
             if !t.scopes.isEmpty && !t.scopes.contains("user:profile") { token = nil; set(.noScope); return }
             token = t
@@ -357,7 +390,7 @@ final class UsageMonitor: NSObject {
             if interactive { log?("Keychain access denied: usage turned off"); UsageMonitor.enabled = false; stop(); return }
             quietDenials += 1
             set(.denied)
-        case .failed(let s): log?("keychain read failed: \(s)"); set(.error)
+        case .failed(let s): log?("keychain read failed: \(s)"); set(.keychain)
         }
     }
 
@@ -490,17 +523,21 @@ final class UsageMonitor: NSObject {
         return name
     }
 
-    /// Claude Code's account, from ~/.claude.json (no secret in it).
-    nonisolated private static func readAccount() -> Account? {
-        let f = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+    /// Claude Code's account, from ~/.claude.json (no secret in it): `signedOut` when it has no Claude-account sign-in;
+    /// nil when the file can't be read (missing, or caught while Claude Code rewrites it): not known.
+    nonisolated private static func readAccount(file: URL? = nil) -> Account? {
+        let f = file ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
         guard let d = try? Data(contentsOf: f),
-              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let a = o["oauthAccount"] as? [String: Any] else { return nil }
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return nil }
+        guard let a = o["oauthAccount"] as? [String: Any] else { return signedOut }
         let org = a["organizationUuid"] as? String
         let label = [a["emailAddress"] as? String, a["organizationName"] as? String].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return Account(key: "\(a["accountUuid"] as? String ?? "")/\(org ?? "")", label: label, org: org,
                        tier: a["organizationRateLimitTier"] as? String)
     }
+
+    /// ~/.claude.json read, with no Claude-account sign-in in it (signed out, or an API key): "whose" is no one's.
+    nonisolated private static let signedOut = Account(key: "-", label: "", org: nil, tier: nil)
 
     // MARK: requests
 
@@ -508,9 +545,20 @@ final class UsageMonitor: NSObject {
         if s != lastNote { lastNote = s; log?(s) }
     }
 
+    /// The next lookup on its own: ten minutes after this one, and a second (so it never comes short of them).
+    private func planNext() {
+        nextLookup?.invalidate()
+        let t = Timer(fire: lastFetch.addingTimeInterval(UsageMonitor.fetchEvery + 1), interval: 0, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        nextLookup = t
+    }
+
     private func fetch(_ t: Token) {
         busy = true
         lastFetch = Date()
+        planNext()
         get("/api/oauth/usage", t, beta: "oauth-2025-04-20") { [weak self] code, obj, retryAfter in
             guard let self = self else { return }
             self.busy = false
@@ -535,28 +583,41 @@ final class UsageMonitor: NSObject {
                 self.token = nil
                 self.lastRead = .distantPast
                 self.set(.expired)
-            case 403, 429:
+            case 429, 403 where UsageMonitor.says(obj, "rate"):
                 // Anthropic asked to check less often (Claude Code waits the same way): the numbers stay, marked
                 // "as of", and nothing is asked again until then
-                let wait = min(max(retryAfter ?? 300, 60), 3600)
-                let until = Date().addingTimeInterval(wait)
+                let wait = UsageMonitor.hold(retryAfter)
+                let until = Date().addingTimeInterval(wait), sent = self.lastFetch
                 self.holdUntil = until
                 self.note("usage HTTP \(code): waiting \(Int(wait))s")
                 self.set(.limited)
                 // read again at the time the hint gives, not at the first 5-minute tick after it (unless a newer
-                // answer, a click or turning usage off changed the wait meanwhile)
+                // answer, a click or turning usage off changed the wait meanwhile, or the next lookup already went)
                 DispatchQueue.main.asyncAfter(deadline: .now() + wait + 1) { [weak self] in
-                    MainActor.assumeIsolated { if let self = self, self.holdUntil == until { self.lastFetch = .distantPast; self.refresh() } }
+                    MainActor.assumeIsolated {
+                        if let self = self, self.holdUntil == until, self.lastFetch == sent { self.lastFetch = .distantPast; self.refresh() }
+                    }
                 }
+            case 403:
+                // turned away for another reason (a network or an organization blocking it, or not allowed): said as
+                // it is, the numbers stay "as of", and it's tried again at the usual pace
+                self.note("usage HTTP 403")
+                self.set(.refused)
             default:
-                // offline (0), a server error, an answer it can't read: the numbers stay; it tries again in a minute,
-                // and only says something is wrong if that keeps happening
+                // no answer (offline, blocked on the way: 0) or a server error (5xx): it can't reach Anthropic; anything
+                // else is an answer it can't read. The numbers stay; it tries again in a minute, and only says
+                // something is wrong if that keeps happening
                 self.failures += 1
                 self.note("usage HTTP \(code)")
-                if self.updated != nil && self.failures < 3 { self.retrySoon(); self.onChange?() } else { self.set(.error) }
+                if self.updated != nil && self.failures < 3 { self.retrySoon(); self.onChange?() }
+                else { self.set(code == 0 || (500...599).contains(code) ? .offline : .error) }
             }
         }
     }
+
+    /// How long to wait after Anthropic or OpenAI asked to check less often (429): as long as asked, but never less than
+    /// the usual ten minutes (not saying how long is ten minutes too); at most an hour.
+    nonisolated static func hold(_ retryAfter: Double?) -> TimeInterval { min(max(retryAfter ?? 0, fetchEvery), 3600) }
 
     private func retrySoon() {
         guard !retrying else { return }
@@ -605,6 +666,7 @@ final class UsageMonitor: NSObject {
         r.setValue("application/json", forHTTPHeaderField: "Accept")
         r.setValue(UsageMonitor.userAgent, forHTTPHeaderField: "User-Agent")
         for (k, v) in extra { r.setValue(v, forHTTPHeaderField: k) }
+        if let send { send(r, done); return }
         http.dataTask(with: r) { data, resp, _ in
             let h = resp as? HTTPURLResponse
             let code = h?.statusCode ?? 0

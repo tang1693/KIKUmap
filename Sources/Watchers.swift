@@ -69,10 +69,23 @@ final class NotificationWatcher: NSObject {
     /// Claude's notifications in the database now, already handled (kept across launches).
     private var handled: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "HandledNotifs") ?? [])
     private let handledKey = "HandledNotifs"
+    /// The last look read the database (not before the first read since KIKUmap started, nor while it can't be read):
+    /// what has left it by the next read went while KIKUmap wasn't looking.
+    private var reading = false
 
     init(store: Store) {
         self.store = store
         super.init()
+    }
+
+    /// Notifications handled before that have left Notification Center since (`gone`), told to the store. With Claude
+    /// not running, a request that's gone wasn't answered. By the first read since KIKUmap started (or since it could
+    /// read the database again) they went while it wasn't looking, when Claude may well have run (answered, or only
+    /// cleared): unsure, whatever Claude is now.
+    func cleared(_ gone: Set<String>, claudeRunning: @autoclosure () -> Bool) {
+        defer { reading = true }
+        guard !gone.isEmpty else { return }
+        store.withdrawn(gone, claudeOpen: !reading || claudeRunning())
     }
 
     var dbPath: String? {
@@ -121,6 +134,7 @@ final class NotificationWatcher: NSObject {
     func check() {
         let before = status
         defer {
+            if status != .ok { reading = false }         // (a busy database keeps the status: a moment, not a gap)
             if status != before { onStatus?() }
             if status == .ok {
                 retry?.invalidate(); retry = nil
@@ -156,10 +170,7 @@ final class NotificationWatcher: NSObject {
                              : rows.filter { !handled.contains($0.key) }.map { $0.note }
         let gone = handled.subtracting(keys), removed = gone.count
         if removed > 0 { store.log("\(Clock.iso()) [removed] \(removed) Claude notification(s) cleared or opened\n", file: "notifications.log") }
-        // (with Claude not running, a request that's gone wasn't answered)
-        if !gone.isEmpty && !firstRun {
-            store.withdrawn(gone, claudeOpen: !NSRunningApplication.runningApplications(withBundleIdentifier: claudeBundleID).isEmpty)
-        }
+        cleared(firstRun ? [] : gone, claudeRunning: !NSRunningApplication.runningApplications(withBundleIdentifier: claudeBundleID).isEmpty)
         if keys != handled || firstRun {
             handled = keys
             d.set(Array(keys).sorted(), forKey: handledKey)
@@ -284,10 +295,10 @@ enum SyncIssue: Sendable {
 
     var note: String {
         switch self {
-        case .accessOff: return tr("辅助功能授权失效，请在系统设置里删掉再加回来", "Accessibility is off for this build — remove and re-add it in System Settings")
+        case .accessOff: return tr("辅助功能权限失效了：在系统设置里把 KIKUmap 删掉再加回来", "Accessibility stopped working for KIKUmap — remove it and add it again in System Settings")
         case .noWindow:
             return SyncIssue.alerts
-                ? tr("看不到 Claude 的窗口（关了，或在别的桌面）：要你批准的提醒照常（Claude 的通知开着的话），对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): approval alerts still come (with Claude's notifications on); chats update when it's back")
+                ? tr("看不到 Claude 的窗口（关了，或在别的桌面）：等你确认的提醒照常（要开着 Claude 的通知），对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): approval alerts still come (with Claude's notifications on); chats update when it's back")
                 : tr("看不到 Claude 的窗口（关了，或在别的桌面）：对话等窗口回来再更新", "Claude's window can't be seen (closed, or on another desktop): chats update when it's back")
         case .codeMode: return tr("Claude 在 Code 模式，切回 Chat 才能同步置顶对话", "Claude is in Code mode — switch back to Chat to sync pinned chats")
         case .pinsCollapsed: return tr("Claude 的 Pinned 区折叠了，展开才能同步", "Claude's Pinned section is collapsed — expand it to sync")
@@ -300,18 +311,18 @@ enum SyncIssue: Sendable {
     private var still: String {
         let gpt = self == .accessOff ? tr("Codex 对话", "Codex chats") : "ChatGPT"
         return SyncIssue.alerts
-            ? tr("不受影响：Claude 的通知（要你批准或回答；Claude App 里的 Cowork 任务做完）、Claude Code、\(gpt)。",
-                 "Still works: Claude's notifications (it needs your approval or an answer; a Cowork task in the Claude app finished), Claude Code, \(gpt).")
-            : tr("不受影响：Claude Code、\(gpt)。（开了「完全磁盘访问」的话，Claude 要你批准、Cowork 任务做完时的通知也能收到。）",
-                 "Still works: Claude Code, \(gpt). (With Full Disk Access on, Claude's notifications would also say when it needs your approval and when a Cowork task finishes.)")
+            ? tr("不受影响：Claude 的通知（等你确认或回答；Claude App 里的 Cowork 任务做完）、Claude Code、\(gpt)。",
+                 "Still works: Claude's notifications (it's waiting for you to approve or answer; a Cowork task in the Claude app finished), Claude Code, \(gpt).")
+            : tr("不受影响：Claude Code、\(gpt)。（开了「完全磁盘访问」的话，Claude 等你确认、Cowork 任务做完时的通知也能收到。）",
+                 "Still works: Claude Code, \(gpt). (With Full Disk Access on, Claude's notifications would also say when it's waiting for you to approve and when a Cowork task finishes.)")
     }
 
     /// What it means, what it affects, what to do.
     var help: String {
         switch self {
         case .accessOff:
-            return tr("macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：进行中状态、置顶对话、侧边栏里的未读；ChatGPT 普通对话的进行中和未读（也是从它的窗口里读的）。\n",
-                      "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running status, pinned chats, unread from Claude's sidebar; running and unread for ChatGPT's ordinary chats (read off its window too).\n")
+            return tr("macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：Claude 对话的在跑、置顶和未读；ChatGPT 普通对话的在跑和未读（也要从它的窗口里看）。\n",
+                      "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running, pins and unread for Claude's chats; running and unread for ChatGPT's ordinary chats (seen in its window too).\n")
                 + still + tr("\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 KIKUmap 删掉（−）再加回来。",
                              "\nFix: System Settings → Privacy & Security → Accessibility: remove KIKUmap (−) and add it again.")
         case .noWindow:
@@ -322,26 +333,26 @@ enum SyncIssue: Sendable {
                      "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running when the window is back, or up to the notification if Claude notifies its finish (a Cowork task); otherwise your typical run's length, never past when it's seen finished. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n")
                 : tr("在跑的对话显示「在跑？」，做完没有要等窗口回来才知道。看不到的这段时长是估算的（标 ≈）：那时还在跑的，整段都算；其余按你一次运行的常见时长算，不超过它被看到做完的时候。\n",
                      "Chats that were running show \"running?\"; whether they've finished shows when the window is back. The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running then; otherwise your typical run's length, never past when it's seen finished.\n")
-            return tr("KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的进行中、做完、未读和置顶同步，窗口回到这个桌面就自动恢复。",
+            return tr("KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的在跑、做完、未读和置顶，窗口回到这个桌面就自动恢复。",
                       "KIKUmap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished, unread and pins for Claude's chats; they resume once the window is back on this desktop. ")
                 + time + still + tr("\n怎么办：点程序坞里的 Claude（关着的窗口会重新打开，在别的桌面会切过去）。想在别的桌面工作时也同步，就把 Claude 的窗口放到你用的那个桌面。",
                              "\nFix: click Claude in the Dock (it reopens a closed window, or takes you to its desktop). To keep syncing while you work on another desktop, move Claude's window to the desktop you use.")
         case .codeMode:
-            return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶对话同步，以及对话的进行中和未读。\n",
+            return tr("Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶同步，以及对话的在跑和未读。\n",
                       "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins, and running and unread for chats.\n")
                 + still + tr("\n怎么办：在 Claude 侧边栏顶部切回 Chat。", "\nFix: switch Claude back to Chat at the top of its sidebar.")
         case .pinsCollapsed:
-            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，KIKUmap 看不到哪些对话被置顶。\n暂停：置顶列表同步（左栏不会更新），以及置顶对话的进行中和未读。\n",
+            return tr("Claude 侧边栏里的 Pinned 区折叠起来了，KIKUmap 看不到哪些对话被置顶。\n暂停：置顶同步（左栏不会更新），以及置顶对话的在跑和未读。\n",
                       "The Pinned section in Claude's sidebar is folded, so KIKUmap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update), and running and unread for pinned chats.\n")
                 + still + tr("\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。", "\nFix: click \"Pinned\" in Claude's sidebar to unfold it.")
         case .sidebarHidden:
-            return tr("Claude 的侧边栏收起来了，KIKUmap 没有东西可读。\n暂停：进行中状态、置顶对话、侧边栏里的未读。\n",
-                      "Claude's sidebar is hidden, so there's nothing for KIKUmap to read.\nPaused: running status, pinned chats, unread from the sidebar.\n")
+            return tr("Claude 的侧边栏收起来了，KIKUmap 没有东西可看。\n暂停：Claude 对话的在跑、置顶和未读。\n",
+                      "Claude's sidebar is hidden, so there's nothing for KIKUmap to read.\nPaused: running, pins and unread for Claude's chats.\n")
                 + still + tr("\n怎么办：在 Claude 窗口左上角把侧边栏打开；窗口太窄时 Claude 会自动收起它，把窗口拉宽一点。",
                              "\nFix: show the sidebar in Claude's window (top left). Claude folds it away when the window is narrow: make the window wider.")
         case .noChatsShown:
-            return tr("Claude 侧边栏的对话列表里一个对话也没显示：还在加载、没能加载出来（断网了？），或者分组都折叠起来了。\n暂停：进行中状态、置顶对话、侧边栏里的未读；置顶不会因此被清掉。\n",
-                      "The chat list in Claude's sidebar shows no chats: it's still loading, couldn't load (offline?), or its groups are folded.\nPaused: running status, pinned chats, unread from the sidebar; your pins aren't cleared meanwhile.\n")
+            return tr("Claude 侧边栏的对话列表里一个对话也没显示：还在加载、没能加载出来（断网了？），或者分组都折叠起来了。\n暂停：Claude 对话的在跑、置顶和未读；置顶不会因此被清掉。\n",
+                      "The chat list in Claude's sidebar shows no chats: it's still loading, couldn't load (offline?), or its groups are folded.\nPaused: running, pins and unread for Claude's chats; your pins aren't cleared meanwhile.\n")
                 + still + tr("\n怎么办：等它加载完；Claude 显示「重试」的话点一下，或者检查网络；分组折叠了就点一下它的标题展开。",
                              "\nFix: wait for it to load; if Claude shows \"Try again\", click it, or check your connection; click a folded group's heading to unfold it.")
         }
@@ -684,8 +695,9 @@ enum AXScan {
     }
 
     /// What Claude's page showed on a read: the open chat's address, the page title, and whether that title may still
-    /// be the chat's open before (the title can lag behind the address while the next chat loads).
-    struct Page: Sendable, Equatable { var id = ""; var title = ""; var stale = false }
+    /// be the chat's open before (the title can lag behind the address while the next chat loads). `chat`: the address
+    /// is a chat's (claude.ai/chat/…, the same before and after the list was read), not a project's or a Code page's.
+    struct Page: Sendable, Equatable { var id = ""; var title = ""; var stale = false; var chat = false }
 
     /// This read's page against the last one's. `steady`: the title was seen with this address the read before too,
     /// and isn't one left over from before the address changed (only then can the title tell which row is open).
@@ -900,6 +912,8 @@ enum AXScan {
                 menus.formUnion(rows.map(\.menu).filter { !$0.isEmpty })
                 // a chat opened while the list was read: Claude's marks (read late) needn't be the address's (read early)
                 let settled = str(web, "AXURL") == url
+                // (the open chat as the rows below take it: a chat's address only, none on a Code page or a project's)
+                if sidebars.count == 1 { page?.chat = url.contains("/chat/") && settled }
                 // the landmark is there but shows no list at all, not even a heading: collapsed or narrow, not empty
                 if !codeMode && rows.isEmpty && headings.isEmpty { hiddenLists += 1; continue }
                 if !codeMode && rows.isEmpty && unshown(headings: headings, sections: sections, busy: { loading(sb) }) {
@@ -1080,8 +1094,9 @@ final class SidebarWatcher: NSObject {
     private var pid: pid_t = 0
     /// The Claude app's process (0 when it isn't running).
     var claudePID: pid_t { pid }
-    /// The chat open in Claude's window as last read (its address; nil: none, or not known).
-    var openChat: String? { lastPage.flatMap { $0.id.isEmpty ? nil : $0.id } }
+    /// The chat open in Claude's window as last read (its address; nil: none, not known, or the page isn't a chat's:
+    /// a project's, a Code page's).
+    var openChat: String? { lastPage.flatMap { $0.chat && !$0.id.isEmpty ? $0.id : nil } }
     private var scheduled = false
     private var scanning = false
     private var lastScan = Date.distantPast
@@ -1127,17 +1142,35 @@ final class SidebarWatcher: NSObject {
         }
     }
 
+    /// What becomes of the observer of Claude's process `attach` holds: let go of, kept, or made afresh.
+    enum Hold { case letGo, keep, make }
+
+    /// What `attach` does with what it finds (Claude installed, KIKUmap's Accessibility, Claude's process) and the
+    /// process it holds an observer of now (nil: none): the status to show (nil: as it is), and the observer. Access
+    /// lost lets go of it (one made before access went may not deliver once it's back), so access back makes a fresh
+    /// one; with access, still holding that very process's, it's kept and the status says OK again.
+    static func attachStep(installed: Bool, trusted: Bool, claude: pid_t?, held: pid_t?) -> (status: Status?, hold: Hold) {
+        // (no Claude app on this Mac: it's checked again every 30 seconds, so installing it later is picked up)
+        if claude == nil && !installed { return (.notInstalled, .letGo) }
+        guard trusted else { return (.noAccess, .letGo) }
+        guard let p = claude else { return (.noApp, .letGo) }
+        return held == p ? (.ok, .keep) : (.ok, .make)
+    }
+
+    /// Whether the 30-second check tries `attach`: nothing held, waiting for Accessibility, or access gone while
+    /// holding Claude (switched off in System Settings with nothing trying Claude since: it's let go of, and said).
+    static func tickAttaches(holding: Bool, status: Status, trusted: Bool) -> Bool { !holding || status == .noAccess || !trusted }
+
     func attach() {
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: claudeBundleID).first
-        // no Claude app on this Mac (it's checked again every 30 seconds, so installing it later is picked up)
-        if running == nil && NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) == nil {
-            detach(); setStatus(.notInstalled); return
+        let installed = running != nil || NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) != nil
+        let step = SidebarWatcher.attachStep(installed: installed, trusted: AXIsProcessTrusted(), claude: running?.processIdentifier,
+                                             held: observer == nil ? nil : pid)
+        guard step.hold == .make, let app = running else {
+            if step.hold == .letGo { detach() }
+            if let s = step.status { setStatus(s) }
+            return
         }
-        guard AXIsProcessTrusted() else { setStatus(.noAccess); return }
-        guard let app = running else {
-            detach(); setStatus(.noApp); return
-        }
-        if observer != nil && pid == app.processIdentifier { return }
         detach()
         var obs: AXObserver?
         guard AXObserverCreate(app.processIdentifier, axObserverCallback, &obs) == .success, let o = obs else { return }
@@ -1232,8 +1265,7 @@ final class SidebarWatcher: NSObject {
     func changed() { schedule(1.2) }
 
     @objc private func tick() {
-        if status == .noAccess && AXIsProcessTrusted() { attach() }
-        if observer == nil { attach() }
+        if SidebarWatcher.tickAttaches(holding: observer != nil, status: status, trusted: AXIsProcessTrusted()) { attach() }
         schedule(0)
     }
 

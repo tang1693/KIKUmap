@@ -451,7 +451,7 @@ final class GPTWatcher {
         }
         sqlite3_finalize(info)
         guard cols.contains("id"), cols.contains("rollout_path") else {
-            return .failure(tr("它的数据库里没有对话列表，ChatGPT 可能改了格式", "its database has no thread list (ChatGPT changed its format?)"))
+            return .failure(tr("它的数据库里没有对话列表，ChatGPT 可能改了格式", "its database has no chat list (ChatGPT may have changed its format)"))
         }
         func has(_ c: String) -> Bool { cols.contains(c) }
         let updated = has("updated_at_ms") ? "updated_at_ms" : has("updated_at") ? "updated_at * 1000" : "0"
@@ -487,7 +487,7 @@ final class GPTWatcher {
         guard sqlite3_prepare_v2(db, sql, -1, &st, nil) == SQLITE_OK else {
             let why = String(cString: sqlite3_errmsg(db))
             sqlite3_finalize(st)
-            return .failure(tr("读不了它的对话列表：", "can't read its thread list: ") + why)
+            return .failure(tr("读不了它的对话列表：", "can't read its chat list: ") + why)
         }
         defer { sqlite3_finalize(st) }
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -543,7 +543,7 @@ final class GPTWatcher {
             rc = sqlite3_step(st)
         }
         guard rc == SQLITE_DONE else {      // a read cut short isn't the list
-            return .failure(tr("对话列表没读完，它正忙", "its thread list was cut short (busy)"))
+            return .failure(tr("对话列表没读完，它正忙", "its chat list was only partly read (it was busy)"))
         }
         // the logs of the last turns (for the plan limits): by when they last worked, not when they were last opened
         var q: OpaquePointer?
@@ -675,21 +675,28 @@ final class GPTWatcher {
                 w.unread = Set(byAccount.values.flatMap { $0.filter { $0.key.hasPrefix("local") }.values.joined() })
             }
             w.pins = pins(o)
-            if let chats = pinnedChats(o["electron-persisted-atom-state"] as? [String: Any] ?? [:]) { w.chats = chats }
+            let atoms = o["electron-persisted-atom-state"] as? [String: Any] ?? [:]
+            if let chats = pinnedChats(atoms, accounts: { keyOrder(data, at: ["electron-persisted-atom-state", $0]) }) { w.chats = chats }
         }
         cache = (stamp, w)
         return w
     }
 
     /// The ordinary chats pinned in the app's sidebar, from its newest sidebar state ("chatgpt-sidebar-state-vN", by
-    /// account), after the Codex threads. nil: it has none (an app version without them keeps the last ones read).
-    nonisolated private static func pinnedChats(_ atoms: [String: Any]) -> [GPTThread]? {
+    /// account), after the Codex threads: the signed-in account's, as ChatGPT shows only those (others used in the app
+    /// on this Mac are kept there too). Which account is signed in isn't written down, but each time ChatGPT saves its
+    /// sidebar it puts the signed-in account's last (keeping up to four others before it): the last one is taken.
+    /// `accounts`: the accounts under a sidebar state's key, in the file's order (nil: not known; then, with several,
+    /// the pins of all are taken, as before). nil: it has none (an app version without them keeps the last ones read).
+    nonisolated private static func pinnedChats(_ atoms: [String: Any], accounts order: (String) -> [String]? = { _ in nil }) -> [GPTThread]? {
         let prefix = "chatgpt-sidebar-state-v"
         guard let key = atoms.keys.filter({ $0.hasPrefix(prefix) && Int($0.dropFirst(prefix.count)) != nil })
                 .max(by: { Int($0.dropFirst(prefix.count))! < Int($1.dropFirst(prefix.count))! }),
               let byAccount = atoms[key] as? [String: Any] else { return nil }
+        let signedIn = byAccount.count < 2 ? byAccount.keys.first : order(key)?.last { byAccount[$0] != nil }
+        let accounts = signedIn.map { [$0] } ?? byAccount.keys.sorted()
         var out: [GPTThread] = [], ids = Set<String>()
-        for case let account as [String: Any] in byAccount.sorted(by: { $0.key < $1.key }).map(\.value) {
+        for case let account as [String: Any] in accounts.compactMap({ byAccount[$0] }) {
             for case let pin as [String: Any] in account["pinnedConversations"] as? [Any] ?? [] {
                 guard let c = pin["conversation"] as? [String: Any], let id = c["id"] as? String, !id.isEmpty, ids.insert(id).inserted else { continue }
                 let title = (c["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -698,6 +705,74 @@ final class GPTWatcher {
             }
         }
         return out
+    }
+
+    /// The keys of the JSON object at `path` (keys from the top, each naming an object) in `data`, in the order the
+    /// file lists them (JSONSerialization keeps none); nil if it isn't there, or `data` isn't JSON as far as read.
+    nonisolated private static func keyOrder(_ data: Data, at path: [String]) -> [String]? {
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> [String]? in
+            let b = raw.bindMemory(to: UInt8.self), n = b.count
+            var i = 0
+            func space() { while i < n, b[i] == 0x20 || b[i] == 0x0A || b[i] == 0x0D || b[i] == 0x09 { i += 1 } }
+            // past a string (at its opening quote)
+            func skipString() -> Bool {
+                guard i < n, b[i] == 0x22 else { return false }
+                i += 1
+                while i < n {
+                    if b[i] == 0x5C { i += 2 } else if b[i] == 0x22 { i += 1; return true } else { i += 1 }
+                }
+                return false
+            }
+            // past a value of any kind
+            func skipValue() -> Bool {
+                space()
+                guard i < n else { return false }
+                if b[i] == 0x22 { return skipString() }
+                if b[i] == 0x7B || b[i] == 0x5B {                      // { [
+                    var depth = 0
+                    while i < n {
+                        switch b[i] {
+                        case 0x22: if !skipString() { return false }; continue
+                        case 0x7B, 0x5B: depth += 1
+                        case 0x7D, 0x5D: depth -= 1; if depth == 0 { i += 1; return true }
+                        default: break
+                        }
+                        i += 1
+                    }
+                    return false
+                }
+                let start = i                                          // a number, true, false, null
+                while i < n, !(b[i] == 0x2C || b[i] == 0x7D || b[i] == 0x5D || b[i] <= 0x20) { i += 1 }
+                return i > start
+            }
+            // the keys of the object at i, each with where its value starts (i ends past the object)
+            func members() -> [(key: String, at: Int)]? {
+                space()
+                guard i < n, b[i] == 0x7B else { return nil }
+                i += 1
+                var out: [(key: String, at: Int)] = []
+                while true {
+                    space()
+                    guard i < n else { return nil }
+                    if b[i] == 0x7D { i += 1; return out }
+                    if b[i] == 0x2C { i += 1; continue }
+                    let start = i
+                    guard skipString(),
+                          let key = (try? JSONSerialization.jsonObject(with: Data(b[start..<i]), options: .fragmentsAllowed)) as? String else { return nil }
+                    space()
+                    guard i < n, b[i] == 0x3A else { return nil }       // :
+                    i += 1
+                    space()
+                    out.append((key, i))
+                    guard skipValue() else { return nil }
+                }
+            }
+            for k in path {
+                guard let at = members()?.last(where: { $0.key == k })?.at else { return nil }
+                i = at
+            }
+            return members()?.map(\.key)
+        }
     }
 
     /// An ordinary chat's id among the threads.
@@ -746,7 +821,7 @@ final class GPTWatcher {
         } else {
             Permissions.alert(tr("打不开：这台 Mac 上没有 ChatGPT", "Can't open it: ChatGPT isn't on this Mac"),
                               tr("这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。装好后，在 ChatGPT 里置顶的对话也会回到 KIKUmap。",
-                                 "This chat lives in the ChatGPT desktop app, so it opens only there. Once the app is installed, chats pinned in ChatGPT show in KIKUmap again."))
+                                 "This chat is in the ChatGPT desktop app, so it opens only there. Once the app is installed, chats pinned in ChatGPT show in KIKUmap again."))
         }
     }
 
@@ -766,21 +841,27 @@ final class GPTWatcher {
 }
 
 /// The ChatGPT window's layout, for working out whether it shows when an ordinary chat is working or done (that's
-/// kept nowhere on this Mac but in the window). Every text is left out: a pinned chat's name is "=pinN", a text with a
-/// word that can say working or done keeps just that word, any other text is only its length; a link is only its kind.
+/// kept nowhere on this Mac but in the window). Every text is left out: a pinned chat's name is "=pinN", a text that is
+/// only a word that can say working, done or unread (ChatGPT's own in any language it ships, or a few common ones)
+/// keeps that word, any other text is only its length; a link is only its kind. The page's main part, where the open
+/// conversation is, isn't gone into (as with Claude's window).
 enum GPTWindow {
-    private static let statusWords = ["loading", "generating", "thinking", "running", "working", "in progress", "stop", "unread",
-                                      "spinner", "spin", "progress", "busy", "pending", "streaming", "done", "complete", "finished",
-                                      "生成", "思考", "运行", "加载", "未读", "停止", "完成", "进行"]
+    /// The words a text may be to be kept (lowercased, each a whole text): ChatGPT's for its rows' spinner, failed mark
+    /// and unread dot in every language it ships, and some others that can say working or done.
+    private static let statusWords: Set<String> = Set(["loading", "generating", "thinking", "running", "working", "in progress", "stop", "unread",
+                                                       "spinner", "spin", "progress", "busy", "pending", "streaming", "done", "complete", "finished",
+                                                       "生成", "思考", "运行", "加载", "未读", "停止", "完成", "进行"])
+        .union(GPTSidebar.unreadWords).union(GPTSidebar.workingWords).union(GPTSidebar.failedWords)
 
     private static func norm(_ s: String) -> String { s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ") }
 
+    /// A text as the layout writes it: "=pinN" for a pinned chat's name, "~word" if it's one of `statusWords` and
+    /// nothing else, else "#n", its length.
     private static func text(_ s: String, _ pins: [String]) -> String {
         let t = norm(s)
         if let k = pins.firstIndex(of: t) { return "=pin\(k + 1)" }
         let low = t.lowercased()
-        let hits = statusWords.filter { low.contains($0) }
-        return hits.isEmpty ? "#\(t.count)" : "~" + hits.joined(separator: "~") + "#\(t.count)"
+        return statusWords.contains(low) ? "~" + low : "#\(t.count)"
     }
 
     /// A link's kind only, and only for ChatGPT's own ("https://chatgpt.com/c/…", "codex://threads/…"), never what
@@ -795,33 +876,52 @@ enum GPTWindow {
         // (an Electron app builds its accessibility tree only once asked, and takes a moment to)
         AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
         Thread.sleep(forTimeInterval: 1.0)
-        let pins = pinned.map(norm)
-        var lines = ["# ChatGPT window layout \(Clock.iso()) · \(pins.count) ordinary chats known (pinned or not)",
-                     "# role/subrole · texts: =pinN a pinned chat's name, ~word a status word, #n a text's length · url= a ChatGPT link's kind, or just link · .classes · [actions]"]
+        var lines = ["# ChatGPT window layout \(Clock.iso()) · \(pinned.count) ordinary chats known (pinned or not)",
+                     "# role/subrole · texts: =pinN a pinned chat's name, ~word a text that is only a status word, #n a text's length · url= a ChatGPT link's kind, or just link · .classes · [actions]"]
         let windows = AXScan.list(AXScan.attr(app, "AXWindows"))
         if windows.isEmpty { lines.append("# no window: open ChatGPT's window and write the report again") }
+        lines += layout(windows, pinned: pinned, read: { AXScan.attr($0, $1) }, kids: { AXScan.children($0) }, actions: { el in
+            var names: CFArray?
+            _ = AXUIElementCopyActionNames(el, &names)
+            return names as? [String] ?? []
+        })
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// The lines for `windows` (`kids`: an element's children, `read`: one of its attributes, `actions`: what it can
+    /// do), every text masked as it's written (see `text`); the main part only named, its insides (the conversation)
+    /// left out.
+    static func layout<E>(_ windows: [E], pinned: [String], read: (E, String) -> CFTypeRef?, kids: (E) -> [E], actions: (E) -> [String]) -> [String] {
+        func str(_ e: E, _ k: String) -> String { AXScan.string(read(e, k)) }
+        let pins = pinned.map(norm)
+        var lines: [String] = []
         for w in windows {
-            var stack: [(AXUIElement, Int)] = [(w, 0)], visited = 0
+            var stack: [(E, Int)] = [(w, 0)], visited = 0
             while let (el, d) = stack.popLast(), visited < 8000 {
                 visited += 1
-                var line = String(repeating: " ", count: min(d, 60)) + AXScan.str(el, "AXRole") + "/" + AXScan.str(el, "AXSubrole")
+                let sub = str(el, "AXSubrole")
+                var line = String(repeating: " ", count: min(d, 60)) + str(el, "AXRole") + "/" + sub
                 for k in ["AXTitle", "AXDescription", "AXValue", "AXHelp"] {
-                    let t = AXScan.str(el, k)
+                    let t = str(el, k)
                     if !t.isEmpty { line += " \(k.dropFirst(2))" + text(t, pins) }
                 }
-                let url = AXScan.str(el, "AXURL")
+                let url = str(el, "AXURL")
                 if !url.isEmpty { line += " url=" + link(url) }
-                if let classes = AXScan.attr(el, "AXDOMClassList") as? [String], !classes.isEmpty {
+                // an id that says what a text only for screen readers is (a row's unread description, its recording
+                // note): that part of it alone
+                let id = str(el, "AXDOMIdentifier")
+                if let end = ["-description", "-recording"].first(where: { id.hasSuffix($0) }) { line += " id=…" + end }
+                if let classes = read(el, "AXDOMClassList") as? [String], !classes.isEmpty {
                     line += " ." + classes.prefix(8).joined(separator: ".")
                 }
-                var names: CFArray?
-                _ = AXUIElementCopyActionNames(el, &names)
-                let acts = (names as? [String] ?? []).filter { $0 == "AXPress" || $0 == "AXShowMenu" }
+                let acts = actions(el).filter { $0 == "AXPress" || $0 == "AXShowMenu" }
                 if !acts.isEmpty { line += " [" + acts.joined(separator: ",") + "]" }
-                lines.append(line)
-                if d < 60 { for c in AXScan.children(el).reversed() { stack.append((c, d + 1)) } }
+                // the open conversation: left out (its messages, and what's in them)
+                let conversation = sub == "AXLandmarkMain"
+                lines.append(line + (conversation ? " (the conversation: left out)" : ""))
+                if d < 60 && !conversation { for c in kids(el).reversed() { stack.append((c, d + 1)) } }
             }
         }
-        return lines.joined(separator: "\n") + "\n"
+        return lines
     }
 }

@@ -102,12 +102,18 @@ enum Keycaps {
     }
 
     /// Which of `parts`' keys are down when `pressed` goes down (by key, per chord): a chord lights whole when all its
-    /// keys are down; in an arrow cluster (↑↓←→) only the arrows down light; gestures light when the same one is done.
+    /// keys are down; in an arrow cluster (↑↓←→) only the arrows down light; gestures light when the same one is done:
+    /// by its words, or by its symbol when a demo names the very thing it does ("click Waiting on others" for the row's
+    /// "drag or click a tag", "drag" for "drag an item").
     static func litKeys(_ parts: [KeyPart], pressed: [KeyPart]) -> [Int: Set<String>] {
-        var down = Set<String>(), chips = Set<String>()
+        var down = Set<String>(), chips = Set<String>(), symbols = Set<String>()
+        let own = Set(parts.compactMap { p -> String? in if case .chip(let t, _) = p { return t } else { return nil } })
         for p in pressed {
             if case .keys(let c) = p { down.formUnion(keys(c)) }
-            if case .chip(let t, _) = p { chips.insert(t) }
+            if case .chip(let t, let s) = p {
+                chips.insert(t)
+                if !own.contains(t), let s { symbols.insert(s) }       // in other words: known by what it is
+            }
         }
         var out: [Int: Set<String>] = [:]
         for (i, p) in parts.enumerated() {
@@ -116,7 +122,7 @@ enum Keycaps {
                 let ks = keys(c)
                 if Set(ks).isSubset(of: down) { out[i] = Set(ks) }
                 else if ks.allSatisfy({ "↑↓←→".contains($0) }) { out[i] = Set(ks).intersection(down) }
-            case .chip(let t, _): if chips.contains(t) { out[i] = [t] }
+            case .chip(let t, let s): if chips.contains(t) || s.map(symbols.contains) == true { out[i] = [t] }
             default: break
             }
         }

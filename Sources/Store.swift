@@ -22,6 +22,14 @@ struct Chat: Codable, Equatable {
     /// A Claude Code run started by a script (`claude -p`, the SDK): shown only while it runs (or pinned, or filed),
     /// with no sound and nothing left unread.
     var headless: Bool?
+    /// A Claude Code or Codex session: when it started, as far as KIKUmap knows (its first hook line; a Codex thread's
+    /// time when it was first listed). The left column keeps sessions in this order, never reshuffled by activity.
+    var startedAt: String?
+    /// Found finished (or with a new reply) only a while after it was last seen: when that was (`after`), and the
+    /// `updated_at` it was found at (`at`; the change came in between). Its time says "done after …", not "just now";
+    /// once the chat changes again (`updated_at` moves on) it says nothing.
+    var doneAfter: DoneAfter?
+    struct DoneAfter: Codable, Equatable { var after: String; var at: String }
 
     var isCode: Bool { source == "code" }
     /// A Codex thread started in an editor or a terminal (not the ChatGPT app): shown like a Claude Code session.
@@ -119,6 +127,9 @@ final class Store {
     private var quitPaused = Set<String>()
     /// Running Claude-app chats missing from whole reads of the sidebar (deleted while running), since when.
     private var missingSince: [String: Date] = [:]
+    /// When a read last showed each chat's row (Claude's sidebar, ChatGPT's window) since KIKUmap started: a reply it
+    /// shows anew came after then.
+    private var rowSeenAt: [String: Date] = [:]
     /// The chat open in Claude's window (from the sidebar's last read).
     var openChatID: (() -> String?)?
     /// Claude has been in front at some point since the last read of its sidebar began (it was in front when that read
@@ -134,8 +145,22 @@ final class Store {
     private var gptFrontSince = false
     private var gptLeftAt = Date.distantPast
     private(set) var gptWasFront = false
-    /// When Claude last asked for an approval in a chat KIKUmap couldn't tell (its window closed): said in the To-do.
+    /// When Claude last asked for an approval in a chat KIKUmap couldn't tell (its window closed, several chats running,
+    /// chats running in plain sight): said in the To-do, for half an hour at most.
     private(set) var approvalAsked: Date?
+    static let approvalShown: TimeInterval = 1800
+    /// Those requests' banners still in Notification Center (by key). `approvalUnsure`: they've all left it since
+    /// (answered elsewhere, or only cleared: the two look the same), so whether Claude still waits isn't known.
+    private var approvalKeys = Set<String>()
+    private(set) var approvalUnsure = false
+    /// Why the chat couldn't be told, as of when Claude asked (what the To-do says while nothing is in the way of reading
+    /// Claude's chats): chats were running in plain sight (not guessed at: the one that waits shows it in Claude's
+    /// sidebar), more than one out of sight, none at all, or KIKUmap wasn't running then (nothing was seen).
+    enum NoChat { case inSight, several, noneRunning, beforeLaunch }
+    private(set) var approvalNoChat = NoChat.noneRunning
+    /// A row Claude shows waiting that turned so this close to such a banner is the same request: the banner is posted
+    /// as the row turns, and a read of the row comes seconds before or after it.
+    static let approvalNear: TimeInterval = 30
     /// How many times a chat's id has changed: a sidebar read begun before a change is stale.
     private(set) var idMoves = 0
     /// Each Claude Code session's last hook event, and since when Claude Code could have sent any (the last wake).
@@ -174,6 +199,11 @@ final class Store {
         try? fm.createDirectory(at: dir.appendingPathComponent("logs"), withIntermediateDirectories: true)
         map = MapModel(url: dir.appendingPathComponent("data/map.json"))
         if let f = load(ChatsFile.self, chatsURL) { chats = f.chats }
+        // sessions kept from before KIKUmap noted when each started: their last change stands in, so from now on they
+        // keep their places
+        for i in chats.indices where (chats[i].isCode || chats[i].isCodexSession) && chats[i].startedAt == nil {
+            chats[i].startedAt = chats[i].updated_at.isEmpty ? Clock.iso() : chats[i].updated_at
+        }
         if let s = load([String: String].self, seenURL) { seen = s }
         if let s = load([String: String].self, dismissedURL) { dismissed = s }
         if let s = load([String].self, gptDotsURL) { gptMarked = Set(s) }
@@ -326,6 +356,13 @@ final class Store {
         return isUnread(c)
     }
 
+    /// Can be marked read or unread here (✉, ⇧⌘U, the menu): a chat with a record, not running (nothing to mark yet),
+    /// and not one Claude's own row shows waiting for you (that's unread while it does, whatever is marked here).
+    func markable(_ id: String) -> Bool {
+        guard let c = chat(id), !running.contains(id) else { return false }
+        return c.last_note.map(SidebarWatcher.waitingStatuses.contains) != true
+    }
+
     /// Only pinned chats are shown — pinned in Claude, or in ChatGPT for its threads. Until the Claude sidebar has
     /// been read, nothing is (the sidebar says why) — never every chat. Claude Code sessions show while they run or
     /// wait for you, for 12 hours after, or for good once you pin them here or file them on the map.
@@ -392,6 +429,28 @@ final class Store {
 
     /// When the Mac last went to sleep (time asleep is never counted).
     private var sleptAt: Date?
+    /// From the Mac's sleep notice to its wake: no run opens. KIKUmap hears of the sleep a moment before it comes, and a
+    /// read or a hook line that lands in that moment would open its runs again, counting the whole sleep as work seen.
+    private(set) var asleep = false
+    /// The Mac's uptime at the sleep notice (uptime stands still while it sleeps).
+    private var sleptUptime: TimeInterval = 0
+
+    /// Where a run seen starting at `t` begins to count: not while the Mac sleeps (nil: it opens at the wake), nor before
+    /// the last wake (a hook line from before the sleep, read only after it, would count the sleep; a wake still to come
+    /// is from before the clock was set back).
+    private func openRun(at t: Date) -> String? {
+        if asleep { return nil }
+        return Clock.iso(awakeSince > t && awakeSince <= Date() ? awakeSince : t)
+    }
+
+    /// The screens woke while KIKUmap still takes the Mac to be asleep: if it did sleep since the notice (the clock ran on
+    /// past the uptime), or has been up a minute since without sleeping (the sleep called off), the wake notice didn't
+    /// come, and runs count again from now. (In a sleep KIKUmap isn't woken for, the screens stay off.)
+    func screensWoke(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        guard asleep, let z = sleptAt else { return }
+        let up = uptime - sleptUptime
+        if now.timeIntervalSince(z) - up > 5 || up > 60 { resumeRuns(at: now) }
+    }
 
     /// The parts of a..<b the Mac was awake (the last sleep left out).
     private func awake(_ a: Date, _ b: Date) -> [(Date, Date)] {
@@ -589,14 +648,15 @@ final class Store {
         return f
     }()
 
-    /// A chat the archive just started in the Claude app (pinned there too).
-    func addImported(id: String, title: String) {
+    /// A chat Import just started in the Claude app, as Claude shows it: its name there, and pinned only if pinning it
+    /// worked.
+    func addImported(id: String, title: String, pinned: Bool) {
         if let i = index[id] {
             chats[i].title = title
-            chats[i].pinned = true
+            chats[i].pinned = pinned
             chats[i].liveAt = Clock.iso()
         } else {
-            chats.append(Chat(id: id, title: title, updated_at: Clock.iso(), path: "/chat/" + id, source: "sidebar", last_note: nil, pinned: true,
+            chats.append(Chat(id: id, title: title, updated_at: Clock.iso(), path: "/chat/" + id, source: "sidebar", last_note: nil, pinned: pinned,
                               liveAt: Clock.iso()))
             seen[id] = Clock.iso()
             saveSeen()
@@ -625,7 +685,9 @@ final class Store {
     /// Requests for your approval that may have been answered where no word of it comes from, since when: a Claude Code
     /// session's whose app has come to the front (no hook says so until the approved step ends), a Claude chat's whose
     /// notification left Notification Center (answered, or only cleared: the two look the same). Shown as "needs you?",
-    /// without the "!". Saved on every change (data/requests.json): nothing would bring the doubt back after a relaunch.
+    /// without the "!", while the chat is unread. Marking it read answers nothing: the doubt stays, for when it's marked
+    /// unread again, and one raised while it's read is kept the same way (the request may be answered whichever way it
+    /// was marked). Saved on every change (data/requests.json): nothing would bring the doubt back after a relaunch.
     private var maybeAnswered: [String: Date] = [:] { didSet { if maybeAnswered != oldValue { saveRequests() } } }
     /// The app in front now (its bundle id).
     var frontApp: (() -> String?)?
@@ -635,13 +697,14 @@ final class Store {
     private func onlySession(_ c: Chat) -> Bool {
         !chats.contains { $0.isCode && $0.id != c.id && $0.app == c.app && (lastCodeEvent[$0.id].map { Date().timeIntervalSince($0) < 3600 } ?? false) }
     }
-    /// A chat shown "needs you?": you may have answered it.
-    func maybeWaiting(_ id: String) -> Bool { maybeAnswered[id] != nil }
+    /// A chat shown "needs you?": you may have answered it (shown while it's unread, as a sure request is).
+    func maybeWaiting(_ id: String) -> Bool { maybeAnswered[id] != nil && isUnread(id: id) }
 
-    /// An app came to the front: a Claude Code session in it that asks for your approval may be answered from now on.
+    /// An app came to the front: a Claude Code session in it that asks for your approval may be answered from now on
+    /// (read here or not: marked unread later, it's "needs you?" all the same).
     func appCameToFront(_ bundle: String) {
         var changed = false
-        for c in chats where c.isCode && c.app == bundle && maybeAnswered[c.id] == nil && needsInput(c)
+        for c in chats where c.isCode && c.app == bundle && maybeAnswered[c.id] == nil && !running.contains(c.id)
             && c.last_note.map({ Store.isInputNote($0) && !$0.hasPrefix(Store.stopMark) }) == true && onlySession(c) {
             maybeAnswered[c.id] = Date(); changed = true
         }
@@ -657,19 +720,62 @@ final class Store {
 
     /// The title of the front app's focused window (read with Accessibility), or nil.
     var frontWindowTitle: (() -> String?)?
+    /// The titles of the front app's other windows, and of its windows' tabs but the one shown in front (read with
+    /// Accessibility): what else in that app could show a session's folder. nil: they can't be read.
+    var otherWindowTitles: (() -> [String]?)?
 
-    /// A finished Claude Code session whose app is in front on a window of its folder: you're looking at it there, so
-    /// it's read, as a Claude chat open in Claude's window in front is. Not while another session in that folder works
-    /// or has worked this past hour (which one you see can't be told), nor one waiting for you or stopped on an error.
+    /// A finished Claude Code or Codex session whose app is in front on a window that can only be that session's:
+    /// you're looking at it there, so it's read, as a Claude chat open in Claude's window in front is. The window's
+    /// title names the session's own folder (an editor's titled by its project, VS Code's or Cursor's: that folder or
+    /// one it's in), and a terminal's says Claude Code runs in it, not a shell in that folder. When which session the
+    /// window shows can't be told, it stays unread: KIKUmap knows another folder of that name, another window or tab
+    /// of the app could show it too (an editor's on its folder or any folder it's in; or they can't be read), another
+    /// session there works or has worked this past hour; so does one waiting for you or stopped on an error. A Codex
+    /// session in a terminal always does: which terminal runs it isn't known.
     func readCodeInFront(_ bundle: String? = nil) {
-        guard let b = bundle ?? frontApp?(), chats.contains(where: { $0.isCode && $0.app == b && isUnread($0) }),
-              let title = frontWindowTitle?() else { return }
-        let here = chats.filter { $0.isCode && $0.app == b && $0.cwd.map { Store.window(title, shows: $0) } == true }
-        let lately = here.filter {
-            running.contains($0.id) || isUnread($0) || (lastCodeEvent[$0.id].map { Date().timeIntervalSince($0) < 3600 } ?? false)
+        guard let b = bundle ?? frontApp?(), b != claudeBundleID, b != GPTWatcher.bundleID else { return }
+        let sessions = chats.filter { ($0.isCode || $0.isCodexSession) && $0.cwd != nil }
+        let mine = sessions.filter { Store.sessionApp($0) == b }
+        guard mine.contains(where: isUnread), let title = frontWindowTitle?() else { return }
+        let editor = Store.titledByProject(b)
+        let here = mine.compactMap { c in c.cwd.flatMap { Store.folder(title, shows: $0, above: editor) }.map { (c, $0) } }
+        // the one folder the title names: not one of two KIKUmap knows by that name (a bare name doesn't say which)
+        guard let folder = here.first?.1,
+              Set(sessions.compactMap { $0.cwd.flatMap { Store.folder(title, shows: $0, above: editor) } }).count == 1 else { return }
+        let lately = here.map(\.0).filter {
+            running.contains($0.id) || isUnread($0)
+                || (($0.isCode ? lastCodeEvent[$0.id] : gptActive[$0.id]).map { Date().timeIntervalSince($0) < 3600 } ?? false)
         }
-        guard lately.count == 1, let c = lately.first, isUnread(c), c.last_note == nil else { return }
+        guard lately.count == 1, let c = lately.first, isUnread(c), c.last_note == nil, let cwd = c.cwd else { return }
+        // a terminal: its title says it's Claude Code's tab, not a shell in the same folder
+        if !editor && !Store.showsClaudeCode(title, in: folder) { return }
+        // no other window or tab of the app could show it too: a terminal's in its folder that says claude runs there; an
+        // editor's on its folder or any folder it's in, the home folder too (from that window's terminal, after a `cd`,
+        // it may run there as well: which window it is can't be told)
+        guard let others = otherWindowTitles?(), !others.contains(where: { t in
+            guard let f = Store.folder(t, shows: cwd, above: editor, pastHome: true) else { return false }
+            return editor || Store.showsClaudeCode(t, in: f)
+        }) else { return }
         markSeen([c.id])
+    }
+
+    /// The app a session runs in, by bundle id: a Claude Code session's own (or the one its terminal named itself by,
+    /// "Apple_Terminal"); a Codex session's from VS Code, VS Code. nil: not known (a Codex session from a terminal or
+    /// another editor).
+    static func sessionApp(_ c: Chat) -> String? {
+        if c.isCodexSession { return c.app == "vscode" ? appBundles["vscode"] : nil }
+        guard c.isCode, let a = c.app, !a.isEmpty else { return nil }
+        return appBundles[a] ?? a
+    }
+    /// The apps a session may give by name instead: its terminal's (TERM_PROGRAM), a Codex session's editor.
+    static let appBundles = ["vscode": "com.microsoft.VSCode", "Apple_Terminal": "com.apple.Terminal", "iTerm.app": "com.googlecode.iterm2"]
+
+    /// Editors whose windows are titled by the project folder they have open (VS Code and the editors built on it:
+    /// Cursor, Windsurf, VSCodium; JetBrains'): a session there may run in a folder inside it.
+    static func titledByProject(_ bundle: String) -> Bool {
+        let b = bundle.lowercased()
+        return b.contains("vscode") || b.contains("vscodium") || b == "com.todesktop.230313mzl4w4u92" || b.hasPrefix("com.exafunction.windsurf")
+            || b.hasPrefix("com.jetbrains.") || b == "com.google.android.studio"
     }
 
     /// The folder a Claude Code session was started in: of `cwd` and the folders it's in, the one Claude Code files the
@@ -689,22 +795,76 @@ final class Store {
         }
     }
 
-    /// A window's title names this folder or one it's in: VS Code's "Store.swift — Claude", Terminal's
-    /// "Claude — zsh — 80×24" or "you@Mac: ~/Desktop/Claude".
-    static func window(_ title: String, shows cwd: String) -> Bool {
-        let parts = title.replacingOccurrences(of: " – ", with: " — ").replacingOccurrences(of: " - ", with: " — ")
-            .components(separatedBy: " — ").map { $0.trimmingCharacters(in: .whitespaces) }
-        let names = Set(parts + parts.map { ($0 as NSString).lastPathComponent })
+    /// A window's title names this folder or one it's in (short of the home folder): VS Code's "Store.swift — Claude",
+    /// Terminal's "Claude — zsh — 80×24" or "you@Mac: ~/Desktop/Claude".
+    static func window(_ title: String, shows cwd: String) -> Bool { folder(title, shows: cwd, above: true) != nil }
+
+    /// The folder of `cwd`'s a window's title names: `cwd` itself; with `above` (an editor's window, titled by the
+    /// project it has open), else the nearest folder it's in, short of the home folder (with `pastHome`, the home
+    /// folder and those it's in too). A part of the title that's a path ("you@Mac: ~/Desktop/Claude") names that
+    /// folder only; a bare name ("Claude — zsh — 80×24") any folder of that name. nil: neither.
+    static func folder(_ title: String, shows cwd: String, above: Bool, pastHome: Bool = false) -> String? {
+        guard cwd.hasPrefix("/") else { return nil }
+        let parts = titleParts(title)
+        let names = Set(parts), paths = Set(parts.compactMap(titlePath))
         var u = URL(fileURLWithPath: cwd).standardizedFileURL
-        while u.path != "/" && u.path != NSHomeDirectory() {
-            if names.contains(u.lastPathComponent) { return true }
+        let home = URL(fileURLWithPath: NSHomeDirectory()).standardizedFileURL.path
+        while u.path != "/" && !(above && !pastHome && u.path == home) {
+            if paths.contains(u.path) || names.contains(u.lastPathComponent) { return u.path }
+            guard above else { return nil }
             u.deleteLastPathComponent()
         }
-        return false
+        return nil
+    }
+
+    /// A terminal window's title says Claude Code runs in it, in `folder`: besides the part naming the folder, a part
+    /// that's its process, "claude" (with its arguments, if shown), as Terminal and iTerm put it.
+    static func showsClaudeCode(_ title: String, in folder: String) -> Bool {
+        var parts = titleParts(title)
+        let name = (folder as NSString).lastPathComponent
+        if let i = parts.firstIndex(where: { $0 == name || titlePath($0) == folder }) { parts.remove(at: i) }
+        return parts.contains { $0.lowercased().split(whereSeparator: { $0 == " " || $0 == "(" }).first == "claude" }
+    }
+
+    /// A window title's parts, between its dashes.
+    private static func titleParts(_ title: String) -> [String] {
+        title.replacingOccurrences(of: " – ", with: " — ").replacingOccurrences(of: " - ", with: " — ")
+            .components(separatedBy: " — ").map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+    /// A title part that's a path ("~/Desktop/Claude", "/tmp/x", after "you@Mac:"), in full; nil: not one.
+    private static func titlePath(_ part: String) -> String? {
+        var p = Substring(part)
+        if let colon = p.firstIndex(of: ":"), p[..<colon].contains("@") { p = p[p.index(after: colon)...] }
+        let s = p.trimmingCharacters(in: .whitespaces)
+        let full = s == "~" || s.hasPrefix("~/") ? NSHomeDirectory() + s.dropFirst() : s
+        return full.hasPrefix("/") ? URL(fileURLWithPath: full).standardizedFileURL.path : nil
     }
     /// Put before a chat's note when its run stopped on an error (Claude Code's StopFailure, a status on Claude's row
-    /// KIKUmap doesn't know): its words are shown, and it wants you, not "done". Invisible.
+    /// KIKUmap doesn't know, ChatGPT's failed mark): its words are shown, and it wants you, not "done". Invisible.
     static let stopMark = "\u{2062}"
+    /// After `stopMark` on a Claude Code session's error stop: the error as Claude Code gave it follows, and "stopped:"
+    /// is put before it when it's shown, in the language shown then (the note is saved in chats.json). Invisible.
+    static let codeStopMark = "\u{2063}"
+    /// After `stopMark` on an ordinary ChatGPT chat whose reply failed: ChatGPT's words for its failed mark follow
+    /// (it shows a red mark; the words are for screen readers). Its English default, which it says in every language
+    /// for now, is shown as "reply failed" in the language shown then; words of its own in a language, as they are.
+    /// Invisible.
+    static let gptFailMark = "\u{2064}"
+    /// How an earlier version saved that note: its "stopped:" in the language KIKUmap was in then.
+    private static let oldStopWords = ["出错停下：", "stopped: "]
+    /// A stop note as it's shown: Claude's words as they are; a Claude Code error after "stopped:" in today's language;
+    /// ChatGPT's failed mark as "reply failed" in today's language, unless ChatGPT words it in its own language.
+    static func stopText(_ note: String) -> String {
+        var t = String(note.dropFirst(note.hasPrefix(stopMark) ? 1 : 0))
+        if t.hasPrefix(gptFailMark) {
+            t.removeFirst()
+            return t.isEmpty || GPTSidebar.failedWords.contains(GPTSidebar.norm(t).lowercased()) ? tr("回复失败", "reply failed") : t
+        }
+        if t.hasPrefix(codeStopMark) { t.removeFirst() }
+        else if let w = oldStopWords.first(where: { t.hasPrefix($0) }) { t.removeFirst(w.count) }
+        else { return t }
+        return tr("出错停下：", "stopped: ") + t
+    }
 
     /// Claude's notifications that it waits for you (your input, or permission to use your computer), in each language
     /// it speaks; and the English words Claude Code uses.
@@ -774,19 +934,50 @@ final class Store {
         if !key.isEmpty { requests[key] = id }
     }
 
-    /// These notifications left Notification Center. A request that's gone, on a chat still shown waiting for it, was
+    /// One of the Claude app's own chats (not a Claude Code session, not one of ChatGPT's).
+    private func inClaude(_ id: String) -> Bool { !id.hasPrefix("cc-") && !id.hasPrefix("gpt-") && chat(id)?.outsideClaude == false }
+
+    /// What a "needs your approval" banner posted at `date` is about (it names no chat), never guessed at among chats
+    /// whose rows can show it (a chat running in plain sight shows its own wait, with its alert, at the next read):
+    /// - the one chat whose row turned waiting with it (within `approvalNear`; a row that turned earlier was an earlier
+    ///   request); several did: it's one of theirs, and each shows it already, with its alert (`shown`: nothing to add);
+    /// - else the one open in Claude's window, if it was running there (not one that was idle: it had no tool waiting);
+    /// - else the only one of Claude's chats running, if it's out of KIKUmap's sight (its row can't show it: Claude's
+    ///   window closed, Code mode, …).
+    /// Otherwise no chat, and why (`unknown`).
+    enum ApprovalTarget: Equatable { case chat(String), shown, unknown(NoChat) }
+    private func approvalTarget(at date: Date) -> ApprovalTarget {
+        let turned = chats.filter { c in
+            inClaude(c.id) && c.last_note.map(SidebarWatcher.waitingStatuses.contains) == true
+                && Clock.parse(c.updated_at).map { abs($0.timeIntervalSince(date)) <= Store.approvalNear } == true
+        }
+        if turned.count == 1 { return .chat(turned[0].id) }
+        if turned.count > 1 { return .shown }
+        if let o = openChatID?(), inClaude(o), running.contains(o) { return .chat(o) }
+        let mine = running.filter(inClaude)
+        if mine.count == 1, let m = mine.first, outOfSight(m) { return .chat(m) }
+        return .unknown(mine.contains { !outOfSight($0) } ? .inSight : mine.isEmpty ? .noneRunning : .several)
+    }
+
+    /// These notifications left Notification Center. A request that's gone, on a chat still waiting for it, was
     /// answered somewhere KIKUmap can't see, or only cleared to deal with later: the two look the same, so the chat
     /// still waits as far as anyone knows, unsure ("needs you?", no "!"), until Claude's sidebar or a new notification
-    /// says. It isn't running: no time is counted from here (a turn's end notified later counts the approved run up to
-    /// it, see `apply(_:)`). With Claude not running nothing was answered: left as is. (Both maps save themselves.)
+    /// says. So also on one marked read here (shown once it's marked unread again). It isn't running: no time is counted
+    /// from here (a turn's end notified later counts the approved run up to it, see `apply(_:)`). The same for a request
+    /// no chat could be told for (the To-do): unsure once its banners are all gone. With Claude not running nothing was
+    /// answered: left as is. (Both maps save themselves.)
     func withdrawn(_ keys: Set<String>, claudeOpen: Bool = true) {
         var changed = false
         for k in keys {
             guard let id = requests.removeValue(forKey: k), claudeOpen, let i = index[id], let n = chats[i].last_note,
                   Store.isInputNote(n), !SidebarWatcher.waitingStatuses.contains(n), !running.contains(id),
-                  needsInput(chats[i]) else { continue }
+                  maybeAnswered[id] == nil else { continue }
             maybeAnswered[id] = Date()
             changed = true
+        }
+        if !approvalKeys.isDisjoint(with: keys) {
+            approvalKeys.subtract(keys)
+            if claudeOpen && approvalKeys.isEmpty && approvalAsked != nil && !approvalUnsure { approvalUnsure = true; changed = true }
         }
         if changed { notify() }
     }
@@ -819,17 +1010,33 @@ final class Store {
     func state(_ id: String) -> Int { running.contains(id) ? 2 : (isUnread(id: id) ? 1 : 0) }
 
     func timeLabel(_ c: Chat) -> String {
-        if running.contains(c.id) { return outOfSight(c.id) ? tr("在跑？", "running?") : tr("进行中", "running") }
+        if running.contains(c.id) { return outOfSight(c.id) ? tr("在跑？", "running?") : tr("在跑", "running") }
         // an ordinary ChatGPT chat whose row in ChatGPT's window hasn't been read since KIKUmap started (the window
         // can't be seen, Accessibility is off): whether it runs isn't known
-        if c.isGPTChat && !gptChatsRead.contains(c.id) { return tr("状态未知", "status unknown") }
+        if c.isGPTChat && !gptChatsRead.contains(c.id) { return tr("没同步", "not synced") }
         // a Codex task that went quiet without finishing: since when, not a finish time it doesn't have
         if gptQuiet.contains(c.id), let a = gptActive[c.id] { return tr("\(UsageMonitor.stamp(a)) 起没动静", "quiet since \(UsageMonitor.stamp(a))") }
-        // stopped on an error: Claude's own words
-        if let n = c.last_note, n.hasPrefix(Store.stopMark) { let t = String(n.dropFirst()); return t.count > 34 ? String(t.prefix(33)) + "…" : t }
-        if needsInput(c) { return tr("需要你操作", "needs you") }
-        if maybeAnswered[c.id] != nil, let n = c.last_note, Store.isInputNote(n) { return tr("需要你操作？", "needs you?") }
+        // stopped on an error: Claude's own words (Claude Code's, after "stopped:" in the language shown now)
+        if let n = c.last_note, n.hasPrefix(Store.stopMark) { let t = Store.stopText(n); return t.count > 34 ? String(t.prefix(33)) + "…" : t }
+        if needsInput(c) { return tr("等你确认", "waiting for you") }
+        if maybeWaiting(c.id), let n = c.last_note, Store.isInputNote(n) { return tr("可能在等你", "maybe waiting for you") }
+        // found done only a while after it was last seen: not when it finished, which isn't known, but since when it may have
+        if let d = c.doneAfter, d.at == c.updated_at, let a = Clock.parse(d.after) {
+            return tr("\(UsageMonitor.stamp(a)) 后做完", "done after \(UsageMonitor.stamp(a))")
+        }
         return Clock.ago(c.updated_at)
+    }
+
+    /// A change on chat `i` found at `now` (a finish, a reply) by a read that last saw the chat at `lastSeen`: dated `now`,
+    /// as found (the order and Export go by it). Last seen a minute or more before, when it came isn't known, only that
+    /// it was after then: kept, so its time says so.
+    private func dateFound(_ i: Int, _ now: String, lastSeen: Date?) {
+        chats[i].updated_at = now
+        if let a = lastSeen, let n = Clock.parse(now), n.timeIntervalSince(a) >= 60 {
+            chats[i].doneAfter = Chat.DoneAfter(after: Clock.iso(a), at: now)
+        } else {
+            chats[i].doneAfter = nil
+        }
     }
 
     /// Running when last seen, but out of KIKUmap's sight since (Claude's window closed, its sidebar hidden): whether
@@ -837,7 +1044,8 @@ final class Store {
     func outOfSight(_ id: String) -> Bool {
         guard running.contains(id) else { return false }
         if paused.contains(id) { return true }
-        // a Codex task whose log has been quiet a few minutes: waiting for your approval, or ChatGPT stopped?
+        // a Codex task whose log has been quiet a few minutes: waiting for your approval, or ChatGPT (or a session's
+        // Codex) stopped?
         return id.hasPrefix("gpt-") && (gptActive[id].map { Date().timeIntervalSince($0) > 180 } ?? false)
     }
     /// When a chat out of sight was last seen running (for a Codex task: when its log last moved).
@@ -861,11 +1069,19 @@ final class Store {
     /// never reshuffled by activity.
     func pinnedList() -> [Chat] {
         chats.enumerated().filter { isShown($0.element) }.sorted {
-            (Store.group($0.element), $0.element.pinIndex ?? Int.max, $0.offset) < (Store.group($1.element), $1.element.pinIndex ?? Int.max, $1.offset)
+            let a = Store.place($0.element), b = Store.place($1.element)
+            return a != b ? a < b : $0.offset < $1.offset
         }.map { $0.element }
     }
 
     private static func group(_ c: Chat) -> Int { c.isCode || c.isCodexSession ? 1 : (c.isGPT ? 2 : 0) }
+
+    /// Where a chat goes in the left column: its group, then Claude's (ChatGPT's) pinned order; a session without one by
+    /// when it started (then its id), not by when it was last active.
+    private static func place(_ c: Chat) -> (Int, Int, String, String) {
+        let session = group(c) == 1
+        return (group(c), c.pinIndex ?? Int.max, session ? c.startedAt ?? "" : "", session ? c.id : "")
+    }
 
     /// Chats not yet placed on the map.
     func unplaced() -> [Chat] {
@@ -879,8 +1095,9 @@ final class Store {
 
     // MARK: read state
 
+    /// (A "needs you?" doubt stays: reading the chat answers nothing, and marked unread again it's that again, not a sure
+    /// "needs you"; see `maybeAnswered`.)
     func markSeen(_ ids: [String]) {
-        for id in ids { maybeAnswered.removeValue(forKey: id) }
         for id in ids {
             let u = chat(id)?.updated_at ?? ""
             // a ChatGPT thread: read as of now, and in any case just after its last change ("+" sorts after it), since
@@ -997,6 +1214,8 @@ final class Store {
         // (before `sleptAt` moves to now: the Mac's last sleep is still left out of them, as Today left it out)
         if quitting { endUnseen(paused, at: when) }
         sleptAt = when
+        // going to sleep: until the wake nothing opens again (a read under way, a hook line, can still land meanwhile)
+        if !quitting { asleep = true; sleptUptime = ProcessInfo.processInfo.systemUptime }
         for id in Array(runStart.keys) { endRun(id, at: when) }
         // with nothing open too: all that's in memory is on disk before KIKUmap goes (a Mac asleep may never wake)
         saveActivity()
@@ -1021,18 +1240,25 @@ final class Store {
         claudeFrontSince = false; gptFrontSince = false
         let now = Clock.iso(when)
         var changed = false
+        // a run opened anyway since the sleep notice (nothing should open one) counts from the wake, not through the sleep
+        if asleep, let z = sleptAt.map(Clock.iso) {
+            for (id, s) in runStart where s > z && s < now { runStart[id] = now; changed = true }
+        }
+        asleep = false
         for id in running where runStart[id] == nil && !paused.contains(id) { runStart[id] = now; changed = true }
         if changed { saveActivity() }
     }
 
-    /// Records when chats start and stop running (a paused chat's time waits for the sidebar to see it again).
+    /// Records when chats start and stop running (a paused chat's time waits for the sidebar to see it again; none opens
+    /// while the Mac sleeps, see `openRun`).
     private func track(_ nowRunning: Set<String>, at now: String) {
         var changed = false
         let when = Clock.parse(now) ?? Date()
         for id in nowRunning where runBegan[id] == nil { runBegan[id] = when }
         runBegan = runBegan.filter { nowRunning.contains($0.key) }
         for id in nowRunning where runStart[id] == nil && !paused.contains(id) {
-            runStart[id] = now; changed = true
+            guard let from = openRun(at: when) else { break }
+            runStart[id] = from; changed = true
         }
         for (id, start) in runStart where !nowRunning.contains(id) {
             intervals.append(Interval(id: id, start: start, end: now))
@@ -1056,28 +1282,37 @@ final class Store {
             // "Claude is done using your computer." and similar carry no chat title
             if title.isEmpty || title.lowercased() == "claude" { continue }
             let when = Clock.iso(n.date)
-            // Claude's "needs your approval" names no chat: it's the one open in Claude's window, or the only one of
-            // Claude's out of KIKUmap's sight; else it's said as such (never made into a chat of that name)
+            // what kind it is, as Claude marks it (a turn ended, or it waits for you), whatever its text says; one with
+            // nothing to act on (a Code session's, computer use) is left out, also when it asks for an approval
+            let kind = Store.kind(n.detail)
+            if kind == .ignore { continue }
+            // Claude's "needs your approval" names no chat: the one `approvalTarget` finds, else it's said as such (never
+            // made into a chat of that name)
             if n.chatId == nil && Store.approvalTitles.contains(title) {
-                let mine = running.filter { !$0.hasPrefix("cc-") && !$0.hasPrefix("gpt-") && outOfSight($0) }
-                if let id = openChatID?() ?? (mine.count == 1 ? mine.first : nil), let k = index[id] {
+                switch approvalTarget(at: n.date) {
+                case .shown: break
+                case .chat(let id):
+                    guard let k = index[id] else { break }
+                    // (its row shows it waiting already: Claude's own word for it stays, mirrored on every read)
                     let known = chats[k].last_note.map(SidebarWatcher.waitingStatuses.contains) == true
-                    chats[k].last_note = Store.isInputNote(n.body) ? n.body : Store.waitsMark + n.body
+                    if !known { chats[k].last_note = Store.isInputNote(n.body) ? n.body : Store.waitsMark + n.body }
                     if chats[k].updated_at < when { chats[k].updated_at = when }
                     // it waits for you now: no longer running (or "running?"), its time up to the request
                     stopRun(id, at: n.date)
                     maybeAnswered[id] = nil                  // (a new word from Claude: no "needs you?" doubt)
                     request(n.key, on: id)
                     if n.date >= quietBefore && !known { events.append(.needsInput(id)) }
-                } else {
+                case .unknown(let why):
+                    // (the banners of a request whose To-do has gone say nothing of this one)
+                    if approvalAsked.map({ n.date.timeIntervalSince($0) >= Store.approvalShown }) ?? true { approvalKeys = [] }
                     approvalAsked = max(approvalAsked ?? .distantPast, n.date)
+                    if !n.key.isEmpty { approvalKeys.insert(n.key) }
+                    approvalUnsure = false                   // (a new request: Claude waits, for this one at least)
+                    approvalNoChat = n.date < quietBefore ? .beforeLaunch : why
                 }
                 continue
             }
             var i = n.chatId.flatMap { index[$0] }
-            // what kind it is, as Claude marks it (a turn ended, or it waits for you), whatever its text says
-            let kind = Store.kind(n.detail)
-            if kind == .ignore { continue }
             if i == nil, let c = n.chatId {
                 // an address new here: the chat known only by this title takes it on; a chat with another address is
                 // another chat (one deleted since, say), and this one becomes a chat of its own
@@ -1164,13 +1399,13 @@ final class Store {
         var o: [String: Any] = [:]
         if let d = try? Data(contentsOf: rulesURL) {
             if let x = (try? JSONSerialization.jsonObject(with: d, options: [.json5Allowed])) as? [String: Any] { o = x }
-            else { problems.append(tr("rules.json 读不懂", "rules.json can't be read")) }
+            else { problems.append(tr("rules.json 不是有效的 JSON", "rules.json isn't valid JSON")) }
         }
         func rx(_ k: String) -> NSRegularExpression? {
             if let s = o[k] as? String {
                 if s.isEmpty { return nil }                                  // "" turns the rule off on purpose
                 if let x = try? NSRegularExpression(pattern: s) { return x }
-                problems.append(tr("「\(k)」规则写错了", "the \"\(k)\" rule doesn't parse"))
+                problems.append(tr("「\(k)」这条规则写得不对", "the \"\(k)\" rule has a mistake"))
             }
             return Store.builtInRules[k].flatMap { try? NSRegularExpression(pattern: $0) }
         }
@@ -1271,7 +1506,8 @@ final class Store {
                 let cwd = home ?? e.cwd
                 let folder = (cwd as NSString).lastPathComponent
                 chats.append(Chat(id: id, title: folder.isEmpty ? "Claude Code" : folder, updated_at: "", path: nil,
-                                  source: "code", last_note: nil, cwd: cwd.isEmpty ? nil : cwd, app: e.app.isEmpty ? nil : e.app))
+                                  source: "code", last_note: nil, cwd: cwd.isEmpty ? nil : cwd, app: e.app.isEmpty ? nil : e.app,
+                                  startedAt: Clock.iso(e.time)))
                 reindex()
                 changed = true
             }
@@ -1314,8 +1550,11 @@ final class Store {
                 // a turn left open (Esc, an error, a closed terminal) and now a new one: the wait in between isn't work
                 if running.contains(id), let p = prev, e.time.timeIntervalSince(p) > 60 { stop(at: Clock.iso(p)) }
                 running.insert(id)
-                if runStart[id] == nil { runStart[id] = when; timeChanged = true }
-                seen[id] = when; seenChanged = true                // you just wrote to it, so you've seen it
+                // (not while the Mac sleeps, nor from before its last wake: see `openRun`)
+                if runStart[id] == nil, let from = openRun(at: e.time) { runStart[id] = from; timeChanged = true }
+                // you just wrote to it, so you've seen it: up to just before (hook times are whole seconds, and a reply or
+                // an error in that same second is news)
+                seen[id] = max(chats[i].updated_at, Clock.iso(e.time.addingTimeInterval(-1))); seenChanged = true
                 if chats[i].last_note != nil { chats[i].last_note = nil; changed = true }
                 titles[id] = e.transcript
             case "PostToolUse":
@@ -1323,10 +1562,11 @@ final class Store {
             case "Notification":
                 let needs = ["permission_prompt", "elicitation_dialog", "elicitation_url_dialog", "agent_needs_input", "worker_permission_prompt"]
                 if needs.contains(e.kind) || (e.kind.isEmpty && e.message.range(of: "permission|approve|needs your|授权", options: [.regularExpression, .caseInsensitive]) != nil) {
-                    // waiting on you to approve something
+                    // waiting on you to approve something (its kind says so, whatever its words: "w1 needs network access to
+                    // …", "Auto mode has a … notice to acknowledge" are marked so, as Claude's own notifications are)
                     stop(at: when)
                     chats[i].updated_at = when
-                    chats[i].last_note = e.message
+                    chats[i].last_note = Store.isInputNote(e.message) ? e.message : Store.waitsMark + e.message
                     changed = true
                     // its app is in front: you can answer right there, and no hook will say you did
                     if chats[i].app != nil, frontApp?() == chats[i].app, onlySession(chats[i]) { maybeAnswered[id] = e.time }
@@ -1342,7 +1582,7 @@ final class Store {
                 chats[i].updated_at = when
                 // an API error (a limit, an outage) ended the turn: say so
                 let failed = e.name == "StopFailure"
-                chats[i].last_note = failed ? Store.stopMark + tr("出错停下：", "stopped: ") + (e.error.isEmpty ? "API" : e.error) : nil
+                chats[i].last_note = failed ? Store.stopMark + Store.codeStopMark + (e.error.isEmpty ? "API" : e.error) : nil
                 changed = true
                 if loud && !quiet { events.append(failed ? .needsInput(id) : .finished(id)) }
                 if quiet { seen[id] = when; seenChanged = true }
@@ -1421,7 +1661,7 @@ final class Store {
                 // (an ordinary chat has no time of its own here: none is shown rather than a guess)
                 chats.append(Chat(id: id, title: t.title, updated_at: t.isChat ? "" : Clock.iso(t.finished ?? t.updated), path: nil, source: "gpt",
                                   last_note: nil, pinned: t.pinned ? true : nil, cwd: t.cwd.isEmpty ? nil : t.cwd,
-                                  app: t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID))
+                                  app: t.editor.map { $0.isEmpty ? "codex-cli" : $0 } ?? GPTWatcher.bundleID, startedAt: Clock.iso(t.updated)))
                 chats[chats.count - 1].pinIndex = t.order
                 if t.scripted { chats[chats.count - 1].headless = true }
                 if !t.isChat { seen[id] = Clock.iso(t.finished ?? t.updated) }
@@ -1444,7 +1684,8 @@ final class Store {
                 // not after 6 hours: by then it may have been left)
                 if gptQuiet.remove(id) != nil, let from = gptQuietUntil.removeValue(forKey: id), let a = t.lastActive,
                    a > from, a.timeIntervalSince(from) <= 6 * 3600 { estimate(id, from: from, to: a) }
-                seen[id] = now; seenChanged = true                  // you just asked it something
+                // you just asked it something: read up to just before its log last moved (a finish in that second is news)
+                seen[id] = max(chats[i].updated_at, Clock.iso(min(t.lastActive ?? Date(), Date()).addingTimeInterval(-1))); seenChanged = true
                 changed = true
             } else if !t.running && running.contains(id) {
                 running.remove(id)
@@ -1542,9 +1783,12 @@ final class Store {
 
     /// ChatGPT's window was read: its pinned ordinary chats' rows, by name, and the name of the chat open in it; nil
     /// rows: it can't be seen now. A chat whose row shows a status runs; once the status goes, it's done: unread,
-    /// unless it's the chat open in ChatGPT in front (you watched it finish). Opening it there reads it. A chat
-    /// out of sight (or whose row isn't found: renamed just now, or a name two pinned chats share) keeps its state,
-    /// a running one "running?" with its time as of the last sighting. Returns sounds to play.
+    /// unless it's the chat open in ChatGPT in front (you watched it finish). If ChatGPT's failed mark took the
+    /// status's place, the reply failed: it shows "reply failed" (ChatGPT's words for the mark once it has them in
+    /// its language), and it wants you, not "done" (as a Claude chat that stops on an error); that goes once its row
+    /// doesn't show the mark. Opening it there reads it. A chat out of sight (or whose row isn't found: renamed just
+    /// now, or a name two pinned chats share) keeps its state, a running one "running?" with its time as of the last
+    /// sighting. Returns sounds to play.
     func apply(gptWindow rows: [String: GPTSidebarRow]?, open: String?, front: Bool, at date: Date = Date()) -> [Event] {
         var events: [Event] = []
         var changed = false, seenChanged = false, moved = false
@@ -1572,31 +1816,43 @@ final class Store {
                 if paused.remove(id) != nil, let s = seenRunningAt[id] { estimate(id, from: s, to: date); moved = true }
                 if !running.contains(id) {
                     running.insert(id)
-                    seen[id] = now; seenChanged = true              // you just asked it something
+                    // you just asked it something: read up to just before (a reply over within that second is news)
+                    seen[id] = max(chats[i].updated_at, Clock.iso(date.addingTimeInterval(-1))); seenChanged = true
                     moved = true
                 }
                 seenRunningAt[id] = date
             } else if running.contains(id) {
                 running.remove(id)
-                // finished while out of sight: when isn't known, so its time after the last sighting is estimated
+                // finished while out of sight: when isn't known, so its time after the last sighting is estimated (and its
+                // time says "done after" the sighting)
                 if paused.remove(id) != nil, let s = seenRunningAt[id] { estimate(id, from: s, to: estimatedEnd(id, seen: s, by: date)) }
-                chats[i].updated_at = now; changed = true
+                dateFound(i, now, lastSeen: seenRunningAt[id]); changed = true
                 finishedAt[id] = date
                 // you watched it finish: no sound. Not if ChatGPT has left the front and puts its unread dot on it: it
                 // ended after you looked away (a finish watched with ChatGPT in front never rings, dot or not)
                 if looking && (front || !r.unread) { seen[id] = now; seenChanged = true }
+                else if let f = r.failed {
+                    // the reply failed (ChatGPT's failed mark took the spinner's place): "reply failed" (or ChatGPT's
+                    // own words for it in its language), and it wants you
+                    chats[i].last_note = Store.stopMark + Store.gptFailMark + f
+                    events.append(.needsInput(id))
+                }
                 else { events.append(.finished(id)) }
                 moved = true
             } else if looking && !r.unread && isUnread(chats[i]) {
                 seen[id] = max(now, chats[i].updated_at + "+"); seenChanged = true
             }
+            // the failure it stopped on: shown while ChatGPT's row shows its mark (running again, or read or retried
+            // there: over)
+            if r.failed == nil, let n = chats[i].last_note, n.hasPrefix(Store.stopMark) { chats[i].last_note = nil; changed = true }
             // ChatGPT's yellow dot (a reply you haven't read through): mirrored. It shows: unread (if KIKUmap had it read,
             // the reply came where it didn't see, dated now), unless you marked it read here since. It goes: read there.
             if r.unread && !r.working && !running.contains(id) {
                 if gptMarked.insert(id).inserted { moved = true; seenChanged = true }
                 let u = chats[i].updated_at
                 if !(dismissed[id] == u && !u.isEmpty) && !isUnread(chats[i]) {
-                    if u < now { chats[i].updated_at = now; changed = true }
+                    // (came after its row was last seen; at a launch, after its last change known)
+                    if u < now { dateFound(i, now, lastSeen: rowSeenAt[id] ?? Clock.parse(u)); changed = true }
                     seen[id] = ""; seenChanged = true
                 }
             } else if gptMarked.remove(id) != nil {
@@ -1604,6 +1860,7 @@ final class Store {
                 if !r.working && isUnread(chats[i]) { seen[id] = chats[i].updated_at }
                 moved = true; seenChanged = true
             }
+            rowSeenAt[id] = date
         }
         if moved || changed { track(running, at: now) }
         if changed { saveChats() }
@@ -1682,6 +1939,7 @@ final class Store {
         if let f = finishedAt.removeValue(forKey: old) { finishedAt[new] = f }
         if let s = seenRunningAt.removeValue(forKey: old) { seenRunningAt[new] = s }
         if let m = missingSince.removeValue(forKey: old) { missingSince[new] = m }
+        if let r = rowSeenAt.removeValue(forKey: old) { rowSeenAt[new] = r }
         if let a = maybeAnswered.removeValue(forKey: old) { maybeAnswered[new] = a }
         for (k, v) in requests where v == old { requests[k] = new }        // its notifications are still its own
         var moved = false
@@ -1740,7 +1998,7 @@ final class Store {
         }
         // an approval Claude asked for without naming the chat: a whole read begun after it shows which chat waits, if
         // one still does (its row says so), so the question is settled
-        if whole, let a = approvalAsked, startedAt > a { approvalAsked = nil }
+        if whole, let a = approvalAsked, startedAt > a { approvalAsked = nil; approvalKeys = []; approvalUnsure = false }
         var links = links
         let rules = loadRules()
         let now = Clock.iso()
@@ -1777,9 +2035,12 @@ final class Store {
                 if let d = dismissed[l.id], let i = index[l.id], chats[i].updated_at <= d { } else {
                     nowUnread.insert(l.id)
                     // Claude marks it unread, though by KIKUmap's own record it was read: something came that KIKUmap
-                    // didn't see (a reply from the phone, or with Claude's window closed): dated now, learned late
+                    // didn't see (a reply from the phone, or with Claude's window closed): dated now, learned late (it came
+                    // after its row was last read; at a launch, after its last change known)
                     if !axUnread.contains(l.id), let i = index[l.id], !chats[i].outsideClaude, !chats[i].updated_at.isEmpty,
-                       chats[i].updated_at <= (seen[l.id] ?? ""), !running.contains(l.id) { chats[i].updated_at = now; changed = true }
+                       chats[i].updated_at <= (seen[l.id] ?? ""), !running.contains(l.id) {
+                        dateFound(i, now, lastSeen: rowSeenAt[l.id] ?? Clock.parse(chats[i].updated_at)); changed = true
+                    }
                 }
             } else if dismissed.removeValue(forKey: l.id) != nil {
                 seenChanged = true                                  // Claude dropped its mark: nothing to pass over
@@ -1845,14 +2106,15 @@ final class Store {
                 paused.remove(id); missingSince.removeValue(forKey: id)
                 continue
             }
-            // finished while out of sight: when isn't known, so its time after the last sighting is estimated
+            // finished while out of sight: when isn't known, so its time after the last sighting is estimated (and its
+            // time says "done after" the sighting: also after a sleep, or reads far apart)
             if paused.contains(id), let seen = seenRunningAt[id] { estimate(id, from: seen, to: estimatedEnd(id, seen: seen, by: Date())) }
             paused.remove(id); missingSince.removeValue(forKey: id)
             if watched && current == id {
-                chats[i].updated_at = now; changed = true           // it changed (Export goes by this), and you saw it
+                dateFound(i, now, lastSeen: seenRunningAt[id]); changed = true     // it changed (Export goes by this), and you saw it
                 seen[id] = now; seenChanged = true
             } else if rules.markFinishedUnread || waits != nil {
-                chats[i].updated_at = now; changed = true
+                dateFound(i, now, lastSeen: seenRunningAt[id]); changed = true
                 finishedAt[id] = Date()
                 // stopped with a status KIKUmap doesn't know ("Your context window is full"…): Claude's words, and it
                 // wants you, not "done"
@@ -1948,6 +2210,8 @@ final class Store {
         nowRunning.subtract(gone)
         nowUnread.formUnion(axUnread.subtracting(listed))
         let stateChanged = running != nowRunning || axUnread != nowUnread
+        let read = Date()
+        for id in listed { rowSeenAt[id] = read }
         track(nowRunning, at: now)
         running = nowRunning
         axUnread = nowUnread

@@ -117,6 +117,9 @@ final class IconButton: NSButton {
 @MainActor
 final class HeaderView: NSView {
     var running = 0, unread = 0
+    /// Of those unread, how many wait for you (to approve or answer, or stopped on an error): "!" before the red
+    /// count, as in the menu bar ("!1").
+    var needs = 0
     /// Some of those running are out of KIKUmap's sight (shown "2?").
     var runningUnsure = false
     /// Of those running, the ones KIKUmap sees run now: while there are any, the ring round the count turns.
@@ -165,15 +168,21 @@ final class HeaderView: NSView {
     /// Open to-dos (nil: none at all, so no button; 0: all ignored, a muted ▸).
     var todoCount: Int? { didSet { if todoCount != oldValue { todoBtn.isHidden = todoCount == nil; todoBtn.count = todoCount ?? 0; needsLayout = true; needsDisplay = true } } }
     private lazy var todoBtn: TodoButton = { let b = TodoButton(target: self, action: #selector(openTodo)); b.isHidden = true; return b }()
-    private lazy var gear = IconButton("gearshape", tip: tr("设置", "Settings")) { [weak self] in self?.onSettings?() }
-    private lazy var lights = IconButton("moon", tip: tr("开关灯", "Lights")) { [weak self] in self?.onLights?() }
-    private lazy var sideBtn = IconButton("sidebar.left", tip: tr("显示 / 隐藏左栏", "Show / hide the left column")) { [weak self] in self?.onToggleSide?() }
-    private lazy var timelineBtn = IconButton("rectangle.bottomthird.inset.filled", tip: tr("显示 / 隐藏时间线", "Show / hide the timeline")) { [weak self] in self?.onToggleTimeline?() }
-    private lazy var tagsBtn = IconButton("tag", tip: tr("显示 / 隐藏标签", "Show / hide the tags")) { [weak self] in self?.onToggleTags?() }
-    private lazy var statsBtn = IconButton("chart.bar.xaxis", tip: tr("统计", "Statistics")) { [weak self] in self?.onStats?() }
+    // made with the tips `relabel` gives them (with their shortcuts; VoiceOver reads the same), so they say it from launch
+    private lazy var gear = IconButton("gearshape", tip: HeaderView.gearTip()) { [weak self] in self?.onSettings?() }
+    private lazy var lights = IconButton("moon", tip: HeaderView.lightsTip()) { [weak self] in self?.onLights?() }
+    private lazy var sideBtn = IconButton("sidebar.left", tip: HeaderView.sideTip()) { [weak self] in self?.onToggleSide?() }
+    private lazy var timelineBtn = IconButton("rectangle.bottomthird.inset.filled", tip: HeaderView.timelineTip()) { [weak self] in self?.onToggleTimeline?() }
+    private lazy var tagsBtn = IconButton("tag", tip: self.tagsTip) { [weak self] in self?.onToggleTags?() }
+    private lazy var statsBtn = IconButton("chart.bar.xaxis", tip: HeaderView.statsTip()) { [weak self] in self?.onStats?() }
     /// No room for the tag shelf at this size: the tag button says why (pressing it only beeps).
     var tagsNoRoom = false { didSet { if tagsNoRoom != oldValue { tagsBtn.toolTip = tagsTip } } }
     private var tagsTip: String { tr("显示 / 隐藏标签  ⌃⌘G", "Show / hide the tags  ⌃⌘G") + (tagsNoRoom ? "\n" + MainWindow.noRoomText() : "") }
+    private static func gearTip() -> String { tr("设置", "Settings") }
+    private static func lightsTip() -> String { tr("切换浅色 / 深色", "Switch light / dark") }
+    private static func sideTip() -> String { tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S") }
+    private static func timelineTip() -> String { tr("显示 / 隐藏时间轴  ⌃⌘T", "Show / hide the timeline  ⌃⌘T") }
+    private static func statsTip() -> String { tr("统计  ⌘Y", "Statistics  ⌘Y") }
 
     override var isFlipped: Bool { true }
 
@@ -195,13 +204,15 @@ final class HeaderView: NSView {
     }
 
     func relabel() {
-        gear.toolTip = tr("设置", "Settings")
-        lights.toolTip = tr("开关灯（浅色 / 深色）", "Lights (light / dark)")
-        sideBtn.toolTip = tr("显示 / 隐藏左栏  ⌃⌘S", "Show / hide the left column  ⌃⌘S")
-        timelineBtn.toolTip = tr("显示 / 隐藏时间线  ⌃⌘T", "Show / hide the timeline  ⌃⌘T")
+        gear.toolTip = HeaderView.gearTip()
+        lights.toolTip = HeaderView.lightsTip()
+        sideBtn.toolTip = HeaderView.sideTip()
+        timelineBtn.toolTip = HeaderView.timelineTip()
         tagsBtn.toolTip = tagsTip
-        statsBtn.toolTip = tr("统计  ⌘Y", "Statistics  ⌘Y")
-        todoBtn.toolTip = tr("哪些事还没做，没做会影响什么；做不做由你决定", "What's left to do and what it affects; up to you whether to do it")
+        statsBtn.toolTip = HeaderView.statsTip()
+        todoBtn.toolTip = TodoButton.tip()
+        // its VoiceOver name is set when its count changes (Todo.swift): changed and back, it's said in the new language
+        let n = todoBtn.count; todoBtn.count = n + 1; todoBtn.count = n
         todoBtn.needsDisplay = true
     }
 
@@ -255,12 +266,24 @@ final class HeaderView: NSView {
         }
     }
 
+    /// What the menu bar and the top bar count, from the store (the same numbers in both).
+    func show(counts c: (run: Int, sure: Int, unread: Int, needs: Int)) {
+        running = c.run
+        runningUnsure = c.sure < c.run
+        runningSeen = c.sure
+        unread = c.unread
+        needs = c.needs
+    }
+
+    /// The red count as it's drawn: "!" first while one of them waits for you, as in the menu bar.
+    var unreadText: String { (needs > 0 ? "!" : "") + String(unread) }
+
     /// Where the logo, the name and the two counts with their words (or the pills alone) end, as `draw` lays them out.
     private func countsEnd(words: Bool = true) -> CGFloat {
         var x: CGFloat = 48 + ceil("KIKUmap".size(Theme.ui(15, .semibold)).width) + 22
         let f = Theme.mono(12.5, .bold)
-        for (n, label) in [(running, tr("进行中", "Running")), (unread, tr("未读", "Unread"))] {
-            let w = label == tr("未读", "Unread") ? max(24, ceil(String(n).size(f).width) + 14)
+        for (n, label) in [(running, tr("在跑", "Running")), (unread, tr("未读", "Unread"))] {
+            let w = label == tr("未读", "Unread") ? max(24, ceil(unreadText.size(f).width) + 14)
                 : max(24, ceil((n > 99 ? "99+" : String(n)).size(f).width) + 10) + (runningUnsure ? 2 + ceil("?".size(f).width) : 0)
             x += words ? w + 6 + ceil(label.size(Theme.ui(12.5, .medium)).width) + 16 : w + 10
         }
@@ -277,22 +300,25 @@ final class HeaderView: NSView {
         return String(last.prefix(n)) + "…"
     }
 
-    /// A count pill: outlined (running) or solid (waiting for you).
-    static func drawCount(_ n: Int, solid: Bool, at x: CGFloat, midY: CGFloat, font: NSFont, unsure: Bool = false) -> CGFloat {
-        let s = String(n) + (unsure ? "?" : "")
+    /// A count pill: outlined (running) or solid (unread; `bang`: "!" first, one of them waits for you).
+    static func drawCount(_ n: Int, solid: Bool, at x: CGFloat, midY: CGFloat, font: NSFont, unsure: Bool = false, bang: Bool = false) -> CGFloat {
+        let s = (bang ? "!" : "") + String(n) + (unsure ? "?" : "")
         let w = max(24, ceil(s.size(font).width) + 14)
         let r = NSRect(x: x, y: midY - 11, width: w, height: 22)
         let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: 10.25, yRadius: 10.25)
         // waiting for you uses the same red badge as the menu bar (only when there is something)
         let red = solid && n > 0
-        if solid { (red ? NSColor.systemRed : Theme.ink).setFill(); p.fill() } else { Theme.ink.setStroke(); p.lineWidth = 1.5; p.stroke() }
+        if solid { (red ? Theme.unread : Theme.ink).setFill(); p.fill() } else { Theme.ink.setStroke(); p.lineWidth = 1.5; p.stroke() }
         let ns = s.size(font)
         (s as NSString).draw(at: NSPoint(x: r.midX - ns.width / 2, y: r.midY - ns.height / 2),
                              withAttributes: [.font: font, .foregroundColor: red ? NSColor.white : (solid ? Theme.bg : Theme.ink)])
         return w
     }
 
-    override func draw(_ dirtyRect: NSRect) {
+    override func draw(_ dirtyRect: NSRect) { drawBar(wordsAllowed: true) }
+
+    /// The bar, the counts' words beside their pills where there's room for them (`wordsAllowed` false: never).
+    private func drawBar(wordsAllowed: Bool) {
         Theme.bg.setFill(); bounds.fill()
         Theme.faint.setFill(); NSRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1).fill()
         let mid = (bounds.height - 1) / 2
@@ -316,17 +342,17 @@ final class HeaderView: NSView {
         }
         let liveW: CGFloat = live.isEmpty ? 0 : ceil(live.size(small).width) + 16
         // still no room for the words beside the counts: the pills alone (their shapes say which is which)
-        let words = countsEnd() + (live.isEmpty ? 0 : 12 + liveW) <= limit
-        for (n, label, solid) in [(running, tr("进行中", "Running"), false), (unread, tr("未读", "Unread"), true)] {
+        let words = wordsAllowed && countsEnd() + (live.isEmpty ? 0 : 12 + liveW) <= limit
+        for (n, label, solid) in [(running, tr("在跑", "Running"), false), (unread, tr("未读", "Unread"), true)] {
             var w: CGFloat
             if solid {
-                w = HeaderView.drawCount(n, solid: true, at: x, midY: mid, font: Theme.mono(12.5, .bold))
+                w = HeaderView.drawCount(n, solid: true, at: x, midY: mid, font: Theme.mono(12.5, .bold), bang: needs > 0)
             } else {
                 // running: the number in a ring, as in the menu bar ("?" after it for some out of sight)
                 let f = Theme.mono(12.5, .bold), s = n > 99 ? "99+" : String(n)
                 let d = max(24, ceil(s.size(f).width) + 10)
                 ringRect = NSRect(x: x, y: mid - d / 2, width: d, height: d)
-                Theme.drawRunCount(s, in: ringRect, ink: Theme.ink, arc: Logo.orange, font: f, phase: runningSeen > 0 ? ringPhase : nil)
+                Theme.drawRunCount(s, in: ringRect, ink: Theme.ink, arc: Theme.running, font: f, phase: runningSeen > 0 ? ringPhase : nil)
                 w = d
                 if runningUnsure {
                     let qs = "?".size(f)
@@ -363,7 +389,13 @@ final class HeaderView: NSView {
         }
         func total(_ f: Fit) -> CGFloat { f.columns.enumerated().reduce(0) { $0 + width($1.element, f) + ($1.offset > 0 ? 18 : 0) } }
         let fits: [Fit] = [(all, 90, 0, true), (all, 64, 1, true), (all, 48, 2, true), (fullest, 48, 2, true), (fullest, 40, 2, false)]
-        let fit = fits.first { total($0) <= limit - liveW - x } ?? ([], 0, 2, false)
+        let fitted = fits.first { total($0) <= limit - liveW - x }
+        // the meters come before the counts' words (what they say isn't anywhere else on screen): with no room for
+        // them beside the words but room beside the pills alone, the bar is drawn again without the words
+        if fitted == nil, words, !all.isEmpty, fits.contains(where: { total($0) <= limit - liveW - countsEnd(words: false) - 10 }) {
+            return drawBar(wordsAllowed: false)
+        }
+        let fit = fitted ?? ([], 0, 2, false)
         let meterStart = x
         for rs in fit.columns {
             let lw = labelW(rs, fit)
@@ -399,7 +431,10 @@ final class HeaderView: NSView {
             }
             x += maxW + 18
         }
-        setMetersTip(fit.columns.isEmpty ? nil : NSRect(x: meterStart, y: 4, width: x - 18 - meterStart, height: bounds.height - 9))
+        // no room for any meter at all: their tip goes on the counts, so the usage is still a hover away
+        let countsStart = 48 + ts.width + 22
+        let countsRect = NSRect(x: countsStart, y: 4, width: max(0, countsEnd(words: words) - countsStart), height: bounds.height - 9)
+        setMetersTip(fit.columns.isEmpty ? countsRect : NSRect(x: meterStart, y: 4, width: x - 18 - meterStart, height: bounds.height - 9))
         if !fit.columns.isEmpty { x += 4 }
         var liveRect: NSRect?
         for text in [usageHint, live.isEmpty ? liveText : live] where !text.isEmpty {
@@ -463,6 +498,8 @@ final class SidebarView: NSView, NSDraggingSource {
     private var rows: [Chat] = []
     /// How many there are in all (`rows` is narrowed to what the search field holds).
     private var allCount = 0
+    /// Every chat the list has, in its order, searched away or not.
+    private var listed: [String] = []
     private var query = ""
     private lazy var search: NSSearchField = {
         let f = NSSearchField()
@@ -479,24 +516,38 @@ final class SidebarView: NSView, NSDraggingSource {
     private var schedNote: String?
     private var placed = Set<String>()
     private let schedRowH: CGFloat = 42
-    private var sel: String?
-    /// Several rows picked at once (⌘-click, ⇧-click); dragging one of them takes them all to the map.
+    /// The row the keys move from (⏎ opens it, ⇧ ranges from it); with several picked, one of them.
+    private var sel: String? { didSet { if let s = sel { noteOrder([s]) } } }
+    /// Several rows picked at once (⌘-click, ⇧-click); dragging one of them takes them all to the map. A row only
+    /// searched away stays picked, for when the search is cleared (as it stays selected on the map).
     private var picked = Set<String>()
-    /// The rows picked by hand changed: their chats (in the list's order) and the one the keys move from, so the map
-    /// selects the same.
+    /// The order rows were picked in, the latest last (the lead goes there whenever it's set): when the lead is
+    /// taken out of the pick, the keys go to the one picked most recently of those left, as on the map.
+    private var pickOrder: [String] = []
+    private func noteOrder(_ ids: [String]) { pickOrder.removeAll { ids.contains($0) }; pickOrder.append(contentsOf: ids) }
+    /// Of the rows picked, the one picked last (the first in the list's order if none of them is known).
+    private func latestPicked() -> String? { pickOrder.last { picked.contains($0) } ?? listed.first { picked.contains($0) } }
+    /// The rows picked by hand changed: their chats (in the order they were picked, the latest last) and the one the
+    /// keys move from, so the map selects the same.
     var onPick: (([String], String?) -> Void)?
-    private var pickedIDs: [String] { picked.isEmpty ? (sel.map { [$0] } ?? []) : rows.map(\.id).filter { picked.contains($0) } }
+    private var pickedIDs: [String] {
+        guard !picked.isEmpty else { return sel.map { [$0] } ?? [] }
+        let known = pickOrder.filter { picked.contains($0) }
+        return listed.filter { picked.contains($0) && !known.contains($0) } + known
+    }
     private func pickedChanged() { onPick?(pickedIDs, sel) }
     /// What's picked now: the chats, and the one the keys move from.
     var pick: (ids: [String], lead: String?) { (pickedIDs, sel) }
 
-    /// Picks the rows of these chats (the map selected them), without telling the map back; the lead one comes into
-    /// view. Chats this list doesn't show (not pinned, or searched away) aren't picked.
+    /// Picks the rows of these chats (the map selected them, `ids` in the order it did, the latest last), without
+    /// telling the map back; the lead one comes into view. Chats this list doesn't have (not pinned) aren't picked;
+    /// ones only searched away are, for when the search is cleared.
     func show(picked ids: [String], lead: String?) {
-        let listed = Set(rows.map(\.id))
-        let shown = ids.filter { listed.contains($0) }
-        let newSel = lead.flatMap { listed.contains($0) ? $0 : nil } ?? rows.first { shown.contains($0.id) }?.id
+        let have = Set(listed)
+        let shown = ids.filter { have.contains($0) }
+        let newSel = lead.flatMap { have.contains($0) ? $0 : nil } ?? shown.last
         let newPicked: Set<String> = shown.count > 1 ? Set(shown) : []
+        noteOrder(shown)
         guard newSel != sel || newPicked != picked else { return }
         sel = newSel
         picked = newPicked
@@ -543,13 +594,15 @@ final class SidebarView: NSView, NSDraggingSource {
     func reload() {
         let all = store.pinnedList()
         allCount = all.count
+        listed = all.map(\.id)
         rows = query.isEmpty ? all : all.filter { c in
             [store.name(c.id), c.title].contains { $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) != nil }
         }
-        // while the list is empty its status counts down to the next read, so it redraws every second
+        // while the list is empty its status counts down to the next read, so it redraws every second (and when that
+        // makes it a line longer or shorter, what's under it moves with it)
         if all.isEmpty, statusTick == nil {
             statusTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { if self?.window?.isVisible == true { self?.needsDisplay = true } }
+                MainActor.assumeIsolated { if self?.window?.isVisible == true { self?.statusTicked() } }
             }
         } else if !all.isEmpty {
             statusTick?.invalidate(); statusTick = nil
@@ -564,20 +617,27 @@ final class SidebarView: NSView, NSDraggingSource {
             runTick?.invalidate(); runTick = nil
         }
         if search.superview == nil { addSubview(search); addSubview(refresh) }
-        search.placeholderString = tr("搜索置顶对话", "Search pinned chats")
-        refresh.toolTip = tr("同步：马上重新读 Claude 和 ChatGPT  ⌘R", "Sync: read Claude and ChatGPT again now  ⌘R")
-        removeAllToolTips()
-        addToolTip(NSRect(x: 0, y: 0, width: bounds.width - 44, height: 54), owner: self, userData: nil)
+        search.placeholderString = tr("搜索左栏", "Search the list")
+        refresh.toolTip = tr("马上刷新：重新看一遍 Claude 和 ChatGPT  ⌘R", "Refresh now: check Claude and ChatGPT again  ⌘R")
         // a picked chat that isn't listed at all any more (unpinned, ChatGPT switched off) isn't picked; one only
-        // searched away stays picked for when the search is cleared
-        if let s = sel, !all.contains(where: { $0.id == s }) { sel = nil }
-        picked.formIntersection(rows.map(\.id))
+        // searched away stays picked for when the search is cleared (the lead, and the others picked with it)
+        let have = Set(listed)
+        if let s = sel, !have.contains(s) { sel = nil }
+        picked.formIntersection(have)
+        pickOrder.removeAll { !have.contains($0) }
+        if sel == nil, !picked.isEmpty { sel = latestPicked() }
         placed = store.map.placedChats()
         sched = TimelineView.upcoming(usage.routines)
         schedNote = usage.routinesUnknown.map { tr("没同步：", "Not synced: ") + $0 }
         let visible = enclosingScrollView?.contentView.bounds.size ?? NSSize(width: 270, height: 0)
+        // (with nothing pinned, the Scheduled section goes below the status, however many lines it wraps to)
+        statusH = statusHeight(visible.width)
         let content = schedTop + (sched.isEmpty && schedNote == nil ? 0 : 30 + CGFloat(sched.count) * schedRowH + schedNoteHeight(visible.width)) + 20
         setFrameSize(NSSize(width: visible.width, height: max(content, visible.height)))
+        // hovering the heading: what's being read and when; a row whose name or status is cut short: both in full
+        removeAllToolTips()
+        addToolTip(NSRect(x: 0, y: 0, width: bounds.width - 44, height: 54), owner: self, userData: nil)
+        for (i, c) in rows.enumerated() where rowLayout(c, in: rowRect(i)).cut { addToolTip(rowRect(i), owner: self, userData: nil) }
         needsDisplay = true
     }
 
@@ -605,25 +665,19 @@ final class SidebarView: NSView, NSDraggingSource {
         (head as NSString).draw(at: NSPoint(x: 16, y: 14), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
         let n = query.isEmpty ? String(rows.count) : "\(rows.count)/\(allCount)"
         (n as NSString).draw(at: NSPoint(x: 16 + head.size(hf).width + 8, y: 15), withAttributes: [.font: Theme.mono(12.5, .medium), .foregroundColor: Theme.muted])
-        (tr("置顶对话 + 编辑器里的会话 · 拖到画布上", "Pins + editor sessions · drag to canvas") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
+        (tr("置顶对话和会话 · 拖到导图上", "Pins and sessions · drag to the map") as NSString).draw(at: NSPoint(x: 16, y: 37), withAttributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         if allCount > 0 && rows.isEmpty {
             let a: [NSAttributedString.Key: Any] = [.font: Theme.ui(12), .foregroundColor: Theme.muted]
             let q = query.count > 14 ? String(query.prefix(14)) + "…" : query
-            let line = tr("没有名字里带「\(q)」的置顶对话", "No pinned chat has “\(q)” in its name")
+            let line = tr("没有名字里带「\(q)」的", "Nothing here has “\(q)” in its name")
             (line as NSString).draw(with: NSRect(x: 18, y: top + 6, width: bounds.width - 36, height: 54), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: a)
-        } else if rows.isEmpty, let st = status?() {
-            var y = top + 6
-            let w = bounds.width - 36
-            for (i, line) in ([st.title] + st.lines).enumerated() {
-                let a: [NSAttributedString.Key: Any] = [.font: i == 0 ? Theme.ui(13, .semibold) : Theme.ui(11.5),
-                                                        .foregroundColor: i == 0 ? Theme.ink : Theme.muted]
-                let h = ceil((line as NSString).boundingRect(with: NSSize(width: w, height: 200), options: .usesLineFragmentOrigin, attributes: a).height)
-                (line as NSString).draw(with: NSRect(x: 18, y: y, width: w, height: h), options: .usesLineFragmentOrigin, attributes: a)
-                y += h + (i == 0 ? 8 : 5)
+        } else if rows.isEmpty {
+            for line in statusLayout(bounds.width) {
+                (line.text as NSString).draw(with: line.rect, options: .usesLineFragmentOrigin, attributes: line.attrs)
             }
         }
         for (i, c) in rows.enumerated() {
-            let r = NSRect(x: 10, y: top + CGFloat(i) * rowH, width: bounds.width - 20, height: rowH - 4)
+            let r = rowRect(i)
             // a row's picked ring and red dot reach past it into the gap between rows, which a neighbour's redraw
             // (a running row's turning stretch, many times a second) clears: drawn again whenever they're touched
             guard r.insetBy(dx: -8, dy: -8).intersects(dirtyRect) else { continue }
@@ -652,7 +706,7 @@ final class SidebarView: NSView, NSDraggingSource {
                     (seen ? Theme.ink.withAlphaComponent(0.35) : Theme.ink).setStroke(); pill.lineWidth = 1.5; pill.stroke()
                     if seen {
                         let b = r.insetBy(dx: 0.75, dy: 0.75)
-                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Logo.orange, lineWidth: 2)
+                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Theme.running, lineWidth: 2)
                     }
                 }
             }
@@ -662,41 +716,116 @@ final class SidebarView: NSView, NSDraggingSource {
                 Theme.pickRing(focused: window?.isKeyWindow == true && window?.firstResponder === self).setStroke()
                 ring.lineWidth = 2; ring.stroke()
             }
-            let tf = Theme.ui(13, state > 0 ? .semibold : .regular)
             // where it lives, before the name: Claude's mark, a terminal for Claude Code, "GPT" for ChatGPT
-            var nameX = r.minX + 12
-            // a session in an editor or a terminal: a terminal first; then whose AI it is, for every chat
+            // (a session in an editor or a terminal: a terminal first; then whose AI it is, for every chat)
+            let lay = rowLayout(c, in: r)
             if c.isCode || c.isCodexSession, let img = SidebarView.terminal(faded) {
-                img.draw(in: NSRect(x: nameX, y: r.midY - 6, width: 14, height: 12))
-                nameX += 19
+                img.draw(in: NSRect(x: r.minX + 12, y: r.midY - 6, width: 14, height: 12))
             }
             let tag = c.isGPT ? GPTWatcher.mark(faded, height: 12) : Theme.claudeTag(faded, height: 12)
-            tag.draw(in: NSRect(x: nameX, y: r.midY - 6, width: tag.size.width, height: 12))
-            nameX += tag.size.width + 5
-            let time = store.timeLabel(c)
-            let timeF = Theme.ui(11.5)
-            let tw = ceil(time.size(timeF).width)
+            tag.draw(in: NSRect(x: lay.nameX - 5 - tag.size.width, y: r.midY - 6, width: tag.size.width, height: 12))
+            // the name, then the status at the right end: never over the name or the marks (cut short instead)
+            let tf = lay.font
             let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail
             let th = ceil(tf.ascender - tf.descender + tf.leading)
-            (store.name(c.id) as NSString).draw(with: NSRect(x: nameX, y: r.midY - th / 2, width: r.maxX - nameX - tw - 14, height: th),
-                                                options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
-                                                attributes: [.font: tf, .foregroundColor: ink, .paragraphStyle: p])
+            (lay.name as NSString).draw(with: NSRect(x: lay.nameX, y: r.midY - th / 2, width: lay.nameW, height: th),
+                                        options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                                        attributes: [.font: tf, .foregroundColor: ink, .paragraphStyle: p])
             let tc: NSColor = state > 0 ? ink : faded
-            let ts = time.size(timeF)
-            (time as NSString).draw(at: NSPoint(x: r.maxX - 12 - tw, y: r.midY - ts.height / 2), withAttributes: [.font: timeF, .foregroundColor: tc])
+            let ts = lay.status.size(SidebarView.statusFont)
+            (lay.status as NSString).draw(at: NSPoint(x: r.maxX - 12 - ceil(ts.width), y: r.midY - ts.height / 2),
+                                          withAttributes: [.font: SidebarView.statusFont, .foregroundColor: tc])
             if state == 1 {
                 // a red dot on its top corner, like the menu bar's badge
                 let d = NSPoint(x: r.maxX - 3, y: r.minY + 2)
                 Theme.paper.setFill(); NSBezierPath(ovalIn: NSRect(x: d.x - 6.5, y: d.y - 6.5, width: 13, height: 13)).fill()
-                NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: d.x - 5, y: d.y - 5, width: 10, height: 10)).fill()
+                Theme.unread.setFill(); NSBezierPath(ovalIn: NSRect(x: d.x - 5, y: d.y - 5, width: 10, height: 10)).fill()
             }
 
         }
         drawSchedule(dirtyRect)
     }
 
-    /// Scheduled tasks follow the inbox.
-    private var schedTop: CGFloat { top + CGFloat(max(rows.isEmpty ? 4 : 1, rows.count)) * rowH + 22 }
+    /// Scheduled tasks follow the inbox (with nothing pinned, the status in its place, however many lines it takes).
+    private var schedTop: CGFloat { top + max(CGFloat(max(rows.isEmpty ? 4 : 1, rows.count)) * rowH, statusH) + 22 }
+
+    /// How far down from the list's top the status reaches while nothing is pinned (0 otherwise): measured as the
+    /// list is laid out, and again whenever its countdown makes it longer or shorter.
+    private var statusH: CGFloat = 0
+
+    /// While nothing is pinned: the status (what's being read and when, a heading and a line per app), each line
+    /// where it goes in a column this wide (they wrap).
+    private func statusLayout(_ width: CGFloat) -> [(text: String, attrs: [NSAttributedString.Key: Any], rect: NSRect)] {
+        guard allCount == 0, let st = status?() else { return [] }
+        var y = top + 6
+        let w = width - 36
+        return ([st.title] + st.lines).enumerated().map { i, line in
+            let a: [NSAttributedString.Key: Any] = [.font: i == 0 ? Theme.ui(13, .semibold) : Theme.ui(11.5),
+                                                    .foregroundColor: i == 0 ? Theme.ink : Theme.muted]
+            let h = ceil((line as NSString).boundingRect(with: NSSize(width: w, height: 2000), options: .usesLineFragmentOrigin, attributes: a).height)
+            defer { y += h + (i == 0 ? 8 : 5) }
+            return (line, a, NSRect(x: 18, y: y, width: w, height: h))
+        }
+    }
+    private func statusHeight(_ width: CGFloat) -> CGFloat { statusLayout(width).last.map { $0.rect.maxY + 2 - top } ?? 0 }
+    /// A second on, while nothing is pinned: the status redrawn (it counts down); a line longer or shorter, what's
+    /// under it moves with it.
+    private func statusTicked() { if statusHeight(bounds.width) != statusH { reload() } else { needsDisplay = true } }
+
+    private func rowRect(_ i: Int) -> NSRect { NSRect(x: 10, y: top + CGFloat(i) * rowH, width: bounds.width - 20, height: rowH - 4) }
+
+    static let statusFont = Theme.ui(11.5)
+    static let statusGap: CGFloat = 6
+    /// A status this wide or less is short: a time, "running", "not synced", "stopped" (the widest, "not synced" and
+    /// "2025/12/31", take 61 pt). It's never cut: cut, it reads wrong ("2025/1…" reads as January).
+    static let shortStatus: CGFloat = 64
+
+    /// A row: where its name starts (after its marks), the name's font, and how the name and the status share the
+    /// room up to the row's right end; `full` is the status in full, `cut` says either doesn't show whole.
+    private func rowLayout(_ c: Chat, in r: NSRect) -> (nameX: CGFloat, font: NSFont, name: String, nameW: CGFloat, status: String, full: String, cut: Bool) {
+        let state = store.isRunning(c.id) ? 2 : (store.isUnread(c) ? 1 : 0)
+        let font = Theme.ui(13, state > 0 ? .semibold : .regular)
+        let tag = c.isGPT ? GPTWatcher.mark(Theme.muted, height: 12) : Theme.claudeTag(Theme.muted, height: 12)
+        let nameX = r.minX + 12 + (c.isCode || c.isCodexSession ? 19 : 0) + tag.size.width + 5
+        let name = store.name(c.id), full = store.timeLabel(c)
+        var shorter = SidebarView.shorter(full)
+        // stopped on an error, said in Claude's words (Claude Code's after "stopped:"): "stopped" where they don't fit
+        if let n = c.last_note, n.hasPrefix(Store.stopMark) {
+            let t = Store.stopText(n)
+            if full == t || full == String(t.prefix(33)) + "…" { shorter = [tr("出错停下", "stopped")] }
+        }
+        let s = SidebarView.share(name: name, font, status: full, shorter: shorter, room: r.maxX - 12 - nameX)
+        return (nameX, font, name, s.nameW, s.status, full, s.cut)
+    }
+
+    /// How a row's name and status share `room`: both whole if they fit, or the name whole beside a shorter way to
+    /// say the status; else the status gets 45 % of the room at most, said a shorter way (so a long one, Claude's
+    /// words, an error or a wait, never pushes the name out or runs over the marks before it), and the name is cut
+    /// short in the rest. A short status (`shortStatus`, or half the room) is never cut: where even its shortest way
+    /// doesn't fit that 45 %, it shows whole and the name has the rest. Only a long one with no short way to say it
+    /// would be cut with "…". `cut`: either one doesn't show whole (the row's tooltip then has both).
+    static func share(name: String, _ nameFont: NSFont, status: String, shorter: [String], room: CGFloat) -> (status: String, nameW: CGFloat, cut: Bool) {
+        func w(_ s: String) -> CGFloat { ceil(s.size(statusFont).width) }
+        let nw = ceil(name.size(nameFont).width), forms = [status] + shorter
+        if let s = forms.first(where: { nw + statusGap + w($0) <= room }) { return (s, room - statusGap - w(s), s != status) }
+        let cap = max(floor(room * 0.45), 48)
+        let s = forms.first(where: { w($0) <= cap })
+            ?? forms.last.flatMap { w($0) <= max(shortStatus, floor(room / 2)) ? $0 : nil }
+            ?? HeaderView.fit(forms, statusFont, cap)
+        return (s, max(0, room - statusGap - w(s)), true)
+    }
+
+    /// Shorter ways to say a status (`Store.timeLabel`), for a row with little room (an error stop's: see `rowLayout`);
+    /// the others are short (a time, "running", "not synced") and show whole. The "?" stays: unsure, as in "running?".
+    static func shorter(_ status: String) -> [String] {
+        switch status {
+        case tr("可能在等你", "maybe waiting for you"): return [tr("等你？", "maybe waiting"), tr("等你？", "waiting?")]
+        case tr("等你确认", "waiting for you"): return [tr("等你", "waiting")]
+        default:
+            // a Codex task gone quiet: that it has, without since when
+            return status.hasPrefix("quiet since ") || status.hasSuffix(" 起没动静") ? [tr("没动静", "quiet")] : []
+        }
+    }
 
     /// The not-synced note's height in a column this wide (it wraps).
     private func schedNoteHeight(_ width: CGFloat) -> CGFloat {
@@ -760,24 +889,29 @@ final class SidebarView: NSView, NSDraggingSource {
         window?.makeFirstResponder(self)
         let p = convert(e.locationInWindow, from: nil)
         if schedRow(at: p) != nil { onOpenRoutines?(); return }
-        guard let c = row(at: p) else { sel = nil; picked = []; needsDisplay = true; pickedChanged(); return }
+        guard let c = row(at: p) else { sel = nil; picked = []; pickOrder = []; needsDisplay = true; pickedChanged(); return }
         narrowOnUp = nil
         let f = e.modifierFlags
         if f.contains(.command) {
             if picked.isEmpty, let s = sel { picked = [s] }
             if picked.contains(c.id) {
                 picked.remove(c.id)
-                sel = picked.first
+                // the lead taken out: the keys go to the one picked most recently of those left (another row
+                // taken out leaves the lead as it is)
+                if !(sel.map(picked.contains) ?? false) { sel = latestPicked() }
             } else {
                 picked.insert(c.id)
                 sel = c.id
             }
         } else if f.contains(.shift), let s = sel, let a = rows.firstIndex(where: { $0.id == s }),
                   let b = rows.firstIndex(where: { $0.id == c.id }) {
-            picked = Set(rows[min(a, b)...max(a, b)].map(\.id))       // the first click stays the anchor
+            let range = rows[min(a, b)...max(a, b)].map(\.id)
+            picked = Set(range)                                       // the first click stays the anchor
+            noteOrder((a <= b ? range : range.reversed()).filter { $0 != s })      // (picked after it, out to this row)
         } else if picked.count > 1 && picked.contains(c.id) {
             narrowOnUp = c.id
         } else {
+            pickOrder = []
             sel = c.id
             picked = []
             syncOnUp = true
@@ -792,10 +926,7 @@ final class SidebarView: NSView, NSDraggingSource {
         guard let pr = pressed else { return }
         let p = convert(e.locationInWindow, from: nil)
         if hypot(p.x - pr.at.x, p.y - pr.at.y) < 5 { return }
-        pressed = nil
-        narrowOnUp = nil
-        syncOnUp = false
-        let ids = picked.count > 1 && picked.contains(pr.id) ? rows.map(\.id).filter { picked.contains($0) } : [pr.id]
+        let ids = dragBegan(pr.id)
         let item = NSPasteboardItem()
         item.setString("side|" + ids.map { "c:" + $0 }.joined(separator: "\n"), forType: dragType)
         let di = NSDraggingItem(pasteboardWriter: item)
@@ -804,8 +935,21 @@ final class SidebarView: NSView, NSDraggingSource {
         beginDraggingSession(with: [di], event: e, source: self)
     }
 
+    /// A press on row `id` became a drag: the chats it carries (the picked rows shown, in the list's order, when it's
+    /// one of them). The click it began as tells the map nothing yet: a drop on the map selects them there, anything
+    /// else tells it when the drag ends.
+    private func dragBegan(_ id: String) -> [String] {
+        pressed = nil
+        narrowOnUp = nil
+        tellAfterDrag = syncOnUp
+        syncOnUp = false
+        return picked.count > 1 && picked.contains(id) ? rows.map(\.id).filter { picked.contains($0) } : [id]
+    }
+    /// The drag began as a plain click, which picked its row here: the map is told of it once the drag ends.
+    private var tellAfterDrag = false
+
     override func mouseUp(with e: NSEvent) {
-        if let id = narrowOnUp { sel = id; picked = []; needsDisplay = true; pickedChanged() }
+        if let id = narrowOnUp { pickOrder = []; sel = id; picked = []; needsDisplay = true; pickedChanged() }
         else if syncOnUp { pickedChanged() }
         narrowOnUp = nil
         syncOnUp = false
@@ -821,7 +965,8 @@ final class SidebarView: NSView, NSDraggingSource {
         return tinted
     }
 
-    /// Claude Code sessions can be pinned here, so they stay after the 12 hours; Claude chats can be archived.
+    /// Claude Code sessions can be kept in the list here, so they stay after the 12 hours (a script's run: after it
+    /// stops); Claude chats can be archived.
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let c = row(at: convert(event.locationInWindow, from: nil)) else { return nil }
         let m = NSMenu()
@@ -835,11 +980,29 @@ final class SidebarView: NSView, NSDraggingSource {
             return m
         }
         let on = c.pinned == true
-        m.addItem(MenuAction(title: on ? tr("取消置顶", "Unpin") : tr("在 KIKUmap 置顶", "Pin in KIKUmap")) { [weak self] in
+        let title = SidebarView.keepTitle(kept: on, onMap: store.map.placedChats().contains(c.id), script: c.headless == true, running: store.isRunning(c.id))
+        m.addItem(MenuAction(title: title) { [weak self] in
             self?.store.setPinned(c.id, !on)
         })
         m.addItem(MenuAction(title: tr("打开", "Open")) { [weak self] in self?.onOpen?(c.id) })
         return m
+    }
+
+    /// "Keep in the list", saying what happens otherwise, as `Store.isShown` lists a session: one filed on the map stays
+    /// while it's there; a script's run (`claude -p`, the SDK) leaves when it stops; the rest leave 12 hours after
+    /// they're done. `kept`: it is now (the item stops keeping it).
+    nonisolated static func keepTitle(kept: Bool, onMap: Bool, script: Bool, running: Bool) -> String {
+        if onMap {
+            return kept ? tr("不再一直留着（在导图上时仍会留着）", "Stop keeping it (it stays while it's on the map)")
+                        : tr("一直留在左栏（在导图上时本来就会留着）", "Keep in the list (it stays anyway while it's on the map)")
+        }
+        if script {
+            return kept ? running ? tr("不再一直留着（停下后就消失）", "Stop keeping it (it leaves when it stops)")
+                                  : tr("不再一直留着（马上就会消失）", "Stop keeping it (it leaves right away)")
+                        : tr("一直留在左栏（不然停下后就消失）", "Keep in the list (otherwise it leaves when it stops)")
+        }
+        return kept ? tr("不再一直留着（做完 12 小时后消失）", "Stop keeping it (it leaves 12 hours after it's done)")
+                    : tr("一直留在左栏（不然做完 12 小时后会消失）", "Keep in the list (otherwise it leaves 12 hours after it's done)")
     }
 
     override func keyDown(with e: NSEvent) {
@@ -849,7 +1012,7 @@ final class SidebarView: NSView, NSDraggingSource {
         case 125, 126: step(e.keyCode == 125 ? 1 : -1)              // ↓ ↑: the next row, the one before
         case 49, 36, 76:                                            // space, Return, Enter: open it
             if let s = sel { onOpen?(s) } else { super.keyDown(with: e) }
-        case 53 where !picked.isEmpty: picked = []; needsDisplay = true; pickedChanged()
+        case 53 where !picked.isEmpty: picked = []; pickOrder = sel.map { [$0] } ?? []; needsDisplay = true; pickedChanged()
         default: super.keyDown(with: e)
         }
     }
@@ -859,6 +1022,7 @@ final class SidebarView: NSView, NSDraggingSource {
         guard !rows.isEmpty else { return }
         let i = sel.flatMap { s in rows.firstIndex { $0.id == s } }
         let n = i.map { max(0, min(rows.count - 1, $0 + d)) } ?? (d > 0 ? 0 : rows.count - 1)
+        pickOrder = []
         sel = rows[n].id
         picked = []
         scrollToVisible(NSRect(x: 0, y: top + CGFloat(n) * rowH - 8, width: bounds.width, height: rowH + 16))
@@ -881,6 +1045,13 @@ final class SidebarView: NSView, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         context == .withinApplication ? .move : []
+    }
+
+    /// The drag is over without putting the rows on the map (let go over the column or the timeline, Esc): the row
+    /// its click picked is picked on the map too now, as a click's mouse-up would have done.
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        if tellAfterDrag && operation.isEmpty { pickedChanged() }
+        tellAfterDrag = false
     }
 
     /// The map drags by hand, so it lights this up itself when a chat would come off the map here.
@@ -1049,7 +1220,7 @@ final class TagShelfView: NSView, NSDraggingSource {
         let hf = Theme.ui(14, .semibold)
         let head = tr("标签", "Tags")
         (head as NSString).draw(at: NSPoint(x: 16, y: y0 + 12), withAttributes: [.font: hf, .foregroundColor: Theme.ink])
-        let hint = selected == nil ? tr("拖到条目上 · 点击高亮", "Drag onto an item · click to highlight")
+        let hint = selected == nil ? tr("拖到条目上 · 点击高亮", "Drag to tag · click to highlight")
                                    : tr("再点一下取消", "Click again to clear")
         let hx = 16 + head.size(hf).width + 8
         let hp = NSMutableParagraphStyle(); hp.lineBreakMode = .byTruncatingTail
@@ -1106,7 +1277,7 @@ final class TagShelfView: NSView, NSDraggingSource {
     override func menu(for event: NSEvent) -> NSMenu? {
         let m = NSMenu()
         m.addItem(MenuAction(title: tr("管理标签…", "Manage tags…")) { [weak self] in self?.onManage?() })
-        m.addItem(MenuAction(title: tr("收起标签  ⌃⌘G", "Hide Tags  ⌃⌘G")) { [weak self] in self?.onHide?() })
+        m.addItem(MenuAction(title: tr("收起标签  ⌃⌘G", "Hide tags  ⌃⌘G")) { [weak self] in self?.onHide?() })
         return m
     }
 
@@ -1174,7 +1345,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
     /// The few that matter most; the rest are one click away (`keysButton`).
     static func hintText() -> String {
         tr("拖动空白处框选 · 按住空格移动导图 · ⇥ 子主题 · ⏎ 同级 · ⌘F 搜索 · 右键改颜色和标签",
-           "drag empty space to select · hold space to move the map · ⇥ subtopic · ⏎ sibling · ⌘F search · right-click for colours and tags")
+           "Drag empty space to select · hold space to move the map · ⇥ subtopic · ⏎ sibling · ⌘F search · right-click for colors and tags")
     }
 
     /// The button under the map: the map's own shortcuts (the popover), not all of them (its last button opens those).
@@ -1257,9 +1428,13 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         keysButton.setAccessibilityLabel(MainWindow.keysName())
     }
 
+    /// The ⌘F field's hint over the map.
+    static func searchHint() -> String { tr("搜索主题、对话、标签", "Search topics, chats, tags") }
+
     /// Language changed: refresh every fixed label.
     func relabel() {
         hint.stringValue = MainWindow.hintText()
+        search.placeholderString = MainWindow.searchHint()
         relabelKeys()
         window.title = "KIKUmap"
         layoutPanes()                   // the button and the hint are sized to the new words
@@ -1342,7 +1517,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         // ⌘F: a search field over the top-right of the map
         search.frame = NSRect(x: W - 16 - 240, y: H - headH - 40, width: 240, height: 26)
         search.autoresizingMask = [.minXMargin, .minYMargin]
-        search.placeholderString = tr("搜索主题、对话、标签", "Search topics, chats, tags")
+        search.placeholderString = MainWindow.searchHint()
         search.delegate = self
         search.isHidden = true
         searchCount.font = Theme.ui(11.5, .medium)
@@ -1387,10 +1562,12 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 
         // the column's and the timeline's edges: drag to resize or tuck away
         sideEdge.onDrag = { [weak self] x in
-            if x < 120 {
+            // (the width is kept as it is at 100 %: ⌘+ / ⌘- scale it with everything else)
+            let s = Prefs.uiScale
+            if x < 120 * s {
                 if !Prefs.sideHidden { self?.tags.clearHighlight() }
                 Prefs.sideHidden = true
-            } else { Prefs.sideHidden = false; Prefs.sideWidth = min(440, max(200, x)) }
+            } else { Prefs.sideHidden = false; Prefs.sideWidth = min(440, max(200, x / s)) }
             self?.layoutPanes()
         }
         sideEdge.onToggle = { [weak self] in self?.toggleSidebar() }
@@ -1447,7 +1624,7 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
         header.frame = NSRect(x: 0, y: H - headH, width: W, height: headH)
         header.bounds = NSRect(x: 0, y: 0, width: W / s, height: 56)
         header.needsLayout = true
-        let sideW = Prefs.sideHidden ? 0 : Prefs.sideWidth
+        let sideW = Prefs.sideHidden ? 0 : MainWindow.columnWidth(Prefs.sideWidth, scale: s, window: W)
         let tlH: CGFloat = Prefs.timelineHidden ? 0 : timeline.preferredHeight * s
         timeline.frame = NSRect(x: 0, y: 0, width: W, height: tlH)
         if tlH > 0 { timeline.bounds = NSRect(x: 0, y: 0, width: W / s, height: timeline.preferredHeight) }
@@ -1482,6 +1659,13 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
             sidebar.reload()            // the list is laid out for the column's width and height
             tags.needsDisplay = true
         }
+    }
+
+    /// The left column's width in the window: the width it's set to (dragging its edge sets it as at 100 %), scaled by
+    /// ⌘+ / ⌘- with everything else, so its rows keep their room for a chat's name and status. Zoomed in, it never
+    /// takes more than half the window (nor less than it's set to), so the map keeps its room.
+    static func columnWidth(_ set: CGFloat, scale s: CGFloat, window W: CGFloat) -> CGFloat {
+        s > 1 ? min(set * s, max(set, W / 2)) : set * s
     }
 
     /// ⌘+ / ⌘- (+1 / -1, 0 back to normal): everything in the window, 80–160 %, the map along with it.
@@ -1615,8 +1799,15 @@ final class MainWindow: NSObject, NSWindowDelegate, NSSearchFieldDelegate {
 }
 
 extension SidebarView: NSViewToolTipOwner {
-    /// Hovering the heading: what's being read and when.
+    /// Hovering the heading: what's being read and when. Hovering a row cut short: its name and status in full.
     nonisolated func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
-        MainActor.assumeIsolated { status?().lines.joined(separator: "\n") ?? "" }
+        MainActor.assumeIsolated { rowTip(at: point) ?? status?().lines.joined(separator: "\n") ?? "" }
+    }
+
+    /// A row's name and status in full (nil off the rows).
+    func rowTip(at p: NSPoint) -> String? {
+        guard let c = row(at: p), let i = rows.firstIndex(where: { $0.id == c.id }) else { return nil }
+        let lay = rowLayout(c, in: rowRect(i))
+        return lay.name + "\n" + lay.full
     }
 }

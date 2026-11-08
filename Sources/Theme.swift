@@ -13,8 +13,13 @@ enum Prefs {
 
     static var appearance: Appearance {
         get { Appearance(rawValue: d.string(forKey: "Appearance") ?? "") ?? .system }
-        set { d.set(newValue.rawValue, forKey: "Appearance"); MainActor.assumeIsolated { applyAppearance() } }
+        set {
+            d.set(newValue.rawValue, forKey: "Appearance")
+            // (Settings → General shows the choice: it follows one made elsewhere, the ☾ / ☀︎ button's too)
+            MainActor.assumeIsolated { applyAppearance(); NotificationCenter.default.post(name: appearanceChanged, object: nil) }
+        }
     }
+    static let appearanceChanged = Notification.Name("KIKUmapAppearanceChanged")
 
     static var language: Language {
         get { Language(rawValue: d.string(forKey: "Language") ?? "") ?? .system }
@@ -122,12 +127,18 @@ enum Prefs {
         set { d.set(newValue, forKey: "SpeakDone") }
     }
     static var speakInput: String {
-        get { d.string(forKey: "SpeakInput") ?? tr("{name} 在等你", "{name} needs you") }
+        get { d.string(forKey: "SpeakInput") ?? tr("{name} 在等你确认", "{name} is waiting for you") }
         set { d.set(newValue, forKey: "SpeakInput") }
     }
 
     @MainActor
     static func applyAppearance() {
+        // a color set that's always dark (or light) wins over the choice here
+        switch Theme.palette.mode {
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua); return
+        case .light: NSApp.appearance = NSAppearance(named: .aqua); return
+        case .both: break
+        }
         switch appearance {
         case .system: NSApp.appearance = nil
         case .light: NSApp.appearance = NSAppearance(named: .aqua)
@@ -138,6 +149,7 @@ enum Prefs {
     /// Light ↔ dark, starting from whatever is showing now.
     @MainActor
     static func toggleLights() {
+        guard Theme.palette.mode == .both else { NSSound.beep(); return }     // this color set is always dark (or light)
         let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         appearance = dark ? .light : .dark
     }
@@ -178,7 +190,7 @@ enum Prefs {
 enum Theme {
     /// The ring round a picked item, on the map and in the left column alike: blue (clear of the orange "running" and
     /// the red "unread" whatever the Mac's accent colour), paler while the keys go elsewhere.
-    static func pickRing(focused: Bool) -> NSColor { NSColor.systemBlue.withAlphaComponent(focused ? 1 : 0.5) }
+    static func pickRing(focused: Bool) -> NSColor { pick.withAlphaComponent(focused ? 1 : 0.5) }
 
     /// System Settings → Accessibility → Display, as set now: Increase Contrast draws grey text and lines stronger,
     /// Reduce Motion moves things on the map without sliding them. Kept up to date by `followDisplayOptions`.
@@ -217,15 +229,74 @@ enum Theme {
                 blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 
-    static let bg = dyn(0xF4F4F3, 0x161617)
-    static let paper = dyn(0xFFFFFF, 0x1F1F21)
-    static let ink = dyn(0x1C1C1E, 0xE9E9EA)
-    /// Increase Contrast: at least 5.6:1 on every background here (4.5:1 is the bar for text).
-    static let muted = dyn(0x86868B, 0x8E8E93, more: (0x56565B, 0xB8B8BD))
-    static let faint = dyn(0xE3E3E1, 0x2E2E31)
-    static let hover = dyn(0xECECEA, 0x262628)
-    /// Connectors and underlines of branches that have no colour (Increase Contrast: 3:1 or more, as for lines).
-    static let line = dyn(0xBDBDC0, 0x4A4A4F, more: (0x7C7C82, 0x85858B))
+    /// The color set in use (Settings → Colors). Every color below is looked up in it each time it's drawn, so a
+    /// change shows as soon as the windows draw again (`setPalette`).
+    nonisolated(unsafe) static var palette = Palette.saved()
+    nonisolated(unsafe) static var paletteKey = Palette.savedKey()
+    static let paletteChanged = Notification.Name("KIKUmapPaletteChanged")
+
+    /// One part of the interface in the color set, for the appearance it's drawn in. A set with one look draws that
+    /// look wherever it's drawn: the menu bar can have the other one, and the menu-bar icon uses these colors too.
+    static func role(_ pick: @escaping (Palette) -> Palette.Pair, more: ((Palette) -> Palette.Pair)? = nil) -> NSColor {
+        NSColor(name: nil) { ap in
+            let p = palette
+            let isDark = p.mode == .both ? ap.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua : p.mode == .dark
+            let pair = (moreContrast ? more : nil).map { $0(p) } ?? pick(p)
+            return rgb(isDark ? pair.dark : pair.light)
+        }
+    }
+
+    static let bg = role { $0.bg }
+    static let paper = role { $0.paper }
+    static let ink = role { $0.ink }
+    /// Increase Contrast: stronger, toward the text (Classic: at least 5.6:1 on every background here).
+    static let muted = role({ $0.muted }, more: { $0.strongerMuted })
+    static let faint = role { $0.faint }
+    static let hover = role { $0.hover }
+    /// Connectors and underlines of branches that have no color (Increase Contrast: 3:1 or more, as for lines).
+    static let line = role({ $0.line }, more: { $0.strongerLine })
+    /// The ring round a picked item; a running chat's moving line and rings; an unread chat's dot.
+    static let pick = role { $0.pick }
+    static let running = role { $0.running }
+    static let unread = role { $0.unread }
+
+    /// Black or white for text on `c` (on a filled "running" button, a chat's name on its timeline bar): white, unless
+    /// it would read under 3:1 there (a light fill: yellow, a pale gray), then near-black, which reads 6:1 or more on
+    /// it. `under`: what `c` is drawn over when it's see-through (a finished run's faded bar on the panel), so the color
+    /// judged is the one seen.
+    static func onColor(_ c: NSColor, over under: NSColor? = nil) -> NSColor {
+        NSColor(name: nil) { ap in
+            var out = NSColor.white
+            ap.performAsCurrentDrawingAppearance {
+                out = luminance(c, over: under) > 0.3 ? NSColor(white: 0.08, alpha: 1) : .white
+            }
+            return out
+        }
+    }
+
+    /// How light `c` is as drawn now (WCAG relative luminance, 0 black to 1 white), over `under` (white if none) where
+    /// it's see-through. White text reads 3:1 on 0.3, and better on anything darker.
+    static func luminance(_ c: NSColor, over under: NSColor? = nil) -> CGFloat {
+        let s = c.usingColorSpace(.sRGB) ?? c, u = (under ?? .white).usingColorSpace(.sRGB) ?? .white
+        let a = s.alphaComponent
+        func lin(_ f: CGFloat, _ b: CGFloat) -> CGFloat {
+            let v = max(0, min(1, f * a + b * (1 - a)))
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * lin(s.redComponent, u.redComponent) + 0.7152 * lin(s.greenComponent, u.greenComponent)
+            + 0.0722 * lin(s.blueComponent, u.blueComponent)
+    }
+
+    /// Uses `p` (saved under `key`: a preset's, or "custom"), and draws everything again.
+    @MainActor
+    static func setPalette(_ p: Palette, key: String) {
+        palette = p; paletteKey = key
+        Palette.save(p, key: key)
+        Prefs.applyAppearance()
+        func redraw(_ v: NSView) { v.needsDisplay = true; v.subviews.forEach(redraw) }
+        for w in NSApp.windows { w.contentView.map(redraw) }
+        NotificationCenter.default.post(name: paletteChanged, object: nil)
+    }
 
     /// Highlight colours you can give to branches and tags. Same hue order in both modes.
     struct Highlight { let key: String; let zh: String; let en: String; let color: NSColor }
@@ -243,7 +314,7 @@ enum Theme {
     ]
     private static let byKey: [String: Highlight] = Dictionary(uniqueKeysWithValues: highlights.map { ($0.key, $0) })
 
-    /// A highlight colour, or nil for "no colour" (also the old "black" / "gray").
+    /// A highlight colour, or nil for "no color" (also the old "black" / "gray").
     static func highlight(_ key: String?) -> NSColor? { key.flatMap { byKey[$0]?.color } }
     static func highlightName(_ key: String) -> String { byKey[key].map { tr($0.zh, $0.en) } ?? key }
 
@@ -488,5 +559,145 @@ enum Clock {
         if sec <= 0 { return tr("现在", "now") }
         if sec < 86400 { return countdown(d) }
         return format(d, "EEE HH:mm", "EEE HH:mm")
+    }
+}
+
+/// A color set: light and dark values for each part of the interface (Settings → Colors). Some sets are always
+/// dark or always light; then the window keeps that look whatever the Mac or the ☾ / ☀︎ button says.
+struct Palette: Codable, Equatable {
+    struct Pair: Codable, Equatable { var light: UInt32; var dark: UInt32 }
+    enum Mode: String, Codable { case both, dark, light }
+    var mode: Mode
+    var bg, paper, ink, muted, line, pick, running, unread: Pair
+    /// Fills for empty areas and hover: a small step from the background toward the text.
+    var faint, hover: Pair
+
+    init(_ mode: Mode, bg: Pair, paper: Pair, ink: Pair, muted: Pair, line: Pair, pick: Pair, running: Pair, unread: Pair,
+         faint: Pair? = nil, hover: Pair? = nil) {
+        self.mode = mode; self.bg = bg; self.paper = paper; self.ink = ink; self.muted = muted; self.line = line
+        self.pick = pick; self.running = running; self.unread = unread
+        self.faint = faint ?? Palette.step(bg, ink, 0.08, 0.115)
+        self.hover = hover ?? Palette.step(bg, ink, 0.037, 0.076)
+    }
+
+    /// `a` moved toward `b`: by `l` in light, `d` in dark.
+    static func step(_ a: Pair, _ b: Pair, _ l: Double, _ d: Double) -> Pair {
+        Pair(light: mix(a.light, b.light, l), dark: mix(a.dark, b.dark, d))
+    }
+    static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {
+        func ch(_ x: UInt32, _ s: UInt32) -> UInt32 {
+            let p = Double((a >> s) & 0xFF), q = Double((b >> s) & 0xFF)
+            return UInt32(max(0, min(255, (p + (q - p) * t).rounded()))) << s
+        }
+        return ch(a, 16) | ch(a, 8) | ch(a, 0)
+    }
+    /// Increase Contrast: secondary text and lines closer to the text color (Classic keeps its own values), at least
+    /// 4.5:1 for secondary text and 3:1 for lines on the background and on panels, in every set.
+    var strongerMuted: Pair { self == Palette.classic ? Pair(light: 0x56565B, dark: 0xB8B8BD) : stronger(muted, from: 0.45, reaching: 4.5) }
+    var strongerLine: Pair { self == Palette.classic ? Pair(light: 0x7C7C82, dark: 0x85858B) : stronger(line, from: 0.35, reaching: 3) }
+
+    /// `c` moved toward the text color by `t`, and further in steps until it reads `ratio`:1 on the background and on
+    /// panels (as far as the text color itself), in light and in dark.
+    private func stronger(_ c: Pair, from t: Double, reaching ratio: Double) -> Pair {
+        func side(_ c: UInt32, _ ink: UInt32, _ backs: [UInt32]) -> UInt32 {
+            var t = t
+            while t < 1, backs.contains(where: { Palette.contrast(Palette.mix(c, ink, t), $0) < ratio }) { t = min(1, t + 0.05) }
+            return Palette.mix(c, ink, t)
+        }
+        return Pair(light: side(c.light, ink.light, [bg.light, paper.light]), dark: side(c.dark, ink.dark, [bg.dark, paper.dark]))
+    }
+
+    /// How two colors read against each other (WCAG's contrast ratio, 1…21).
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        func lum(_ h: UInt32) -> Double {
+            func f(_ c: UInt32) -> Double { let v = Double(c & 0xFF) / 255; return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * f(h >> 16) + 0.7152 * f(h >> 8) + 0.0722 * f(h)
+        }
+        let x = lum(a), y = lum(b)
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    /// One part set by hand (Settings → Colors), in light or in dark. A set with one look takes it on both sides, so it
+    /// is the same wherever it's drawn; a new background or text color brings the fills along.
+    func with(_ part: WritableKeyPath<Palette, Pair>, _ hex: UInt32, dark: Bool) -> Palette {
+        var p = self
+        if mode != .both { p[keyPath: part] = Pair(light: hex, dark: hex) } else if dark { p[keyPath: part].dark = hex } else { p[keyPath: part].light = hex }
+        if part == \Palette.bg || part == \Palette.ink { p.refill() }
+        return p
+    }
+
+    /// After one part was changed by hand: the fills that follow from the background and text again.
+    mutating func refill() {
+        faint = Palette.step(bg, ink, 0.08, 0.115); hover = Palette.step(bg, ink, 0.037, 0.076)
+    }
+
+    /// The parts you can set by hand, in the order Settings shows them.
+    static let parts: [(zh: String, en: String, key: WritableKeyPath<Palette, Pair>)] = [
+        ("背景", "Background", \.bg), ("面板", "Panels", \.paper), ("文字", "Text", \.ink), ("次要文字", "Secondary text", \.muted),
+        ("线条", "Lines", \.line), ("选中", "Selection", \.pick), ("在跑", "Running", \.running), ("未读", "Unread", \.unread),
+    ]
+
+    struct Preset { let key: String; let zh: String; let en: String; let palette: Palette }
+    private static func p(_ l: UInt32, _ d: UInt32) -> Pair { Pair(light: l, dark: d) }
+    private static func one(_ c: UInt32) -> Pair { Pair(light: c, dark: c) }
+
+    /// How KIKUmap has always looked: grays, the system's blue and red, Claude's orange.
+    static let classic = Palette(.both, bg: p(0xF4F4F3, 0x161617), paper: p(0xFFFFFF, 0x1F1F21), ink: p(0x1C1C1E, 0xE9E9EA),
+                                 muted: p(0x86868B, 0x8E8E93), line: p(0xBDBDC0, 0x4A4A4F), pick: p(0x007AFF, 0x0A84FF),
+                                 running: p(0xD97757, 0xD97757), unread: p(0xFF3B30, 0xFF453A),
+                                 faint: p(0xE3E3E1, 0x2E2E31), hover: p(0xECECEA, 0x262628))
+    static let presets: [Preset] = [
+        Preset(key: "classic", zh: "经典黑白", en: "Classic", palette: classic),
+        // the icon's flower: yellow, blue and red on cream (a warm black in dark mode)
+        Preset(key: "kiku", zh: "KIKU 花", en: "KIKU flower", palette: Palette(.both,
+            bg: p(0xFDF4ED, 0x1A1918), paper: p(0xFFFDF9, 0x262422), ink: p(0x212120, 0xEDE9E3), muted: p(0x7E756C, 0xA39D94),
+            line: p(0xD8CCBF, 0x4A4540), pick: p(0x187DFE, 0x4D9BFF), running: p(0xB98200, 0xFEC503), unread: p(0xE8392E, 0xFE453A))),
+        // black, with the Bauhaus primaries: red, yellow, blue
+        Preset(key: "bauhaus", zh: "包豪斯黑", en: "Bauhaus black", palette: Palette(.dark,
+            bg: one(0x0D0D0D), paper: one(0x1A1A1A), ink: one(0xF2EDE4), muted: one(0x9C978F), line: one(0x474747),
+            pick: one(0x3D6BFF), running: one(0xF7C600), unread: one(0xE8312A))),
+        // old paper and ink, with teal, burnt orange and brick
+        Preset(key: "retro", zh: "复古", en: "Retro", palette: Palette(.both,
+            bg: p(0xEFE6D2, 0x211C17), paper: p(0xF8F1E3, 0x2B251E), ink: p(0x3B2F25, 0xEADFC8), muted: p(0x7A6A58, 0xA79883),
+            line: p(0xC9B99C, 0x5A4E40), pick: p(0x2F7173, 0x5FA8A8), running: p(0xB5621F, 0xE39A4E), unread: p(0xB23A2E, 0xDE5E50))),
+        // from Color Hunt (colorhunt.co): #222831 #393E46 #00ADB5 #EEEEEE
+        Preset(key: "deepsea", zh: "深海", en: "Deep sea", palette: Palette(.dark,
+            bg: one(0x222831), paper: one(0x2C323B), ink: one(0xEEEEEE), muted: one(0xA3A8AF), line: one(0x4F565F),
+            pick: one(0x00ADB5), running: one(0xF2A65A), unread: one(0xFF6B6B))),
+        // from Color Hunt: #08D9D6 #252A34 #FF2E63 #EAEAEA
+        Preset(key: "neon", zh: "霓虹", en: "Neon", palette: Palette(.dark,
+            bg: one(0x252A34), paper: one(0x2E3440), ink: one(0xEAEAEA), muted: one(0x9AA0AA), line: one(0x454C5A),
+            pick: one(0x08D9D6), running: one(0xFFC93C), unread: one(0xFF2E63))),
+        // from Color Hunt: #2D4059 #EA5455 #F07B3F #FFD460
+        Preset(key: "sunset", zh: "日落", en: "Sunset", palette: Palette(.dark,
+            bg: one(0x243349), paper: one(0x2D4059), ink: one(0xF5EFE6), muted: one(0xAAB5C5), line: one(0x46597A),
+            pick: one(0xFFD460), running: one(0xF07B3F), unread: one(0xF05A5B))),
+        // from Color Hunt: #364F6B #3FC1C9 #F5F5F5 #FC5185
+        Preset(key: "candy", zh: "糖果", en: "Candy", palette: Palette(.light,
+            bg: one(0xF5F5F5), paper: one(0xFFFFFF), ink: one(0x364F6B), muted: one(0x6E7F94), line: one(0xC9D1DB),
+            pick: one(0x178E95), running: one(0xD9702B), unread: one(0xE83E75))),
+    ]
+    static func preset(_ key: String) -> Preset? { presets.first { $0.key == key } }
+
+    // saved: the key ("classic", …, or "custom") and, for "custom", the colors themselves
+    static func savedKey() -> String { UserDefaults.standard.string(forKey: "Palette") ?? "classic" }
+    static func saved() -> Palette {
+        let key = savedKey()
+        if key == "custom", let d = UserDefaults.standard.data(forKey: "PaletteCustom"),
+           let p = try? JSONDecoder().decode(Palette.self, from: d) { return p }
+        return preset(key)?.palette ?? classic
+    }
+    static func save(_ p: Palette, key: String) {
+        UserDefaults.standard.set(key, forKey: "Palette")
+        if key == "custom", let d = try? JSONEncoder().encode(p) { UserDefaults.standard.set(d, forKey: "PaletteCustom") }
+    }
+    /// The custom set, in use or not: picking a preset keeps it, to go back to (nil: none made yet).
+    static func savedCustom() -> Palette? {
+        UserDefaults.standard.data(forKey: "PaletteCustom").flatMap { try? JSONDecoder().decode(Palette.self, from: $0) }
+    }
+    /// The preset a custom set was made from (to name it, and to go back to).
+    static var customBase: String {
+        get { UserDefaults.standard.string(forKey: "PaletteBase") ?? "classic" }
+        set { UserDefaults.standard.set(newValue, forKey: "PaletteBase") }
     }
 }

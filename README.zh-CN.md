@@ -37,11 +37,11 @@
 
 <table>
 <tr>
-<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="菜单栏图标：转动的圆环数着在跑的对话，然后出现红色未读角标，有对话等批准时加上感叹号"></td>
+<td width="55%"><img src="docs/demo/menubar.gif" width="100%" alt="菜单栏图标：转动的圆环数着在跑的对话，然后出现红色未读角标，有对话在等你时加上感叹号"></td>
 <td>
 
 ### 1. 菜单栏看状态
-圆环里是在跑的对话数；红色角标是做完还没看的对话数，有对话等你批准时带 **!**。可以开提示音，或者用语音说出是哪个对话做完了。
+圆环里是在跑的对话数；红色角标是做完还没看的对话数，有对话在等你（要你确认或回答，或者出错停下了）时带 **!**。可以开提示音，或者用语音说出是哪个对话做完了。
 
 </td>
 </tr>
@@ -60,6 +60,8 @@ Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左
 
 ### 3. 颜色、形状、标签
 给主题设颜色和形状。给对话打标签，点一下标签就高亮所有带它的对话。拖动标签区的上边可以调高度，也可以整个收起（⌃⌘G）。窗口太矮又放大时放不下，标签区会先让开：把窗口拉高，或按 ⌘- 缩小。
+
+设置 → 配色里有 8 套整个窗口的配色（经典黑白、KIKU 花、包豪斯黑、复古、深海、霓虹、日落、糖果），也可以每个颜色自己挑。
 
 </td>
 </tr>
@@ -85,7 +87,7 @@ Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左
 <td>
 
 ### 6. 导出和导入
-每个对话导出成文件：总结、提示词、完整对话和产出物。也能导入到另一个 Claude 账号。
+每个 Claude 对话导出成文件：总结、提示词、完整对话和产出物。也能导入到另一个 Claude 账号。
 
 </td>
 <td width="55%"><img src="docs/demo/export.gif" width="100%" alt="导出窗口，以及导出的 Markdown 文件和产出物文件夹"></td>
@@ -103,10 +105,10 @@ Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左
 <td>
 
 ### 8. 统计
-每个对话的用时，可以看 7、14、30 或 90 天。⌘Y。
+每个对话和会话的用时，可以看 7、14、30 或 90 天。⌘Y。
 
 </td>
-<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="统计：七天里每个对话用时的柱状图"></td>
+<td width="55%"><img src="docs/demo/stats.png" width="100%" alt="统计：七天里每个对话和会话用时的柱状图"></td>
 </tr>
 </table>
 
@@ -116,7 +118,7 @@ Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左
 <td width="50%" valign="top"><img src="docs/demo/search.gif" width="100%" alt="搜索"><br><b>搜索</b>主题、对话和标签。</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="菜单里的今天"><br><b>今天</b>哪些对话干了活、干了多久。</td>
+<td width="50%" valign="top"><img src="docs/demo/today.gif" width="100%" alt="菜单里的今天"><br><b>今天</b>哪些对话和会话干了活、干了多久。</td>
 <td width="50%" valign="top"><img src="docs/demo/usage.gif" width="100%" alt="菜单里的用量"><br>当前会话和本周的<b>用量</b>。</td>
 </tr>
 <tr>
@@ -159,6 +161,7 @@ open Install.command
 - 所有数据都留在本机，放在 `~/Library/Application Support/ClaudeConsole/`。
 - 必需的权限只有一个：**辅助功能**，用来读 Claude 和 ChatGPT 窗口里的对话列表。每个权限都会先说明用途，再由 macOS 弹窗请求。
 - 不联网。唯一的例外是可选的用量查询（默认关闭）：开启后，会借用 Claude Code 和 Codex 已经存在本机的登录，向 Anthropic 和 OpenAI 查用量，登录信息不会被保存。这两家都没有说明允许应用这样查询，以后可能会被限制。
+- 导出（写总结时）和导入会借用剪贴板粘贴。KIKUmap 自己粘贴的内容会标记让剪贴板历史类 App 跳过，也不会同步到你的其他设备；每份总结要经过 Claude 自己的复制按钮，剪贴板历史类 App 可能会存下。每一步之后都会放回你原来的剪贴板。
 
 <details>
 <summary>每个数据来源和权限的用途</summary>
@@ -166,10 +169,11 @@ open Install.command
 | 显示的内容 | 来源 | 权限 |
 |---|---|---|
 | Claude 置顶对话：在跑、未读 | Claude App 的侧栏 | 辅助功能 |
-| 等你批准、Cowork 任务做完，Claude 窗口关着时也能收到（可选） | 通知中心里 Claude 的通知 | 完全磁盘访问 |
+| 在等你确认（批准或回答）、Cowork 任务做完，Claude 窗口关着时也能收到（可选） | 通知中心里 Claude 的通知 | 完全磁盘访问 |
 | Claude Code 会话 | `~/.claude/settings.json` 里的 Claude Code hook（改之前会先备份原文件） | 不需要 |
 | ChatGPT 的对话 | ChatGPT App 存在 `~/.codex` 里的文件（只读） | 不需要 |
 | ChatGPT 普通对话（非 Codex）：在跑、做完、未读 | ChatGPT 窗口的左栏，窗口露出一部分时才读 | 辅助功能 |
+| 做完的会话你正看着时算已读 | 它所在的编辑器或终端在最前面时的窗口标题 | 辅助功能 |
 | 桌面小组件 | KIKUmap 专门为它写的一个文件（`widget.json`） | 不需要 |
 | Claude 用量和定时任务（可选） | Anthropic 的用量接口，借用 Claude Code 的登录 | 钥匙串 |
 | ChatGPT 用量（可选，试验性） | OpenAI 的用量接口，借用 Codex 的登录 | 不需要 |
@@ -225,7 +229,13 @@ ChatGPT：Codex 对话支持得最好（读 App 的文件，窗口关着也准�
 <details>
 <summary><b>Claude 的窗口关了会怎样？</b></summary>
 
-⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面才能看到；在那之前，原来在跑的对话显示「在跑？」。Claude Code 和 Codex 对话不受影响。ChatGPT 的普通对话也是从 ChatGPT 的窗口里读的，窗口露出一部分才看得到。
+⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面才能看到；在那之前，原来在跑的对话显示「在跑？」；窗口回来后发现已经做完的，显示「14:00 后做完」（最后一次看到它在跑的时间），因为不知道它具体什么时候做完。Claude Code 和 Codex 对话不受影响。ChatGPT 的普通对话也是从 ChatGPT 的窗口里读的，窗口露出一部分才看得到。
+</details>
+
+<details>
+<summary><b>会话做完时我正看着它，为什么还是未读？</b></summary>
+
+只有最前面的窗口只可能是这个会话的，KIKUmap 才会自己把做完的会话标为已读：Claude Code 是 VS Code 或 Cursor 里打开它文件夹的窗口，或者标题里同时有它的文件夹和 `claude` 的终端窗口；Codex 是 VS Code 里打开它文件夹的窗口。别的窗口或标签页也可能在显示它时，它保持未读，比如编辑器里另有窗口开着它的文件夹或上层文件夹。终端里的 Codex 会话也保持未读（KIKUmap 不知道它在哪个终端里跑）。在 KIKUmap 里打开它，或选中它按 ⇧⌘U，就标为已读。
 </details>
 
 <details>

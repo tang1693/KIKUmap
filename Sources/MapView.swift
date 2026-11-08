@@ -20,6 +20,10 @@ final class VNode {
     /// A topic: of the `runN` running, one KIKUmap sees run now (its count's ring turns). A chat: it's seen running
     /// now (an orange stretch goes round its outline).
     var runSeen = false
+    /// A topic: some of the `runN` running are out of KIKUmap's sight ("?" after its ring, as in the menu bar).
+    var runUnsure = false
+    /// A topic: one of the `unrN` unread waits for you ("!" before its red count, as in the menu bar).
+    var needsYou = false
     var collapsed = false
     var hasKids = false
     var glyph: String?            // the topic's shape (nil: none)
@@ -71,9 +75,21 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var rootV: VNode?
     private var all: [VNode] = []
     private var byKey: [String: VNode] = [:]
-    private(set) var sel: String? { didSet { if sel != oldValue { selectionMoved() } } }
+    private(set) var sel: String? {
+        didSet {
+            if let k = sel { pickOrder.removeAll { $0 == k }; pickOrder.append(k) }
+            if sel != oldValue { selectionMoved() }
+        }
+    }
     /// Several items selected at once (⇧-drag a box, ⇧/⌘-click). Empty when one or none is; `sel` is then the selection.
     private var group = Set<String>() { didSet { if group != oldValue { selectionMoved() } } }
+    /// The order items were selected in, the latest last (the one the keys go to moves there whenever it's set): when
+    /// it leaves the selection, the keys go to the one selected most recently of those left, as in the left column.
+    private var pickOrder: [String] = []
+    /// Of these, the one selected last (the first on the map, if none of them is known).
+    private func latestPicked(_ s: Set<String>) -> String? {
+        pickOrder.last { s.contains($0) } ?? all.first { s.contains($0.key) }?.key ?? s.first
+    }
     /// ⇧-drag on empty space: the box, and what was selected before it started.
     private var band: (start: NSPoint, end: NSPoint, before: Set<String>)?
     /// A plain click on one of several selected items selects just it — unless the click turns into a drag.
@@ -93,6 +109,8 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var dragged = Set<String>()
     private var drag: Drag?
     private var glideTimer: Timer?
+    /// Set while `pdfData` draws: the page gets the map alone, not what's drawn to help on screen (the empty map's hint).
+    private var exporting = false
     /// Is this window point over the left column? Lights it up when a chat would be taken off the map there.
     var overSidebar: ((NSPoint, Bool) -> Bool)?
 
@@ -113,8 +131,11 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
     /// A tag dragged over an item.
     private var tagTarget: String?
-    /// Click a tag in the sidebar: everything that has it stays bright, the rest fades.
-    var highlightTag: String? { didSet { needsDisplay = true } }
+    /// Click a tag in the sidebar: everything that has it stays bright, with the tag's ring, the rest fades.
+    var highlightTag: String? { didSet { updateTagLit(); needsDisplay = true } }
+    /// The tag lit, as drawn (nil: none, or a PDF being made), and the folded topics it keeps bright too: they hold
+    /// something with it, as a search counts a folded topic.
+    private var tagLit: (tag: String, folded: Set<String>)?
 
     /// ⌘F: items whose name, full chat title or tag matches stay bright; the rest fades.
     var searchQuery = "" { didSet { updateMatches(); if !matches.isEmpty { matchIndex = -1; nextMatch() } } }
@@ -228,7 +249,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         syncing = true
         if let s = sel, byKey[s] == nil { sel = nil }
         group = group.filter { byKey[$0] != nil }
-        if sel == nil { sel = group.first }
+        if sel == nil, !group.isEmpty { sel = latestPicked(group) }
         if group.count < 2 { group = [] }
         syncing = quiet
         if let e = editing, let v = byKey[e.key] { e.field.frame = editRect(v) }
@@ -248,17 +269,12 @@ final class MapView: NSView, NSTextFieldDelegate {
                 let id = String(key.dropFirst(2))
                 return hit(store.name(id)) || hit(store.chat(id)?.title ?? "")
             }
-            return hit(store.map.locate(key)?.item.node?.title ?? "")
+            return hit(store.map.locate(key)?.item.node.map(MapModel.shownTitle) ?? "")       // the name it reads
         }
         // a folded topic counts when something inside it matches
-        func insideHit(_ n: MapNode) -> Bool {
-            n.children.contains { itemHit($0.key) || ($0.node.map(insideHit) ?? false) }
-        }
         let found = all.filter { v in
             guard v.kind != .root else { return false }
-            if itemHit(v.key) { return true }
-            if v.collapsed, let n = store.map.locate(v.key)?.item.node { return insideHit(n) }
-            return false
+            return itemHit(v.key) || (v.collapsed && holds(v.key, itemHit))
         }.sorted { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }
         matches = found.map { $0.key }
         matchSet = Set(matches)
@@ -311,6 +327,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         let root = VNode(key: map.root.id, kind: .root, title: map.root.title, color: Theme.line)
         fill(root, from: map.root, depth: 0, color: Theme.line, colored: false)
         rootV = root
+        if highlightTag != nil { updateTagLit() }
     }
 
     private func register(_ v: VNode) {
@@ -323,17 +340,18 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     private func fill(_ v: VNode, from n: MapNode, depth: Int, color: NSColor, colored: Bool) {
         register(v)
-        var run = 0, unr = 0, cnt = 0, seen = false
+        var run = 0, unr = 0, cnt = 0, seen = 0, needs = 0
         func tally(_ n: MapNode) {
             store.map.walkChats(n) { id in
                 guard self.onMap(id) || self.showAll else { return }
                 cnt += 1
                 guard let c = self.store.chat(id), self.store.isShown(c) else { return }
-                if self.store.isRunning(id) { run += 1; if !self.store.outOfSight(id) { seen = true } } else if self.store.isUnread(c) { unr += 1 }
+                if self.store.isRunning(id) { run += 1; if !self.store.outOfSight(id) { seen += 1 } }
+                else if self.store.isUnread(c) { unr += 1; if self.store.needsInput(c) { needs += 1 } }
             }
         }
         tally(n)
-        v.count = cnt; v.runN = run; v.unrN = unr; v.runSeen = seen
+        v.count = cnt; v.runN = run; v.unrN = unr; v.runSeen = seen > 0; v.runUnsure = seen < run; v.needsYou = needs > 0
         v.hasKids = !n.children.isEmpty
         v.collapsed = n.isCollapsed
         measure(v)
@@ -366,7 +384,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             case .node(let s):
                 let own = Theme.highlight(s.color)
                 let col = own ?? color, isColored = own != nil || colored
-                let k = VNode(key: s.id, kind: depth == 0 ? .main : .sub, title: s.title.isEmpty ? tr("新主题", "New topic") : s.title, color: col)
+                let k = VNode(key: s.id, kind: depth == 0 ? .main : .sub, title: MapModel.shownTitle(s), color: col)
                 k.colored = isColored
                 let auto = depth == 0 ? MapView.shapes[s.id.unicodeScalars.reduce(0) { $0 + Int($1.value) } % 3].key : nil
                 k.glyph = s.shape == "none" ? nil : (s.shape ?? auto)
@@ -382,6 +400,34 @@ final class MapView: NSView, NSTextFieldDelegate {
     private func onMap(_ id: String) -> Bool {
         guard let c = store.chat(id) else { return !(id.hasPrefix("gpt-") && !Store.gptOn) }
         return !(c.isGPT && !Store.gptOn)
+    }
+
+    /// A filed chat the map doesn't draw now: ⌫ never takes it off the map unseen, nor selects it.
+    private func hides(_ id: String) -> Bool { !onMap(id) }
+
+    /// Something in the topic `key`, at any depth, passes `test`: what the map would draw were it unfolded (a chat it
+    /// hides doesn't count).
+    private func holds(_ key: String, _ test: (String) -> Bool) -> Bool {
+        func walk(_ n: MapNode) -> Bool {
+            n.children.contains { ch in
+                if let id = ch.chatId, hides(id) { return false }
+                return test(ch.key) || (ch.node.map(walk) ?? false)
+            }
+        }
+        return store.map.locate(key)?.item.node.map(walk) ?? false
+    }
+
+    /// The folded topics the lit tag keeps bright, worked out again whenever the map is built or another tag is lit.
+    private func updateTagLit() {
+        guard let tag = highlightTag else { tagLit = nil; return }
+        let has = { (k: String) in self.store.map.hasTag(k, tag) }
+        tagLit = (tag, Set(all.filter { $0.collapsed && holds($0.key, has) }.map(\.key)))
+    }
+
+    /// Stays bright while a tag is lit: it has the tag, or it's a folded topic holding something that has it.
+    private func lit(_ v: VNode) -> Bool {
+        guard let t = tagLit else { return true }
+        return v.kind != .root && (store.map.hasTag(v.key, t.tag) || t.folded.contains(v.key))
     }
 
     /// ⌫ and its menu item on a chat: a pinned one goes back to the left column; any other just leaves the map (an
@@ -537,20 +583,40 @@ final class MapView: NSView, NSTextFieldDelegate {
         if !moving { glideTimer?.invalidate(); glideTimer = nil }
     }
 
-    /// The whole map as a PDF — light colours, nothing selected, cropped to what's drawn.
+    /// The whole map as a PDF, as on paper: light whatever the window looks like (the color set's light colors, or
+    /// Classic's when the set is always dark), nothing selected, nothing faded by a search or a lit tag, cropped to
+    /// what's drawn. Just the map: not the empty map's hint, a selection box, or items mid-glide or mid-drag. The map
+    /// on screen is left as it was, but a gesture under way ends first (the save sheet would leave it hanging): a drag
+    /// is put back, as Esc does, and a selection box ends with what it covers selected, as letting go does.
     func pdfData() -> Data? {
-        guard let root = rootV else { return nil }
         if editing != nil { finishEdit() }
+        if drag?.fromMap == true { cancelDrag() }
+        if band != nil { band = nil; needsDisplay = true }
+        guard let root = rootV else { return nil }
+        // where the layout puts each item, not where it is for a moment as it glides there
+        let gliding = all.filter { $0.offset != .zero }.map { ($0, $0.offset) }
+        for (v, _) in gliding { v.offset = .zero }
         let r = all.reduce(root.frame) { $0.union($1.frame) }.insetBy(dx: -40, dy: -40).intersection(bounds)
-        let keep = (sel, group, hoverChat)
+        let keep = (sel, group, hoverChat, matchSet, tagLit, appearance, Theme.palette)
         syncing = true
+        exporting = true
         sel = nil
         group = []
         hoverChat = nil
-        defer { (sel, group, hoverChat) = keep; syncing = false; needsDisplay = true }
-        var d: Data?
-        NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { d = dataWithPDF(inside: r) }
-        return d
+        matchSet = nil
+        tagLit = nil
+        // the view's own appearance: AppKit draws a view in that, not in one made current around the call
+        appearance = NSAppearance(named: .aqua)
+        // an always-dark set has the same colors for light and dark
+        if Theme.palette.mode == .dark { Theme.palette = .classic }
+        defer {
+            (sel, group, hoverChat, matchSet, tagLit, appearance, Theme.palette) = keep
+            for (v, o) in gliding { v.offset = o }
+            exporting = false
+            syncing = false
+            needsDisplay = true
+        }
+        return dataWithPDF(inside: r)
     }
 
     /// Asks where to save, then writes the PDF.
@@ -589,10 +655,10 @@ final class MapView: NSView, NSTextFieldDelegate {
         dirtyRect.intersection(bounds).fill()
         guard let root = rootV else { return }
         drawLandingSpot()
-        if root.kids.isEmpty && drag == nil {
-            // the map starts empty: what goes on it is up to you
-            let lines = [tr("把左边的置顶对话或 Claude Code 会话拖到这里", "Drag pinned chats or Claude Code sessions here from the left"),
-                         tr("双击空白处新建主题", "Double-click empty space for a topic")]
+        if root.kids.isEmpty && drag == nil && !exporting {
+            // the map starts empty: what goes on it is up to you (said on screen, not in the PDF)
+            let lines = [tr("把左栏里的对话和会话拖到这里", "Drag chats and sessions here from the left column"),
+                         tr("双击空白处新建主题", "Double-click empty space to add a topic")]
             for (i, l) in lines.enumerated() {
                 let f = i == 0 ? Theme.ui(14, .medium) : Theme.ui(12.5)
                 let w = ceil(l.size(f).width) + 2
@@ -627,8 +693,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                 p.curve(to: NSPoint(x: x2, y: y2), controlPoint1: NSPoint(x: mx, y: y1), controlPoint2: NSPoint(x: mx, y: y2))
                 p.lineWidth = v.kind == .root ? 3.5 : (v.kind == .main ? 2.5 : 1.75)
                 p.lineCapStyle = .round
-                let faded = (highlightTag.map { !store.map.hasTag(k.key, $0) } ?? false)
-                    || (matchSet.map { !$0.contains(k.key) } ?? false)
+                let faded = !lit(k) || (matchSet.map { !$0.contains(k.key) } ?? false)
                 (faded ? k.color.withAlphaComponent(0.25) : k.color).setStroke()
                 p.stroke()
                 drawEdges(k)
@@ -695,7 +760,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         let r = v.frame
         let isEditing = editing?.key == v.key
         var alpha: CGFloat = 1
-        if let tag = highlightTag, v.kind != .root, !store.map.hasTag(v.key, tag) { alpha = min(alpha, 0.22) }
+        if v.kind != .root, !lit(v) { alpha = min(alpha, 0.22) }
         if let m = matchSet, v.kind != .root, !m.contains(v.key) { alpha = min(alpha, 0.22) }
         NSGraphicsContext.current?.saveGraphicsState()
         if alpha < 1 { NSGraphicsContext.current?.cgContext.setAlpha(alpha) }
@@ -736,7 +801,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                     (v.runSeen ? Theme.ink.withAlphaComponent(0.35) : Theme.ink).setStroke(); pill.lineWidth = 1.5; pill.stroke()
                     if v.runSeen {
                         let b = r.insetBy(dx: 0.75, dy: 0.75)
-                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Logo.orange, lineWidth: 2)
+                        Theme.drawSnake(pill, perimeter: 2 * (b.width - b.height) + .pi * b.height, color: Theme.running, lineWidth: 2)
                     }
                 }
                 if v.colored {
@@ -779,7 +844,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             let p = NSBezierPath(roundedRect: r.insetBy(dx: -5, dy: -5), xRadius: 6, yRadius: 6)
             p.lineWidth = 2; p.setLineDash([4, 3], count: 2, phase: 0); p.stroke()
         }
-        if let tag = highlightTag, v.kind != .root, store.map.hasTag(v.key, tag), let c = store.map.tags.first(where: { $0.id == tag }).flatMap({ Theme.highlight($0.color) }) {
+        if let t = tagLit, v.kind != .root, lit(v), let c = store.map.tags.first(where: { $0.id == t.tag }).flatMap({ Theme.highlight($0.color) }) {
             c.set()
             let p = NSBezierPath(roundedRect: r.insetBy(dx: -5, dy: -4), xRadius: 6, yRadius: 6)
             p.lineWidth = 2.5; p.stroke()
@@ -797,7 +862,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             if alpha < 1 { NSGraphicsContext.current?.cgContext.setAlpha(alpha) }
             let c = NSPoint(x: v.dir < 0 ? r.minX + 3 : r.maxX - 3, y: r.minY + 2)
             Theme.bg.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 6.5, y: c.y - 6.5, width: 13, height: 13)).fill()
-            NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 5, y: c.y - 5, width: 10, height: 10)).fill()
+            Theme.unread.setFill(); NSBezierPath(ovalIn: NSRect(x: c.x - 5, y: c.y - 5, width: 10, height: 10)).fill()
             NSGraphicsContext.current?.restoreGraphicsState()
         }
         if v.kind != .chat { drawBadges(v) }
@@ -883,34 +948,46 @@ final class MapView: NSView, NSTextFieldDelegate {
         return img
     }
 
-    /// Where a topic's counts go: how many run (a ring), then how many are unread (a red badge).
-    private func badges(_ v: VNode) -> [(rect: NSRect, n: Int, state: Int)] {
-        var items: [(Int, Int)] = []
-        if v.runN > 0 { items.append((v.runN, 2)) }
-        if v.unrN > 0 { items.append((v.unrN, 1)) }
+    /// Room for the "?" after a ring (see `badges`).
+    private var unsureW: CGFloat { 2 + ceil("?".size(badgeF).width) }
+
+    /// Where a topic's counts go, as the menu bar and the top bar show them: how many run (a ring, "?" after it when
+    /// some are out of KIKUmap's sight), then how many are unread (a red badge, "!" first when one waits for you).
+    /// On the right-hand side they still end at the topic's corner with the "?" in.
+    private func badges(_ v: VNode) -> [(rect: NSRect, text: String, state: Int)] {
+        var items: [(String, Int)] = []
+        if v.runN > 0 { items.append((String(v.runN), 2)) }
+        if v.unrN > 0 { items.append(((v.needsYou ? "!" : "") + String(v.unrN), 1)) }
+        let q = v.runN > 0 && v.runUnsure ? unsureW : 0
         let r = v.frame
-        var x = v.kind == .root ? r.maxX + 4 : (v.dir < 0 ? r.minX - 11 : r.maxX - 11 - CGFloat(items.count - 1) * 25)
+        var x = v.kind == .root ? r.maxX + 4 : (v.dir < 0 ? r.minX - 11 : r.maxX - 11 - CGFloat(items.count - 1) * 25 - q)
         let y = v.kind == .root ? r.minY - 16 : r.minY - 11
-        return items.map { n, state in
-            let w = state == 2 ? max(22, ceil(String(n).size(badgeF).width) + 9) : max(22, ceil(String(n).size(badgeF).width) + 10)
-            defer { x += w + 3 }
-            return (state == 2 ? NSRect(x: x, y: y + 11 - w / 2, width: w, height: w) : NSRect(x: x, y: y, width: w, height: 22), n, state)
+        return items.map { s, state in
+            let w = state == 2 ? max(22, ceil(s.size(badgeF).width) + 9) : max(22, ceil(s.size(badgeF).width) + 10)
+            defer { x += w + 3 + (state == 2 ? q : 0) }
+            return (state == 2 ? NSRect(x: x, y: y + 11 - w / 2, width: w, height: w) : NSRect(x: x, y: y, width: w, height: 22), s, state)
         }
     }
 
     private func drawBadges(_ v: VNode) {
-        for (b, n, state) in badges(v) {
-            let s = String(n)
+        for (b, s, state) in badges(v) {
             if state == 2 {
-                // running: the number in a ring, its arc going round while any of them is seen running (as in the menu bar)
+                // running: the number in a ring, its arc going around while any of them is seen running, and "?" after it
+                // while some are out of sight (as in the menu bar: for a folded topic it's the only sign)
                 Theme.bg.setFill(); NSBezierPath(ovalIn: b.insetBy(dx: -2, dy: -2)).fill()
                 Theme.paper.setFill(); NSBezierPath(ovalIn: b.insetBy(dx: 0.75, dy: 0.75)).fill()
-                Theme.drawRunCount(s, in: b, ink: Theme.ink, arc: Logo.orange, font: badgeF, phase: v.runSeen ? Theme.turn() : nil)
+                Theme.drawRunCount(s, in: b, ink: Theme.ink, arc: Theme.running, font: badgeF, phase: v.runSeen ? Theme.turn() : nil)
+                if v.runUnsure {
+                    let qs = "?".size(badgeF), at = NSPoint(x: b.maxX + 2, y: b.midY - qs.height / 2)
+                    Theme.bg.setFill()
+                    NSBezierPath(roundedRect: NSRect(origin: at, size: qs).insetBy(dx: -1.5, dy: -0.5), xRadius: 3, yRadius: 3).fill()
+                    ("?" as NSString).draw(at: at, withAttributes: [.font: badgeF, .foregroundColor: Theme.ink])
+                }
                 continue
             }
             Theme.bg.setFill(); NSBezierPath(roundedRect: b.insetBy(dx: -2, dy: -2), xRadius: 13, yRadius: 13).fill()
             let p = NSBezierPath(roundedRect: b.insetBy(dx: 0.75, dy: 0.75), xRadius: 10.5, yRadius: 10.5)
-            if state == 1 { NSColor.systemRed.setFill(); p.fill() } else {
+            if state == 1 { Theme.unread.setFill(); p.fill() } else {
                 Theme.paper.setFill(); p.fill(); Theme.ink.setStroke(); p.lineWidth = 1.5; p.stroke()
             }
             let ts = s.size(badgeF)
@@ -951,11 +1028,12 @@ final class MapView: NSView, NSTextFieldDelegate {
         return c.isCode ? tr("打开", "Open") : tr("在 Claude 里打开", "Open in Claude")
     }
 
-    /// Open in Claude, and unread / read (not while it's running), just outside the chat's outer edge. A chat with
-    /// no record left has nothing to mark, and a Claude Code session or ChatGPT thread then nowhere to open.
+    /// Open in Claude, and unread / read (not while it's running, nor while Claude shows it waiting for you: see
+    /// `Store.markable`), just outside the chat's outer edge. A chat with no record left has nothing to mark, and a
+    /// Claude Code session or ChatGPT thread then nowhere to open.
     private func chatButtons(_ v: VNode) -> [(NSRect, ChatAction)] {
         guard let id = v.chatId, store.canOpen(id) else { return [] }
-        let acts: [ChatAction] = store.isRunning(id) || store.chat(id) == nil ? [.open] : [.open, .unread]
+        let acts: [ChatAction] = store.markable(id) ? [.open, .unread] : [.open]
         let w: CGFloat = 24, h: CGFloat = 20, gap: CGFloat = 4
         let midY = v.frame.midY
         // a chat is wider as a pill (unread, running): measure that, so the buttons don't move when it changes
@@ -1048,6 +1126,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     /// keeps what it has picked.
     func select(_ key: String?, notify: Bool = true) {
         syncing = !notify
+        pickOrder = []
         sel = key
         group = []
         syncing = false
@@ -1057,9 +1136,15 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     /// Everything selected: the group, or the one selected item.
     private var selection: Set<String> { group.isEmpty ? Set(sel.map { [$0] } ?? []) : group }
+    /// The selection in the order it was made, the latest last (what a box or ⌘A took in first, in map order).
+    private var selectedInOrder: [String] {
+        let s = selection, known = pickOrder.filter { s.contains($0) }
+        return all.map(\.key).filter { s.contains($0) && !known.contains($0) } + known
+    }
 
-    /// The chats in the selection (by id) and the one the keys move from, told after it changes (once per turn of the
-    /// run loop), so the left column picks the same rows; not while the column itself sets it (`syncing`).
+    /// The chats in the selection (by id, in the order they were selected) and the one the keys move from, told after
+    /// it changes (once per turn of the run loop), so the left column picks the same rows; not while the column itself
+    /// sets it (`syncing`).
     var onChatsSelected: (([String], String?) -> Void)?
     private var syncing = false
     private var selectionNoted = false
@@ -1075,7 +1160,7 @@ final class MapView: NSView, NSTextFieldDelegate {
                 self.selectionNoted = false
                 guard gen == self.selectionGen else { return }
                 func chat(_ k: String) -> String? { k.hasPrefix("c:") ? String(k.dropFirst(2)) : nil }
-                self.onChatsSelected?(self.selection.compactMap(chat).sorted(), self.sel.flatMap(chat))
+                self.onChatsSelected?(self.selectedInOrder.compactMap(chat), self.sel.flatMap(chat))
             }
         }
     }
@@ -1090,14 +1175,18 @@ final class MapView: NSView, NSTextFieldDelegate {
         return k
     }
 
-    /// Selects the items of these chats (rows picked in the left column), without telling the column back; the lead
-    /// one comes into view. Chats that aren't on the map: nothing is selected here.
+    /// Selects the items of these chats (rows picked in the left column, `ids` in the order they were, the latest
+    /// last), without telling the column back; the lead one comes into view. Chats that aren't on the map: nothing is
+    /// selected here.
     func selectChats(_ ids: [String], lead: String?) {
         selectionGen += 1
         selectionNoted = false
         // a chat in a folded topic: the topic stands in for it, as when searching
-        let keys = Set(ids.compactMap(shownKey))
+        let ordered = ids.compactMap(shownKey)
+        let keys = Set(ordered)
         let leadKey = lead.flatMap(shownKey)
+        // selected in the order they were picked there: the lead taken out on either side, both go on from the same one
+        for k in ordered { pickOrder.removeAll { $0 == k }; pickOrder.append(k) }
         guard keys != selection || (leadKey != nil && keys.contains(leadKey!) && sel != leadKey) else { return }
         syncing = true
         setSelection(keys, lead: leadKey)
@@ -1109,7 +1198,9 @@ final class MapView: NSView, NSTextFieldDelegate {
     private func setSelection(_ keys: Set<String>, lead: String?) {
         let s = keys.count > 1 ? keys.filter { byKey[$0]?.kind != .root } : keys
         group = s.count > 1 ? s : []
-        sel = lead.flatMap { s.contains($0) ? $0 : nil } ?? s.first
+        pickOrder.removeAll { !s.contains($0) }
+        // the lead left out (⇧/⌘-clicked out): the keys go to the one selected most recently of those left
+        sel = lead.flatMap { s.contains($0) ? $0 : nil } ?? latestPicked(s)
         needsDisplay = true
     }
 
@@ -1270,9 +1361,10 @@ final class MapView: NSView, NSTextFieldDelegate {
             switch e.keyCode {
             case 53: select(nil); return                                                 // esc
             case 51, 117:                                                                // delete them all
-                // ⌥: each topic goes as it would alone, what's under it staying (a subtopic selected too goes as well)
-                if opt { map.remove(all.filter { group.contains($0.key) && $0.kind != .root }.map(\.key), keepChildren: true) }
-                else { map.remove(movingKeys(group)) }
+                // ⌥: each topic goes as it would alone, what's under it staying (a subtopic selected too goes as well);
+                // chats the map hides now stay either way
+                if opt { map.remove(all.filter { group.contains($0.key) && $0.kind != .root }.map(\.key), keepChildren: true, hidden: hides) }
+                else { map.remove(movingKeys(group), hidden: hides) }
                 changed(select: nil)
                 return
             default: break
@@ -1285,7 +1377,7 @@ final class MapView: NSView, NSTextFieldDelegate {
             if cmd { startEdit(k) }
             else if shift { addTopicUnderRoot() }
             else { changed(select: map.addSibling(k, above: opt), edit: true) }
-        case 51, 117: changed(select: map.remove(k, keepChildren: opt))                  // delete
+        case 51, 117: changed(select: map.remove(k, keepChildren: opt, hidden: hides))   // delete
         case 120: startEdit(k)                                                           // F2
         // ⌥ + an arrow moves it the way the arrow selects; ⌘↓ opens it, ⌘↑ goes up to its topic (as in Finder)
         case 126: if opt { moveAlong(k, "up") } else if cmd { selectParent() } else { nav("up") }
@@ -1356,7 +1448,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         case ("z", _): undoStep(redo: f.contains(.shift)); return true
         case ("a", _): selectAll(nil); return true
         case ("u", _) where f.contains(.shift):
-            let ids = selection.compactMap { byKey[$0]?.chatId }.filter { !store.isRunning($0) }
+            let ids = selection.compactMap { byKey[$0]?.chatId }.filter(store.markable)
             if !ids.isEmpty { store.setUnread(ids, !ids.allSatisfy { store.isUnread(id: $0) }) }
             return true
         case ("=", _), ("+", _): onScale?(1); return true          // the whole window, map included
@@ -1571,7 +1663,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         add(tr("新主题", "New topic"), "\r", [.shift]) { [weak self] in self?.addTopicUnderRoot() }
         guard let v = v else {
-            add(tr("导出 PDF…", "Export PDF…"), "e") { [weak self] in self?.exportPDF() }
+            add(tr("导出导图 PDF…", "Export map as PDF…"), "e", [.command]) { [weak self] in self?.exportPDF() }
             return m
         }
         let k = v.key, map = store.map
@@ -1581,10 +1673,10 @@ final class MapView: NSView, NSTextFieldDelegate {
         if v.kind != .root {
             add(tr("新同级主题", "New sibling"), "\r") { [weak self] in self?.changed(select: map.addSibling(k, above: false), edit: true) }
         }
-        m.addItem(.separator())
+        if v.kind != .root { m.addItem(.separator()) }
         if let id = v.chatId {
             if store.canOpen(id) { add(openLabel(id)) { [weak self] in self?.onOpen?(id) } }
-            if !store.isRunning(id) && store.chat(id) != nil {
+            if store.markable(id) {
                 let unread = store.isUnread(id: id)
                 add(unread ? tr("标为已读", "Mark as read") : tr("标为未读", "Mark as unread"), "u", [.shift, .command]) { [weak self] in
                     self?.store.setUnread([id], !unread)
@@ -1594,9 +1686,12 @@ final class MapView: NSView, NSTextFieldDelegate {
                 add(tr("让 Claude 写总结存档…", "Archive a summary…")) { [weak self] in self?.onArchive?(id) }
             }
         }
-        add(v.kind == .chat ? tr("改显示名称", "Rename (local)") : tr("改名", "Rename"), "\r", [.command]) { [weak self] in self?.startEdit(k) }
+        // (not the centre: it has no name)
+        if v.kind != .root {
+            add(v.kind == .chat ? tr("改名（只在 KIKUmap 里）", "Rename in KIKUmap only") : tr("改名", "Rename"), "\r", [.command]) { [weak self] in self?.startEdit(k) }
+        }
         if v.kind == .main || v.kind == .sub {
-            let colors = NSMenuItem(title: tr("分支颜色", "Branch colour"), action: nil, keyEquivalent: "")
+            let colors = NSMenuItem(title: tr("分支颜色", "Branch color"), action: nil, keyEquivalent: "")
             let sub = NSMenu()
             let current = map.locate(k)?.item.node?.color
             let none = MenuAction(title: tr("无颜色", "None")) { [weak self] in map.setColor(k, nil); self?.changed(select: k) }
@@ -1641,9 +1736,15 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         if v.kind != .root {
             m.addItem(.separator())
-            add(removeTitle(v), "\u{8}") { [weak self] in self?.changed(select: map.remove(k, keepChildren: false)) }
+            add(removeTitle(v), "\u{8}") { [weak self] in
+                guard let self else { return }
+                self.changed(select: map.remove(k, keepChildren: false, hidden: self.hides))
+            }
             if v.kind != .chat && v.hasKids {
-                add(tr("只删这个主题（保留下面的）", "Delete topic, keep its items"), "\u{8}", [.option]) { [weak self] in self?.changed(select: map.remove(k, keepChildren: true)) }
+                add(tr("只删这个主题（保留下面的）", "Delete topic, keep its items"), "\u{8}", [.option]) { [weak self] in
+                    guard let self else { return }
+                    self.changed(select: map.remove(k, keepChildren: true, hidden: self.hides))
+                }
             }
         }
         return m

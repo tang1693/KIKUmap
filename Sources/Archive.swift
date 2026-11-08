@@ -26,6 +26,9 @@ final class Archive {
         var zipMissed: [String] = []
         var zipTriedAt: Double?
         var zipTries = 0
+        /// A zip in Downloads that couldn't be read, or isn't Claude's export after all ("path|modified"): it isn't read
+        /// again by itself every few minutes (Export still tries it; a new zip is read as usual).
+        var zipUnreadable: String?
 
         init() {}
         /// A part that's missing (an older or newer file) reads as empty; one that's there but unreadable fails the file.
@@ -39,6 +42,7 @@ final class Archive {
             zipMissed = try c.decodeIfPresent([String].self, forKey: .zipMissed) ?? []
             zipTriedAt = try c.decodeIfPresent(Double.self, forKey: .zipTriedAt)
             zipTries = try c.decodeIfPresent(Int.self, forKey: .zipTries) ?? 0
+            zipUnreadable = try c.decodeIfPresent(String.self, forKey: .zipUnreadable)
         }
     }
     /// One chat to export and the folder it goes in.
@@ -50,6 +54,9 @@ final class Archive {
     var trusted: () -> Bool = { AXIsProcessTrusted() }
     /// Seconds since your last keyboard or mouse input (a test stands in for it).
     var idle: () -> Double = { Archive.idleSeconds() }
+    /// What Claude replies when asked for one chat's summary (a test stands in for Claude's window; nil: Claude's own,
+    /// through Accessibility).
+    var askSummary: ((Item) -> ClaudeDriver.Result)?
     /// Claude's window can be worked now: the app is open and Accessibility is on.
     var canDrive: Bool { pid() != 0 && trusted() }
     var onChange: (() -> Void)?
@@ -59,6 +66,22 @@ final class Archive {
     private(set) var busy = false
     /// What the run under way is: an import (else an export).
     private(set) var importing = false
+    /// The run under way works Claude's window: summaries (once the export zip, if any, is read) or an import. One that
+    /// only writes the files from Claude's export zip never touches it: Claude's own finishes are heard as usual then.
+    var drivesClaude: Bool { busy && (importing || summarizing) }
+    /// The export under way asks Claude for summaries (decided as it starts: asked for, and Claude can be worked).
+    private var summarizing = false
+
+    /// Why Export, Import or Archive a summary… can't start now: a run is under way, and nothing else starts until
+    /// it's done (nil: none is). Said before anything is asked or saved.
+    var busyNote: (title: String, text: String)? {
+        guard busy else { return nil }
+        return (importing ? tr("导入还没做完", "An import is still running") : tr("存档还没做完", "An export is still running"),
+                tr("等它做完再试：顶栏会显示进度，也可以点那里的「停止」。", "Try again once it's done. The top bar shows its progress, and its Stop button ends it."))
+    }
+
+    /// An alert of KIKUmap's own (a test stands in for it).
+    static var say: (_ title: String, _ text: String) -> Void = { Permissions.alert($0, $1) }
     private(set) var progress = ""                    // "3/12 · title"
     /// archive.json couldn't be read at launch: where it was kept (nil: it was read, or there was none yet).
     private(set) var unreadable: String?
@@ -89,7 +112,7 @@ final class Archive {
         if (try? fm.moveItem(at: stateURL, to: to)) != nil { unreadable = "data/backups/" + to.lastPathComponent } else {
             readOnly = true
             unreadable = "data/archive.json" + tr("（没法移开；现在导入和总结的记录不会保存）",
-                                                  " (it couldn't be moved aside; what's imported or summarized now isn't recorded)")
+                                                  " (it couldn't be moved aside; imports and summaries made now aren't recorded)")
         }
         store.log("\(Clock.iso()) couldn't read archive.json (\(error.localizedDescription)); kept as \(unreadable ?? "-")\n", file: "app.log")
     }
@@ -103,14 +126,15 @@ final class Archive {
             var found: [String: Record] = [:]
             let all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
             while let url = all?.nextObject() as? URL {
-                guard url.lastPathComponent == "memory.md", let s = try? String(contentsOf: url, encoding: .utf8), s.hasPrefix("---\n"),
+                // (an artifact called memory.md, among a chat's own files, isn't a summary: Import leaves it too)
+                guard url.lastPathComponent == "memory.md", !Archive.inChatFiles(url, under: root), let s = try? String(contentsOf: url, encoding: .utf8), s.hasPrefix("---\n"),
                       let end = s.range(of: "\n---\n") else { continue }
                 var id = "", when = ""
                 for line in s[..<end.lowerBound].split(separator: "\n") {
                     if line.hasPrefix("id: ") { id = String(line.dropFirst(4)) }
                     if line.hasPrefix("summarized: ") { when = String(line.dropFirst(12)) }
                 }
-                if !id.isEmpty, when > (found[id]?.date ?? "") {
+                if Archive.isChatID(id), when > (found[id]?.date ?? "") {
                     found[id] = Record(date: when, messages: 0, file: String(url.path.dropFirst(root.path.count + 1)))
                 }
             }
@@ -149,11 +173,81 @@ final class Archive {
     }
     /// The folder exports went to before the last change (summaries there are brought along, not written again).
     static var previousFolder: URL? { d.string(forKey: "ArchivePreviousFolder").map { URL(fileURLWithPath: $0) } }
-    /// It can be written in now (made if need be): not on a disk that isn't connected.
-    static func reachable(_ root: URL) -> Bool {
+    /// Why the export folder can't take files now (made if need be), as a title and what to do; nil: it can. Tried with a
+    /// file of a summary's size, written and taken away again: macOS lets KIKUmap in, the disk is there, writable, with
+    /// room. In Documents, Desktop or Downloads, or on an external or network disk macOS keeps KIKUmap off, it's macOS
+    /// saying no (after a "Don't Allow" it doesn't ask again), not a disk that isn't connected.
+    static func unreachable(_ root: URL) -> (title: String, text: String)? {
         let fm = FileManager.default
-        return (try? fm.createDirectory(at: root, withIntermediateDirectories: true)) != nil && fm.isWritableFile(atPath: root.path)
+        var failure: NSError?
+        do {
+            try fm.createDirectory(at: root, withIntermediateDirectories: true)
+            let probe = root.appendingPathComponent(".kikumap-check")
+            defer { try? fm.removeItem(at: probe) }
+            try Data(count: 64 * 1024).write(to: probe)
+        } catch { failure = error as NSError }
+        guard let failure else { return nil }
+        let posix = (failure.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+            ?? (failure.domain == NSPOSIXErrorDomain ? Int32(failure.code) : nil)
+        let denied = [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(failure.code) || [EPERM, EACCES].contains(posix ?? 0)
+        let other = tr("在「导出对话」窗口点「更改…」，换一个文件夹。", "Click Change… in the Export chats window to pick another folder.")
+        // (an external or network disk that isn't there: making its folder in /Volumes is refused too)
+        let parts = root.standardizedFileURL.pathComponents
+        let away = parts.count > 2 && parts[1] == "Volumes" && !fm.fileExists(atPath: "/Volumes/" + parts[2])
+        // (on an external or network disk, macOS's no is "not permitted"; "permission denied" is the disk's own owners)
+        if let place = (denied ? protectedFolder(root) : nil) ?? (!away && posix == EPERM ? protectedVolume(root) : nil) {
+            return (tr("macOS 不让 KIKUmap 存到导出文件夹", "macOS won't let KIKUmap save to the export folder"),
+                    root.path + "\n\n" + tr("怎么办：系统设置 → 隐私与安全性 → 文件与文件夹，给 KIKUmap 打开\(place.zh)。或者在「导出对话」窗口点「更改…」，换一个文件夹。",
+                                            "Fix: System Settings → Privacy & Security → Files and Folders: turn on \(place.en) for KIKUmap. Or click Change… in the Export chats window to pick another folder."))
+        }
+        if !away && (failure.code == NSFileWriteVolumeReadOnlyError || posix == EROFS) {
+            return (tr("导出文件夹所在的磁盘是只读的", "The export folder's disk is read-only"), root.path + "\n\n" + other)
+        }
+        if !away && (failure.code == NSFileWriteOutOfSpaceError || posix == ENOSPC || posix == EDQUOT) {
+            return (tr("导出文件夹所在的磁盘满了", "The export folder's disk is full"),
+                    root.path + "\n\n" + tr("怎么办：在这个磁盘上腾出一些空间；或者在「导出对话」窗口点「更改…」，换一个文件夹。",
+                                            "Fix: free up some space on that disk, or click Change… in the Export chats window to pick another folder."))
+        }
+        if !away && denied { return (tr("没有权限存到导出文件夹", "No permission to save to the export folder"), root.path + "\n\n" + other) }
+        return (tr("导出文件夹现在打不开（外接盘或网络盘没接上？）", "The export folder can't be reached (is its disk connected?)"), root.path)
     }
+
+    /// The external or network disk `url` is on, by the name System Settings gives it under Files and Folders (nil: the
+    /// Mac's own disk). A test stands in for it.
+    static var protectedVolume: (URL) -> (zh: String, en: String)? = { url in
+        // (the folder may not be made yet: the nearest one above it that's there)
+        var u = url.standardizedFileURL
+        while !FileManager.default.fileExists(atPath: u.path) && u.pathComponents.count > 1 { u.deleteLastPathComponent() }
+        guard let v = try? u.resourceValues(forKeys: [.volumeIsLocalKey, .volumeIsInternalKey]) else { return nil }
+        if v.volumeIsLocal == false { return ("「网络宗卷」", "Network Volumes") }
+        return v.volumeIsInternal == false ? ("「可移除的宗卷」", "Removable Volumes") : nil
+    }
+
+    /// Said before macOS can ask whether KIKUmap may save in the export folder (nil with Full Disk Access: then it never
+    /// asks). It asks once for Documents, Desktop and Downloads, and for external and network disks. For a folder picked
+    /// with Change… the open panel lets KIKUmap in until it quits, so macOS may ask only after it starts again (when a
+    /// scheduled export first saves there, say).
+    static var asksNote: String? {
+        guard !ClaudeExport.canLookInDownloads else { return nil }
+        return tr("第一次存到「文稿」「桌面」「下载」或外接盘、网络盘里时，macOS 会问一次是否允许 KIKUmap 存到这里。用「更改…」选的文件夹，可能要等 KIKUmap 重新打开后、再存进去时才问。",
+                  "The first time KIKUmap saves into Documents, Desktop or Downloads, or onto an external or network disk, macOS asks once whether it may. For a folder picked with Change…, it may ask only later, the first time KIKUmap saves there after it restarts.")
+    }
+
+    /// The folders macOS asks about before an app may save in them, by the names System Settings gives them under
+    /// Files and Folders (a test points them elsewhere).
+    static var askedFolders: [(dir: URL, zh: String, en: String)] = {
+        let fm = FileManager.default
+        return [(FileManager.SearchPathDirectory.documentDirectory, "「文稿」文件夹", "Documents Folder"),
+                (.desktopDirectory, "「桌面」文件夹", "Desktop Folder"), (.downloadsDirectory, "「下载」文件夹", "Downloads Folder")]
+            .compactMap { d, zh, en in fm.urls(for: d, in: .userDomainMask).first.map { ($0, zh, en) } }
+    }()
+
+    /// Which of those `url` is in.
+    static func protectedFolder(_ url: URL) -> (zh: String, en: String)? {
+        let path = url.standardizedFileURL.path.lowercased() + "/"
+        return askedFolders.first { path.hasPrefix($0.dir.standardizedFileURL.path.lowercased() + "/") }.map { ($0.zh, $0.en) }
+    }
+
     /// A Claude chat's address (not a title-only "n-…" id).
     nonisolated static func isAddress(_ id: String) -> Bool { id.range(of: "^[0-9a-f-]{36}$", options: .regularExpression) != nil }
     /// The default folder keeps the name it was first given: when an export starts (Documents is opened then anyway),
@@ -225,10 +319,15 @@ final class Archive {
 
     /// Every chat on the map under the chosen topics — pinned or not — plus, if asked, pinned chats
     /// that aren't on the map. Each gets a folder named after its topics.
-    func items(topics: Set<String>?, unplaced: Bool) -> [Item] {
+    func items(topics: Set<String>?, unplaced: Bool) -> [Item] { chosen(topics: topics, unplaced: unplaced).items }
+
+    /// The Claude-app chats the choice holds, each with its folder, and how many others it holds: ChatGPT chats and
+    /// Claude Code or Codex sessions, which aren't exported, so they're neither counted nor given a folder name (a Claude
+    /// chat of the same name keeps its plain one).
+    func chosen(topics: Set<String>?, unplaced: Bool) -> (items: [Item], others: Int) {
         Archive.settleFolder()
         let map = store.map
-        var out: [Item] = []
+        var out: [Item] = [], others = 0
         var seen = Set<String>()
         var usedDirs = Set<String>()
         // a chat Import started from an earlier one gets a folder of its own beside that one's, which stays as it was
@@ -246,6 +345,7 @@ final class Archive {
         func add(_ id: String, _ path: [String]) {
             guard !seen.contains(id), let c = store.chat(id) else { return }
             seen.insert(id)
+            if c.outsideClaude { others += 1; return }
             var dir = path.reduce(Archive.folder) { $0.appendingPathComponent(ClaudeExport.safeName($1)) }
                 .appendingPathComponent(ClaudeExport.safeName(store.name(id) + { d in d == 0 ? "" : tr("（续\(d > 1 ? "\(d)" : "")）", " (continued\(d > 1 ? " \(d)" : ""))") }(depth(id))))
             // the Mac's disk ignores case ("Plan" and "plan" are one folder): two chats never share a folder
@@ -274,16 +374,16 @@ final class Archive {
             let unfiled = Archive.named("未归类", "Unfiled", in: Archive.folder)
             for c in store.pinnedList() where !placed.contains(c.id) { add(c.id, [unfiled]) }
         }
-        return out
+        return (out, others)
     }
 
     // MARK: running
 
     /// Export with the settings saved in the export window.
     func exportSaved(scheduled: Bool, memory: Bool? = nil) {
-        // (not one older than the newest read: that's never put over it by itself)
+        // (not one older than the newest read: that's never put over it by itself; nor one that couldn't be read)
         let zip = Archive.withFiles ? ClaudeExport.newestZip().flatMap { z in
-            ClaudeExport.modified(z).timeIntervalSince1970 >= (state.zipDoneAt ?? 0) ? z : nil
+            ClaudeExport.modified(z).timeIntervalSince1970 >= (state.zipDoneAt ?? 0) && zipKey(z) != state.zipUnreadable ? z : nil
         } : nil
         export(items(topics: Archive.topics, unplaced: Archive.withUnplaced), memory: memory ?? Archive.withMemory,
                zip: zip, force: false, scheduled: scheduled)
@@ -307,11 +407,11 @@ final class Archive {
         guard store.isRunning(id) else { return nil }
         if store.outOfSight(id) {
             return (tr("这个对话可能还在跑", "This chat may still be running"),
-                    tr("KIKUmap 上次看到时它还在跑，现在做完没有还不知道。等它做完、KIKUmap 又看得到 Claude 的对话列表时再存档。",
-                       "It was running when KIKUmap last saw it, and whether it has finished isn't known yet. Archive it once it's done and KIKUmap can see Claude's chat list again."))
+                    tr("KIKUmap 上次看到它时，它还在跑；现在做完没有，还不知道。等它做完、KIKUmap 又能看到 Claude 的对话列表时再存档。",
+                       "It was running when KIKUmap last saw it. Whether it has finished isn't known yet. Archive it once it's done and KIKUmap can see Claude's chat list again."))
         }
         return (tr("这个对话还在跑", "This chat is still running"),
-                tr("等它做完再存档：Claude 还在回复时，KIKUmap 不会打开它。", "Archive it once it's finished: KIKUmap doesn't open a chat while Claude is still replying in it."))
+                tr("等它做完再存档。Claude 还在回复时，KIKUmap 不会打开它。", "Archive it once it's done. KIKUmap doesn't open a chat while Claude is still replying in it."))
     }
 
     func cancel() { stop.set(true) }
@@ -343,6 +443,9 @@ final class Archive {
     /// couldn't write some chats' files from it (an hour, then twice as long each time, five times), those chats again;
     /// else nothing (nil).
     private func fromZip(_ z: URL) -> [Item]? {
+        // one that couldn't be read (a format KIKUmap doesn't know, a zip cut short) would fail the same way every few
+        // minutes, each time a run of its own: once is enough (a new zip, or Export, reads it again)
+        if zipKey(z) == state.zipUnreadable { return nil }
         let at = ClaudeExport.modified(z).timeIntervalSince1970
         // an older KIKUmap took another app's export (ChatGPT's) for Claude's: that's forgotten, so Claude's own applies
         if at < (state.zipDoneAt ?? 0), let done = state.zipDone, done != checkedDone, let bar = done.range(of: "|", options: .backwards) {
@@ -388,23 +491,27 @@ final class Archive {
         // when the run began (a scheduled one: just after tick() saw 10 minutes without input), so any input from here
         // on is yours, while the zip is read too, before Claude's window is touched
         let began = Date()
-        // an external or network disk that isn't connected: nothing is asked of Claude (and it's tried again later)
-        guard Archive.reachable(Archive.folder) else {
-            let why = tr("导出文件夹现在打不开（外接盘或网络盘没接上？）", "The export folder can't be reached (a disk not connected?)")
-            Archive.lastResult = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + why
-            log("\(Clock.iso()) not run · the folder can't be reached: \(Archive.folder.path)")
-            if !scheduled { Permissions.alert(why, Archive.folder.path) }
+        // (the folder can't change while a run is under way: Export says one is, before anything is saved)
+        let root = Archive.folder
+        // an external or network disk that isn't connected, a full disk, or macOS saying no: nothing is asked of Claude
+        // (and it's tried again later)
+        if let why = Archive.unreachable(root) {
+            Archive.lastResult = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + why.title
+            log("\(Clock.iso()) not run · the folder can't be reached: \(root.path)")
+            if !scheduled { Archive.say(why.title, why.text) }
             onChange?()
             return
         }
         let p = pid()
         let canDrive = self.canDrive
         if memory && !canDrive && zip == nil {
-            Permissions.alert(tr("没法写总结", "Can't write summaries"),
-                              tr("要先打开 Claude App，并开启「辅助功能」权限。", "Open the Claude app and turn on Accessibility first."))
+            Archive.say(tr("没法写总结", "Can't write summaries"),
+                        tr("要先打开 Claude App，并开启「辅助功能」权限。", "Open the Claude app and turn on Accessibility first."))
             return
         }
         busy = true
+        // (only the files, from Claude's export zip: Claude's window isn't touched, and the top bar says so)
+        summarizing = memory && canDrive
         stop.set(false)
         progress = ""
         onChange?()
@@ -417,7 +524,11 @@ final class Archive {
         let done = state.summaries.mapValues { $0.date }
         let prompt = Archive.summaryPrompt
         let stop = self.stop
-        let idle = self.idle
+        let idle = self.idle, standIn = askSummary
+        // the summaries are pasted and copied through the clipboard: a quit puts what you had copied back
+        let clip = memory && canDrive ? RunClipboard(board()) : nil
+        clipboard = clip
+        let make = driver
         log("\(Clock.iso()) export · \(list.count) chats · memory \(memory) · zip \(zip?.lastPathComponent ?? "-")\(scheduled ? " · scheduled" : "")")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             func say(_ s: String) { DispatchQueue.main.async { MainActor.assumeIsolated { self?.progress = s; self?.onChange?() } } }
@@ -426,16 +537,24 @@ final class Archive {
             var r = Report()
             // summaries asked for, but Claude can't be worked now (closed, or Accessibility off): said in the result
             r.noClaude = memory && !canDrive
+            /// Why the export folder can't take files anymore (its disk full, unplugged or read-only, macOS saying no),
+            /// after something couldn't be saved; nil: it still can, and that was the chat's own (a name the disk refuses).
+            func cantSave() -> (title: String, text: String)? {
+                DispatchQueue.main.sync { MainActor.assumeIsolated { Archive.unreachable(root) } }
+            }
             // 1. prompts, conversation and artifacts from Claude's export
             if let z = zip {
-                say(tr("读取 Claude 导出包…", "Reading the Claude export…"))
+                say(tr("正在读 Claude 的导出包…", "Reading Claude's data export…"))
                 let loaded = ClaudeExport.load(z)
                 if let all = loaded, all.claude {
                     r.zipRead = true
                     let byName = Dictionary(all.chats.values.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
                     // (those not written are tried again from this zip later)
                     var wrote: [Item] = [], missed: [Item] = []
-                    for it in list where !it.outsideClaude {
+                    let todo = list.filter { !$0.outsideClaude }
+                    for (n, it) in todo.enumerated() {
+                        // Stopped: what's written stays; the rest waits for the next export that reads this zip
+                        if stop.isSet { break }
                         if blocked.contains(it.id) {
                             r.blocked.insert(it.id); missed.append(it)
                             log("  \(it.id): " + tr("文件夹里还有另一个同名对话的东西，这次没写", "its folder still holds another chat's things (same name): not written this time"))
@@ -444,29 +563,41 @@ final class Archive {
                         // by address; by name only for a chat known by its title alone (another may share it)
                         guard let c = all.chats[it.id.lowercased()] ?? (Archive.isAddress(it.id) ? nil : byName[it.title]) else { r.notInZip += 1; continue }
                         do { try ClaudeExport.write(c, title: it.title, to: it.dir); r.files += 1; r.artifacts += c.artifacts.count; wrote.append(it) }
-                        catch { r.filesFailed += 1; missed.append(it); log("  \(it.id): " + tr("文件没写成：", "files not written: ") + Archive.reason(error)) }
+                        catch {
+                            r.filesFailed += 1; missed.append(it); log("  \(it.id): " + tr("文件没写成：", "files not written: ") + Archive.reason(error))
+                            // the folder can't take files anymore: the rest would fail the same way (they're tried again
+                            // from this zip later), and no summary could be saved either
+                            if let why = cantSave() {
+                                r.halted = why
+                                missed += todo[(n + 1)...]
+                                log(tr("  导出文件夹存不进文件了，停下：", "  the export folder can't take files anymore, stopped: ") + why.title)
+                                break
+                            }
+                        }
                     }
                     let written = wrote, left = missed
                     DispatchQueue.main.async { MainActor.assumeIsolated { self?.markZip(z, wrote: written, missed: left) } }
-                } else if loaded != nil {
-                    // another app's export (ChatGPT's has a conversations.json too): not used, and not taken as read
-                    r.notClaude = true
-                    log(tr("  不是 Claude 的导出包：", "  not Claude's export: ") + z.lastPathComponent)
                 } else {
-                    r.zipFailed = true
-                    log(tr("  导出包读不了：", "  can't read the export: ") + z.path)
+                    // another app's export (ChatGPT's has a conversations.json too): not used, and not taken as read; nor
+                    // one that can't be read. Either way it isn't read again by itself every few minutes
+                    if loaded != nil { r.notClaude = true; log(tr("  不是 Claude 的导出包：", "  not Claude's export: ") + z.lastPathComponent) }
+                    else { r.zipFailed = true; log(tr("  导出包读不了：", "  can't read the export: ") + z.path) }
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.markUnreadable(z) } }
                 }
+                // (it may have taken a minute: a disk unplugged meanwhile is found before Claude is asked anything)
+                if memory && canDrive && r.halted == nil && !stop.isSet, let why = cantSave() { r.halted = why }
             }
+            // stopped while the zip was read: the summaries aren't started (that's this time's run, as a stop among them is)
+            if memory && canDrive && r.halted == nil && stop.isSet { r.summariesRan = !force }
             // 2. the hand-off summaries, written by Claude in each chat
-            summaries: if memory && canDrive {
-                let d = ClaudeDriver(pid: p, stop: stop, log: log, since: began)
+            summaries: if memory && canDrive && r.halted == nil && !stop.isSet, let clip {
+                let d = make(p, stop, log, began, clip)
                 // a scheduled run goes while you're away: once you're back (any input since it began) it works Claude's
                 // window no more
                 d.whileAway = scheduled
                 d.idle = idle
                 // back already, while the zip was read, say: Claude's window and the clipboard aren't touched at all
                 if d.youCameBack() { r.cutShort = true; break summaries }
-                let clip = d.saveClipboard()
                 let back = d.pageTitle(), backID = d.chatID()
                 let todo = list.filter { !$0.outsideClaude }
                 var misses = 0
@@ -484,11 +615,20 @@ final class Archive {
                     }
                     say("\(n + 1)/\(todo.count) · \(it.title)")
                     log("— \(it.id)")
-                    switch d.summarize(id: it.id, title: it.title, prompt: prompt, lastCount: force ? nil : counts[it.id]) {
+                    switch standIn?(it) ?? d.summarize(id: it.id, title: it.title, prompt: prompt, lastCount: force ? nil : counts[it.id]) {
                     case .done(let text, let count):
                         misses = 0
                         let ok = DispatchQueue.main.sync { MainActor.assumeIsolated { self?.saveMemory(it, text: text, messages: count) ?? false } }
-                        if ok { r.memory += 1 } else { r.failed += 1 }
+                        if ok { r.memory += 1 } else {
+                            r.failed += 1
+                            // the folder can't take files anymore (its disk full or unplugged, say): each chat left would
+                            // get one more exchange with Claude, and quota used, for a reply that couldn't be saved
+                            if let why = cantSave() {
+                                r.halted = why
+                                log(tr("  导出文件夹存不进文件了，总结停下：", "  the export folder can't take files anymore, summaries stopped: ") + why.title)
+                                break chats
+                            }
+                        }
                     case .unchanged:
                         misses = 0; r.skipped += 1; log(tr("  没有新内容，跳过", "  nothing new, skipped"))
                         DispatchQueue.main.sync { MainActor.assumeIsolated { self?.bringSummary(it) } }
@@ -501,16 +641,26 @@ final class Archive {
                     case .away:
                         // nothing was sent there: it's done when the Mac is idle again
                         r.cutShort = true; break chats
+                    case .unsent:
+                        // stopped between pasting the request and sending it: it may be left in that chat's message box
+                        // (said in the result, by name; not in the log)
+                        r.unsent = it.title
+                        log(tr("  停在发送前：可能留在了输入框里", "  stopped before sending: may be left in the message box"))
                     }
                 }
                 if !stop.isSet { if let b = backID { _ = d.open(id: b, title: back) } else if !back.isEmpty { _ = d.open(title: back) } }
-                d.restoreClipboard(clip)
+                // (what you had copied is back after each paste and each copy already; this is for one that didn't land,
+                // read by Claude first if it was sent a moment ago)
+                clip.close()
             }
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.finish(r, list: list) } }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.finish(r, list: list, scheduled: scheduled) } }
         }
     }
 
     private struct Report {
+        /// Why the run stopped part-way: the export folder couldn't take files anymore (its disk full, unplugged or
+        /// read-only, macOS saying no). The schedule stays as it was: the next run starts once the folder takes files.
+        var halted: (title: String, text: String)?
         var files = 0, artifacts = 0, notInZip = 0, memory = 0, skipped = 0, failed = 0
         /// Chats whose files couldn't be written from the zip (a full disk, a name the disk refuses).
         var filesFailed = 0
@@ -523,6 +673,9 @@ final class Archive {
         var noClaude = false
         /// A scheduled run that stopped because you came back: it carries on when the Mac is idle again.
         var cutShort = false
+        /// Stopped between pasting the request for a summary and sending it: that chat's title (the request may be left
+        /// in its message box).
+        var unsent: String?
         /// Claude's export zip was read (its chats' files written, or tried).
         var zipRead = false
     }
@@ -534,7 +687,14 @@ final class Archive {
         state.zipDoneAt = max(state.zipDoneAt ?? 0, ClaudeExport.modified(z).timeIntervalSince1970)
         state.zipMissed = missed.map { current($0).id }
         state.zipTriedAt = Date().timeIntervalSince1970
+        if state.zipUnreadable == zipKey(z) { state.zipUnreadable = nil }
         for it in wrote.map(current) { state.files[it.id] = it.dir.path }
+        saveState()
+    }
+
+    /// A zip that couldn't be read, or isn't Claude's export: not read again by itself (see fromZip).
+    private func markUnreadable(_ z: URL) {
+        state.zipUnreadable = zipKey(z)
         saveState()
     }
 
@@ -643,15 +803,20 @@ final class Archive {
         return s[..<end.lowerBound].split(separator: "\n").first { $0.hasPrefix("id: ") }.map { String($0.dropFirst(4)) }
     }
 
-    private func finish(_ r: Report, list: [Item]) {
+    private func finish(_ r: Report, list: [Item], scheduled: Bool) {
         busy = false
+        summarizing = false
         progress = ""
-        // (a run that only read Claude's export zip, or was cut short, leaves the summaries' schedule as it was)
-        if !r.cutShort && r.summariesRan { Archive.lastRun = Date() }
+        clipboard = nil
+        // (a run that only read Claude's export zip, was cut short, or stopped as the folder couldn't take files anymore
+        // leaves the summaries' schedule as it was)
+        if !r.cutShort && r.summariesRan && r.halted == nil { Archive.lastRun = Date() }
         var parts: [String] = []
-        if r.files > 0 { parts.append(tr("\(r.files) 个对话的提示词和全文，\(r.artifacts) 个 artifact", "\(r.files) chats' prompts and text, \(r.artifacts) artifacts")) }
-        if r.filesFailed > 0 { parts.append(tr("\(r.filesFailed) 个对话的文件没写成（看 logs/archive.log）", "\(r.filesFailed) chats' files couldn't be written (see logs/archive.log)")) }
-        if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", "\(r.memory) summaries")) }
+        // (English: "1 chat", "2 chats")
+        func n(_ k: Int, _ one: String, _ many: String) -> String { k == 1 ? "1 " + one : "\(k) " + many }
+        if r.files > 0 { parts.append(tr("\(r.files) 个对话的提示词和全文，\(r.artifacts) 个 artifact", "prompts and full text of \(n(r.files, "chat", "chats")), \(n(r.artifacts, "artifact", "artifacts"))")) }
+        if r.filesFailed > 0 { parts.append(tr("\(r.filesFailed) 个对话的文件没写成（看 logs/archive.log）", "files of \(n(r.filesFailed, "chat", "chats")) couldn't be saved (see logs/archive.log)")) }
+        if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", n(r.memory, "summary", "summaries"))) }
         if r.noClaude { parts.append(tr("总结没写：Claude App 没打开，或「辅助功能」关着", "summaries not written: the Claude app isn't open, or Accessibility is off")) }
         if r.skipped > 0 { parts.append(tr("\(r.skipped) 个跳过（没变化、未读或在跑）", "\(r.skipped) skipped (unchanged, unread or running)")) }
         if !r.blocked.isEmpty { parts.append(tr("\(r.blocked.count) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked.count) not written (their folder still holds another chat's things)")) }
@@ -659,18 +824,25 @@ final class Archive {
         if r.zipRead && (r.filesFailed > 0 || !r.blocked.isEmpty) && state.zipTries > Archive.zipRetries {
             parts.append(tr("这些不再单独重试；下次导出或有新的导出包时再试", "these aren't retried on their own any more: the next export, or a new export zip, tries them again"))
         }
-        if r.notInZip > 0 { parts.append(tr("\(r.notInZip) 个不在导出包里（导出包比对话旧？）", "\(r.notInZip) not in the export zip (older than the chat?)")) }
+        if r.notInZip > 0 { parts.append(tr("\(r.notInZip) 个不在导出包里（导出包比对话旧？）", "\(r.notInZip) not in the export zip (is the zip older than the chat?)")) }
         if r.failed > 0 { parts.append(tr("\(r.failed) 个失败（看 logs/archive.log）", "\(r.failed) failed (see logs/archive.log)")) }
-        if r.zipFailed { parts.append(tr("导出包读不了", "couldn't read the export zip")) }
+        if r.zipFailed { parts.append(tr("导出包读不了（不会自己再试；点「导出」再试，或下载新的导出包）", "couldn't read the export zip (it isn't tried again by itself: click Export to try again, or download a new export)")) }
         if r.notClaude { parts.append(tr("这个 zip 不是 Claude 的官方导出包，没用它", "that zip isn't Claude's data export, so it wasn't used")) }
-        if r.unreadable { parts.append(tr("认不出 Claude 的对话页面，已停下（Claude 更新了？）", "stopped: Claude's chat page couldn't be read (Claude updated?)")) }
-        if r.cutShort { parts.append(tr("你回来了，先停下；Mac 再空闲时接着做", "paused as you came back; carries on when the Mac is idle again")) }
+        if r.unreadable { parts.append(tr("认不出 Claude 的对话页面，已停下（Claude 更新了？）", "stopped: Claude's chat page couldn't be read (was Claude updated?)")) }
+        if let h = r.halted { parts.append(tr(h.title + "，已停下", "stopped: " + h.title.prefix(1).lowercased() + h.title.dropFirst())) }
+        if r.cutShort { parts.append(tr("你回来了，先停下；Mac 再空闲时接着做", "paused as you came back; it goes on when the Mac is idle again")) }
         if stop.isSet { parts.append(tr("中途停止", "stopped")) }
         let s = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + (parts.isEmpty ? tr("没有要更新的", "nothing to update") : parts.joined(separator: " · "))
-        Archive.lastResult = s
+        // (a request left in a chat's message box: said to you by the chat's name, which stays out of the log)
+        Archive.lastResult = s + (r.unsent.map { " · " + tr("「\($0)」的输入框里可能还留着没发出的总结请求，在 Claude 里清掉它",
+                                                         "the request for a summary may still be in the message box of \"\($0)\", unsent: clear it in Claude") } ?? "")
         log("\(Clock.iso()) end · \(s)")
         writeIndex(list)
         onChange?()
+        // (one you started: said, with what to do; a scheduled one says it in its result)
+        if let h = r.halted, !scheduled {
+            Archive.say(h.title, h.text + "\n\n" + tr("导出到这里停下了，剩下的这次没有做。", "The export stopped there: what was left wasn't done this time."))
+        }
     }
 
     // MARK: files
@@ -777,7 +949,7 @@ final class Archive {
         guard !all.isEmpty else { return }
         var s = "# " + tr("Claude 导出", "Claude Export") + "\n\n"
         s += tr("更新于 ", "Updated ") + Clock.format(Date(), "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm")
-        s += tr(" · \(all.count) 个对话", " · \(all.count) chats") + "\n"
+        s += tr(" · \(all.count) 个对话", all.count == 1 ? " · 1 chat" : " · \(all.count) chats") + "\n"
         var group = ""
         for it in all {
             let rel = String(it.dir.path.dropFirst(root.path.count + 1))
@@ -787,7 +959,7 @@ final class Archive {
             if fm.fileExists(atPath: it.dir.appendingPathComponent("memory.md").path) { has.append("memory") }
             if fm.fileExists(atPath: it.dir.appendingPathComponent("prompts.md").path) { has.append(tr("提示词", "prompts")) }
             let arts = (try? fm.contentsOfDirectory(atPath: it.dir.appendingPathComponent("artifacts").path))?.count ?? 0
-            if arts > 0 { has.append("\(arts) artifacts") }
+            if arts > 0 { has.append(tr("\(arts) 个 artifact", arts == 1 ? "1 artifact" : "\(arts) artifacts")) }
             s += "- [\(store.name(it.id))](<\(rel)/>) · " + has.joined(separator: " · ") + "\n"
         }
         // only files KIKUmap wrote are written over: someone's own Index.md or map.json in that folder stays
@@ -879,12 +1051,34 @@ final class Archive {
 
     struct Note { let url: URL; let id: String; let title: String; let body: String; let files: [URL]; var left = 0 }
 
-    /// The summaries under a folder (memory.md files, or older single .md files with front matter that
-    /// has an id), each with the artifacts next to it.
+    /// An id of the shape KIKUmap gives Claude's chats: an address, or a title-only "n-…" one.
+    nonisolated static func isChatID(_ id: String) -> Bool { isAddress(id) || id.range(of: "^n-[0-9a-f]{8}$", options: .regularExpression) != nil }
+
+    /// A file among a chat's own files from Claude's export, its artifacts or attachments (a Markdown artifact may have
+    /// front matter of its own, a Docusaurus page's or a note's): never a summary. Looked for from the file up to `root`,
+    /// the folder picked (itself a chat's artifacts folder, maybe). A topic that happens to be called "artifacts" holds
+    /// chats' folders, not a chat's files.
+    nonisolated static func inChatFiles(_ url: URL, under root: URL) -> Bool {
+        let fm = FileManager.default, top = root.resolvingSymlinksInPath().path
+        let inside = top.hasSuffix("/") ? top : top + "/"
+        var dir = url.deletingLastPathComponent().resolvingSymlinksInPath()
+        while dir.path == top || dir.path.hasPrefix(inside) {
+            let parent = dir.deletingLastPathComponent()
+            if ["artifacts", "attachments"].contains(dir.lastPathComponent),
+               ["memory.md", "prompts.md", "conversation.md"].contains(where: { fm.fileExists(atPath: parent.appendingPathComponent($0).path) }) { return true }
+            if dir.path == top { break }
+            dir = parent
+        }
+        return false
+    }
+
+    /// The summaries under a folder: memory.md files, or the single .md files older versions wrote in their place, each
+    /// with the artifacts next to it. Only KIKUmap's own: front matter with a chat's id of KIKUmap's shape, a title and
+    /// when it was summarized, and not among a chat's artifacts or attachments.
     nonisolated static func notes(in folder: URL) -> [Note] {
         let fm = FileManager.default
         let all = fm.enumerator(at: folder, includingPropertiesForKeys: nil)?.compactMap { $0 as? URL } ?? []
-        let found = all.filter { $0.pathExtension == "md" && !["prompts.md", "conversation.md"].contains($0.lastPathComponent) }.compactMap { url -> (note: Note, at: String)? in
+        let found = all.filter { $0.pathExtension == "md" && !["prompts.md", "conversation.md"].contains($0.lastPathComponent) && !inChatFiles($0, under: folder) }.compactMap { url -> (note: Note, at: String)? in
             guard let s = try? String(contentsOf: url, encoding: .utf8), s.hasPrefix("---\n"),
                   let end = s.range(of: "\n---\n", range: s.index(s.startIndex, offsetBy: 4)..<s.endIndex) else { return nil }
             var id = "", title = "", at = ""
@@ -899,7 +1093,7 @@ final class Archive {
                     title = t
                 }
             }
-            guard !id.isEmpty, !title.isEmpty else { return nil }
+            guard isChatID(id), !title.isEmpty, !at.isEmpty else { return nil }
             var files: [URL] = [], left = 0
             if url.lastPathComponent == "memory.md" {
                 // Claude takes 20 files with a message: the summary and 19 of the chat's (under 5 MB); the rest are said
@@ -920,30 +1114,53 @@ final class Archive {
 
     func alreadyImported(_ n: Note) -> Bool { state.imported[n.id] != nil }
 
+    /// Starts one chat in Claude for Import (a test stands in for it: there's no Claude to work here).
+    var starter: (ClaudeDriver, String, [URL], String) -> ClaudeDriver.Start = { d, text, files, title in d.startChat(with: text, files: files, title: title) }
+    /// What a run works Claude's window through: pid, Stop, log, when the run began, the clipboard (a test stands in for
+    /// Claude's window).
+    var driver: (pid_t, StopFlag, @escaping (String) -> Void, Date, RunClipboard) -> ClaudeDriver = {
+        ClaudeDriver(pid: $0, stop: $1, log: $2, since: $3, clip: $4)
+    }
+    /// What an import tells you at its end (a test stands in for the alert).
+    var tell: (String, String) -> Void = { Permissions.alert($0, $1) }
+    /// The clipboard a run pastes and copies through (a test stands in for the Mac's: the checks run with none).
+    var board: () -> RunBoard = { SystemBoard() }
+
+    /// The message a chat Import starts is sent with: what the attached summary and files are, and how many of the
+    /// chat's files stayed behind (`left`).
+    nonisolated static func importMessage(file name: String, title: String, withFiles: Bool, left: Int) -> String {
+        let rest = left <= 0 ? "" : tr("（另有 \(left) 个文件没附上，在导出文件夹里）",
+                                       left == 1 ? " (1 more file wasn't attached; it's in the export folder)" : " (\(left) more files weren't attached; they're in the export folder)")
+        return tr("【接续之前的对话】附件「\(name)」是我之前一个对话的交接总结（原标题：\(title)）\(withFiles ? "；其他附件是那个对话里做出的文件" : "")\(rest)。请先读完，用两三句话确认你理解的目标、进度和下一步，然后等我继续。从现在起就当作是同一个对话。",
+                  "[Continuing an earlier chat] The attached \(name) is the hand-off summary of a previous conversation (titled \"\(title)\")\(withFiles ? "; the other attachments are the files made in it" : "")\(rest). Read it, confirm in two or three sentences the goal, where things stand and the next step, then wait for me. From now on, treat this as the same conversation.")
+    }
+
     /// For each note: a new chat in the account that's signed in now, with the artifacts attached and
     /// the summary sent in, then pinned and given the old name. On the map it takes the old chat's place.
     func importNotes(_ notes: [Note]) {
         guard !busy, !notes.isEmpty else { return }
         let p = pid()
-        guard p != 0, AXIsProcessTrusted() else {
-            Permissions.alert(tr("没法导入", "Can't import"),
-                              tr("要先打开 Claude App，并开启「辅助功能」权限。", "Open the Claude app and turn on Accessibility first."))
+        guard p != 0, trusted() else {
+            tell(tr("没法导入", "Can't import"), tr("要先打开 Claude App，并开启「辅助功能」权限。", "Open the Claude app and turn on Accessibility first."))
             return
         }
         busy = true
         importing = true
         stop.set(false)
+        let clip = RunClipboard(board())
+        clipboard = clip
         onChange?()
-        let stop = self.stop
+        let stop = self.stop, start = starter, make = driver, began = Date()
         log("\(Clock.iso()) import · \(notes.count) notes")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let d = ClaudeDriver(pid: p, stop: stop) { line in
+            let d = make(p, stop, { line in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.log(line) } }
-            }
-            let clip = d.saveClipboard()
+            }, began, clip)
             var done = 0
             var failed: [String] = []
             var halted: String?
+            // made, but not pinned or renamed (no reply in time, stopped, Claude's menu not found): yours to finish
+            var byHand: [(title: String, made: ClaudeDriver.Made)] = []
             for (n, note) in notes.enumerated() {
                 if stop.isSet { break }
                 DispatchQueue.main.async { MainActor.assumeIsolated {
@@ -953,56 +1170,254 @@ final class Archive {
                 d.log("— \(note.id)")
                 // the summary goes as a file (Claude reads it whole; pasted, a long one would become an attachment
                 // anyway), the files made in that chat beside it, and a short message saying what they are
-                let name = note.url.lastPathComponent
                 // Claude takes at most 20 files with a message: the summary and 19 of the chat's files; the rest are said
                 let files = Array(note.files.prefix(19)), left = note.left + note.files.count - files.count
-                let rest = left > 0 ? tr("（另有 \(left) 个文件没附上，在导出文件夹里）", " (\(left) more files weren't attached; they're in the export folder)") : ""
-                let text = tr("【接续之前的对话】附件「\(name)」是我之前一个对话的交接总结（原标题：\(note.title)）\(files.isEmpty ? "" : "；其他附件是那个对话里做出的文件")\(rest)。请先读完，用两三句话确认你理解的目标、进度和下一步，然后等我继续。从现在起就当作是同一个对话。",
-                              "[Continuing an earlier chat] The attached \(name) is the hand-off summary of a previous conversation (titled \"\(note.title)\")\(files.isEmpty ? "" : "; the other attachments are the files made in it")\(rest). Read it, confirm in two or three sentences the goal, where things stand and the next step, then wait for me. From now on, treat this as the same conversation.")
-                switch d.startChat(with: text, files: [note.url] + files, title: note.title) {
-                case .made(let newID):
+                let text = Archive.importMessage(file: note.url.lastPathComponent, title: note.title, withFiles: !files.isEmpty, left: left)
+                switch start(d, text, [note.url] + files, note.title) {
+                case .made(let m):
                     done += 1
-                    DispatchQueue.main.sync { MainActor.assumeIsolated { self?.adopt(old: note.id, new: newID, title: note.title) } }
+                    if !(m.pinned && m.renamed) { byHand.append((note.title, m)) }
+                    DispatchQueue.main.sync { MainActor.assumeIsolated { self?.adopt(old: note.id, made: m, title: note.title) } }
                 case .failed:
                     failed.append(note.title)
                 case .leftOver:
-                    // what was put in Claude's message box may still be there: the next chat would send it along
-                    failed.append(note.title)
-                    halted = tr("已停下：Claude 的输入框里可能还留着「\(note.title)」的总结和文件，清掉再导入", "stopped: Claude's message box may still hold \"\(note.title)\"'s summary and files; clear it, then import again")
+                    // what was put in Claude's message box may still be there, unsent: the next chat would send it
+                    // along (stopped: that's why, nothing failed)
+                    if !stop.isSet { failed.append(note.title) }
+                    halted = tr("已停下：Claude 的输入框里可能还留着「\(note.title)」的总结和文件，清空后再导入", "stopped: Claude's message box may still hold the summary and files of \"\(note.title)\"; clear it, then import again")
                 case .notEmpty:
-                    halted = tr("没开始：Claude 新对话的输入框里有东西（草稿？），清掉再导入", "not started: Claude's new-chat box isn't empty (a draft?); clear it, then import again")
+                    halted = tr("没开始：Claude 新对话的输入框里有东西（草稿？），清空后再导入", "not started: the message box of Claude's new chat isn't empty (a draft?); clear it, then import again")
+                case .unconfirmed:
+                    // sent, but which chat it made isn't known: not recorded, so importing it again could make it twice
+                    halted = tr("已停下：「\(note.title)」已经点了发送，但没看到新对话，所以没记成已导入；重新导入前，先在 Claude 里找找它",
+                                "stopped: Send was pressed for \"\(note.title)\", but its new chat wasn't seen, so it isn't recorded as imported; look for it in Claude before importing again")
+                case .stopped:
+                    // (nothing was put in Claude's message box: the loop ends here)
+                    break
                 }
                 if halted != nil { break }
             }
-            d.restoreClipboard(clip)
-            let why = halted
+            // (a paste sent a moment ago, before a stop, is read by Claude before what you had goes back)
+            clip.close()
+            let said = Archive.importResult(done: done, failed: failed.count, byHand: byHand, stopped: stop.isSet, halted: halted)
             DispatchQueue.main.async { MainActor.assumeIsolated {
                 guard let self = self else { return }
                 self.busy = false; self.importing = false
                 self.progress = ""
-                var s = tr("导入了 \(done) 个", "\(done) imported")
-                if !failed.isEmpty { s += tr(" · \(failed.count) 个失败（看 logs/archive.log）", " · \(failed.count) failed (see logs/archive.log)") }
-                if stop.isSet { s += tr(" · 中途停止", " · stopped") }
-                // (why it stopped names the chat: that's said to you; the log has the step that failed, by id, above)
-                self.log("\(Clock.iso()) import end · \(s)\(why == nil ? "" : tr(" · 停下了", " · halted"))")
-                if let w = why {
-                    s += " · " + w
-                    Permissions.alert(tr("导入停下了", "Import stopped"), w)
-                }
-                Archive.lastResult = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + s
+                self.clipboard = nil
+                // (the chats it names are said to you; the log has the step that failed, by id, above)
+                self.log("\(Clock.iso()) import end · \(said.log)")
+                Archive.lastResult = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + said.result
                 self.onChange?()
+                // (quitting: it's in the result, said in Settings → Export next time)
+                if let a = said.alert, !self.quitting { self.tell(a.title, a.text) }
             } }
         }
     }
 
-    private func adopt(old: String, new: String, title: String) {
-        state.imported[old] = new
-        if let r = state.summaries[old] { state.summaries[new] = r }
+    /// What an import says at its end: in the log (no chat titles), as its result, and in an alert when something needs
+    /// you (something may be left in Claude's message box, a chat sent but not seen, or chats to pin or rename by hand).
+    nonisolated static func importResult(done: Int, failed: Int, byHand: [(title: String, made: ClaudeDriver.Made)], stopped: Bool,
+                                         halted: String?) -> (log: String, result: String, alert: (title: String, text: String)?) {
+        var s = tr("导入了 \(done) 个", "\(done) imported")
+        if !byHand.isEmpty { s += tr(" · \(byHand.count) 个要在 Claude 里手动置顶或改名", " · \(byHand.count) to pin or rename in Claude by hand") }
+        if failed > 0 { s += tr(" · \(failed) 个失败（看 logs/archive.log）", " · \(failed) failed (see logs/archive.log)") }
+        let stop = stopped ? tr(" · 中途停止", " · stopped") : ""
+        let log = s + stop + (halted == nil ? "" : tr(" · 停下了", " · halted"))
+        let lines = byHand.map { e -> String in
+            let t = e.title, m = e.made
+            let what = !m.replied ? tr("没等到回复，没置顶、没改名", "no reply yet, so not pinned or renamed")
+                : !m.pinned && !m.renamed ? tr("没置顶、没改名", "not pinned or renamed") : !m.pinned ? tr("没置顶", "not pinned") : tr("没改名", "not renamed")
+            // the name Claude shows it by, to find it there (none yet: Claude names a chat after its first reply)
+            let shown = m.renamed || m.shown.isEmpty || m.shown == t || ClaudeWords.untitled.contains(m.shown) ? ""
+                : tr("（在 Claude 里叫「\(m.shown)」）", " (in Claude as \"\(m.shown)\")")
+            return tr("「\(t)」：", "\"\(t)\": ") + what + shown
+        }
+        // (a halt says it stopped, and why)
+        let result = s + (halted.map { " · " + $0 } ?? stop) + lines.map { " · " + $0 }.joined()
+        var parts: [String] = []
+        if let h = halted { parts.append(h) }
+        if !lines.isEmpty {
+            parts.append(tr("这些对话已经在 Claude 里开好，总结也发进去了，但 KIKUmap 没能做完（Claude 没及时回复、导入被停下，或找不到 Claude 的菜单）。请在 Claude 里手动补上：",
+                            "These chats were started in Claude and their summaries sent, but KIKUmap couldn't finish them (Claude didn't reply in time, the import was stopped, or Claude's menu wasn't found). Finish them in Claude by hand:")
+                         + "\n\n" + lines.joined(separator: "\n"))
+        }
+        let alert = parts.isEmpty ? nil : (title: halted != nil ? tr("导入停下了", "Import stopped") : tr("有对话要手动置顶或改名", "Pin or rename by hand"),
+                                           text: parts.joined(separator: "\n\n"))
+        return (log, result, alert)
+    }
+
+    /// The new chat takes the old one's place, as Claude shows it: pinned only if pinning worked, and with the old name
+    /// only if renaming did (else Claude's own, until Claude has named it).
+    private func adopt(old: String, made m: ClaudeDriver.Made, title: String) {
+        state.imported[old] = m.id
+        if let r = state.summaries[old] { state.summaries[m.id] = r }
         saveState()
-        store.addImported(id: new, title: title)
-        if store.map.placedChats().contains(old) { store.map.renameChat(old, to: new) }
+        let named = !m.renamed && !m.shown.isEmpty && !ClaudeWords.untitled.contains(m.shown)
+        store.addImported(id: m.id, title: named ? m.shown : title, pinned: m.pinned)
+        if store.map.placedChats().contains(old) { store.map.renameChat(old, to: m.id) }
         store.notify()
     }
+
+    // MARK: quitting during a run
+
+    /// The run under way pastes and copies through this (summaries, or an import): a quit puts what you had copied back.
+    private(set) var clipboard: RunClipboard?
+    /// KIKUmap is quitting: a run's alerts wait (its result is kept, and shown in Settings → Export).
+    private(set) var quitting = false
+    private var quitDone: [() -> Void] = []
+    /// How long a quit waits for the run to stop by itself, before what you had copied is put back from here.
+    static var quitWait: TimeInterval = 3
+
+    /// A run that may have your clipboard (summaries, or an import): the quit waits for it.
+    var holdsClipboard: Bool { busy && clipboard != nil }
+
+    /// Quitting while a run pastes through the clipboard: it's stopped, and `done` once what you had copied is back (it
+    /// puts that back itself when it ends; one stuck in a step has it put back from here after a few seconds, and pastes
+    /// nothing more).
+    func stopForQuit(_ done: @escaping () -> Void) {
+        quitting = true
+        stop.set(true)
+        quitDone.append(done)
+        // (asked again while it waits: one wait answers both)
+        guard quitDone.count == 1 else { return }
+        let until = Date().addingTimeInterval(Archive.quitWait)
+        func check() {
+            guard !busy || Date() >= until else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { check() } }
+                return
+            }
+            closeClipboard()
+            let all = quitDone
+            quitDone = []
+            all.forEach { $0() }
+        }
+        check()
+    }
+
+    /// What you had copied, back on the clipboard, and nothing more pasted by the run (KIKUmap is quitting).
+    func closeClipboard() { clipboard?.close() }
+}
+
+/// logs/archive.log as versions up to 1.0.8 left it: they named chats in it, and the folders named after them and
+/// their topics. Once, at launch, archive.log and archive.1.log keep only the lines in a shape KIKUmap writes now (ids,
+/// counts and fixed words, the export folder and a zip's name); every other line goes, and a last line says how many.
+enum ArchiveLog {
+    static let doneKey = "ArchiveLogClean"
+
+    static func forgetOld(in logs: URL) {
+        let d = UserDefaults.standard, fm = FileManager.default
+        guard !d.bool(forKey: doneKey) else { return }
+        var done = true
+        for f in ["archive.log", "archive.1.log"] {
+            let url = logs.appendingPathComponent(f)
+            guard fm.fileExists(atPath: url.path) else { continue }
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                // (not text: nothing in it can be told apart, so it all goes)
+                if (try? fm.removeItem(at: url)) == nil { done = false }
+                continue
+            }
+            var lines = text.components(separatedBy: "\n")
+            if lines.last == "" { lines.removeLast() }
+            let kept = lines.filter { $0.isEmpty || clean($0) }
+            guard kept.count < lines.count else { continue }
+            let n = lines.count - kept.count
+            let note = "\(Clock.iso()) cleanup · \(n) earlier line\(n == 1 ? "" : "s") removed (they could name chats)"
+            do { try (kept + [note]).map { $0 + "\n" }.joined().write(to: url, atomically: true, encoding: .utf8) } catch { done = false }
+        }
+        if done { d.set(true, forKey: doneKey) }
+    }
+
+    /// A line in a shape KIKUmap writes to this log now.
+    static func clean(_ line: String) -> Bool {
+        let ns = line as NSString
+        if lineRx.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)) != nil { return true }
+        // the end of a run: its result, part by part
+        guard let m = endRx.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)) else { return false }
+        return ns.substring(with: m.range(at: 1)).components(separatedBy: " · ").allSatisfy { p in
+            partRx.firstMatch(in: p, range: NSRange(location: 0, length: (p as NSString).length)) != nil
+        }
+    }
+
+    /// `§N§` a count, `§ID§` a chat's id, `§T§` when, and so on; the rest is the fixed words, in either language.
+    private static func pattern(_ shapes: [String]) -> NSRegularExpression {
+        let slots: [(String, String)] = [
+            ("§T§", #"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"#),
+            ("§ID§", #"(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|n-[0-9a-f]{8})"#),
+            ("§N§", #"\d+"#), ("§S§", "s?"), ("§B§", "(?:true|false)"), ("§L§", "[A-Z]"),
+            // the day and time a result was dated ("10/5 14:03", "Oct 5 14:03")
+            ("§W§", #"(?:\d{1,2}/\d{1,2}|[A-Z][a-z]{2} \d{1,2}) \d{2}:\d{2}"#),
+            // a zip's name; a zip's path; the export folder's path (none of these named after a chat)
+            ("§ZIP§", #"[^/\n]+(?i:\.zip)"#), ("§ZIPPATH§", #"/[^\n]*(?i:\.zip)"#), ("§PATH§", #"/[^\n]*"#),
+            // a file error in fixed words (see Archive.reason)
+            ("§R§", "(?:" + alt(["the disk is full", "the disk is read-only", "no permission to write there", "a name the disk refuses",
+                                 "something else is in the way", "the folder isn't there", "磁盘满了", "磁盘只读", "没有写入权限",
+                                 "磁盘不接受这个名字", "那里已经有别的东西", "文件夹不在了"]) + " · )?"
+                    + #"[A-Za-z][\w.]* -?\d+(?: · [A-Za-z][\w.]* -?\d+)?"#),
+            // why a chat's summary wasn't written (see ClaudeDriver.summarize)
+            ("§F§", alt(["couldn't open the chat", "the chat isn't available (deleted, or in another account?)", "the chat didn't load",
+                         "couldn't find the messages (Claude's window changed?)", "still running: next time",
+                         "there's an unsent draft in the message box: left alone", "another chat is open now", "couldn't find the message box",
+                         "couldn't send", "stopped", "no reply in time", "couldn't copy the reply",
+                         "打不开这个对话", "这个对话打不开了（删了，或在别的账号里？）", "对话内容没加载出来", "找不到对话内容（Claude 的界面变了？）",
+                         "正在跑，下次再存", "输入框里有你还没发的草稿，没动它", "打开的已经不是这个对话", "找不到输入框", "发不出去", "停止了",
+                         "等回复超时", "复制不到回复"])),
+        ]
+        let rx = "^(?:" + shapes.map { s -> String in
+            var p = NSRegularExpression.escapedPattern(for: s)
+            for (slot, sub) in slots { p = p.replacingOccurrences(of: slot, with: sub) }
+            return p
+        }.joined(separator: "|") + ")$"
+        return try! NSRegularExpression(pattern: rx)
+    }
+
+    private static func alt(_ words: [String]) -> String { "(?:" + words.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|") + ")" }
+
+    private static let lineRx = pattern([
+        "§T§ not run · the folder can't be reached: §PATH§",
+        "§T§ export · §N§ chats · memory §B§ · zip -", "§T§ export · §N§ chats · memory §B§ · zip §ZIP§",
+        "§T§ export · §N§ chats · memory §B§ · zip - · scheduled", "§T§ export · §N§ chats · memory §B§ · zip §ZIP§ · scheduled",
+        "§T§ import · §N§ notes",
+        "§T§ cleanup · §N§ earlier line§S§ removed (they could name chats)",
+        "— §ID§",
+        "  §ID§: its folder still holds another chat's things (same name): not written this time",
+        "  §ID§: its folder still holds another chat's things (same name): skipped this time",
+        "  §ID§: its folder followed it", "  §ID§: summary brought along to its folder now",
+        "  §ID§: this folder still holds another chat's summary (same name), not written", "  §ID§: memory.md saved",
+        "  §ID§: files not written: §R§", "  §ID§: couldn't bring its summary along: §R§", "  §ID§: couldn't write the file: §R§",
+        "  §ID§: 文件夹里还有另一个同名对话的东西，这次没写", "  §ID§: 文件夹里还有另一个同名对话的东西，这次跳过", "  §ID§: 文件夹跟过去了",
+        "  §ID§: 总结已带到它现在的文件夹", "  §ID§: 这个文件夹里还是另一个同名对话的总结，没写", "  §ID§: 已存 memory.md",
+        "  §ID§: 文件没写成：§R§", "  §ID§: 总结没能带过去：§R§", "  §ID§: 写文件失败：§R§",
+        "  nothing new, skipped", "  couldn't start a new chat", "  the new chat's box isn't empty", "  the files weren't attached",
+        "  attached §N§ file§S§", "  couldn't find the message box", "  couldn't send", "  the new chat has no address",
+        "  no reply in time (the chat was made: §ID§)", "  stopped before Claude replied (the chat was made: §ID§)",
+        "  stopped before sending: may be left in the message box", "  couldn't pin it", "  couldn't rename it: it keeps the name Claude gave it",
+        "  imported → §ID§", "  the Copy button did nothing: plain text instead", "  couldn't read the keyboard layout: ⌘§L§ not pressed",
+        "  failed: §F§", "  not Claude's export: §ZIP§", "  can't read the export: §ZIPPATH§",
+        "  没有新内容，跳过", "  开不了新对话", "  新对话的输入框里有东西", "  文件没附上", "  附上 §N§ 个文件", "  找不到输入框", "  发不出去",
+        "  新对话没有地址", "  等回复超时（对话已建好：§ID§）", "  停下了，Claude 还没回复（对话已建好：§ID§）", "  停在发送前：可能留在了输入框里",
+        "  置顶失败", "  改名失败，还是 Claude 起的名字", "  已导入 → §ID§",
+        "  Copy 按钮没反应，改用纯文本", "  键盘布局读不了，没按 ⌘§L§", "  失败：§F§", "  不是 Claude 的导出包：§ZIP§", "  导出包读不了：§ZIPPATH§",
+    ])
+    /// A run's last line: an export's ("end · <when> · …"), an import's ("import end · …").
+    private static let endRx = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z (?:import )?end · (.+)$"#)
+    private static let partRx = pattern([
+        "§W§", "nothing to update", "没有要更新的",
+        "prompts and full text of §N§ chat§S§, §N§ artifact§S§", "§N§ 个对话的提示词和全文，§N§ 个 artifact",
+        "files of §N§ chat§S§ couldn't be saved (see logs/archive.log)", "§N§ 个对话的文件没写成（看 logs/archive.log）",
+        "§N§ summary", "§N§ summaries", "§N§ 份总结",
+        "summaries not written: the Claude app isn't open, or Accessibility is off", "总结没写：Claude App 没打开，或「辅助功能」关着",
+        "§N§ skipped (unchanged, unread or running)", "§N§ 个跳过（没变化、未读或在跑）",
+        "§N§ not written (their folder still holds another chat's things)", "§N§ 个没写（文件夹里还有另一个同名对话的东西）",
+        "these aren't retried on their own any more: the next export, or a new export zip, tries them again", "这些不再单独重试；下次导出或有新的导出包时再试",
+        "§N§ not in the export zip (is the zip older than the chat?)", "§N§ 个不在导出包里（导出包比对话旧？）",
+        "§N§ failed (see logs/archive.log)", "§N§ 个失败（看 logs/archive.log）",
+        "couldn't read the export zip", "导出包读不了", "that zip isn't Claude's data export, so it wasn't used", "这个 zip 不是 Claude 的官方导出包，没用它",
+        "stopped: Claude's chat page couldn't be read (was Claude updated?)", "认不出 Claude 的对话页面，已停下（Claude 更新了？）",
+        "paused as you came back; it goes on when the Mac is idle again", "你回来了，先停下；Mac 再空闲时接着做",
+        "stopped", "中途停止", "§N§ imported", "导入了 §N§ 个", "halted", "停下了",
+        "§N§ to pin or rename in Claude by hand", "§N§ 个要在 Claude 里手动置顶或改名",
+    ])
 }
 
 /// A stop button the background run can check.
@@ -1040,15 +1455,19 @@ enum ClaudeWords {
 }
 
 /// Works the Claude app's chat page through Accessibility: open a chat, type, send, wait, copy the
-/// reply. Every call blocks — run it off the main thread.
-final class ClaudeDriver: @unchecked Sendable {
+/// reply. Every call blocks — run it off the main thread. Once stopped (Stop, or KIKUmap quitting) it pastes and sends
+/// nothing more. (Not final: a test stands in for Claude's window.)
+class ClaudeDriver: @unchecked Sendable {
     /// `unreadable`: Claude's chat page isn't one the driver knows how to read (no use trying the next chat).
     /// `away`: you came back during a run while you're away, so nothing was sent.
-    enum Result { case done(String, Int), unchanged, failed(String), unreadable(String), away }
+    /// `unsent`: stopped after the request was pasted, before it was sent: it may be left in the chat's message box.
+    enum Result { case done(String, Int), unchanged, failed(String), unreadable(String), away, unsent }
 
     let pid: pid_t
     let stop: StopFlag
     let log: (String) -> Void
+    /// What it pastes and copies through: what you had copied goes back as soon as each has landed.
+    let clip: RunClipboard
     private let app: AXUIElement
     /// A run while you're away (the scheduled one): once you've touched the keyboard or mouse, it opens, brings
     /// forward and pastes nothing more.
@@ -1058,12 +1477,16 @@ final class ClaudeDriver: @unchecked Sendable {
     private(set) var cameBack = false
     /// When its own last keys went (any input after that is yours); before its first, when the run began.
     private var lastStep: Date
+    /// Something was pasted into the message box for the chat under way (summarize, startChat): stopped before Send, it
+    /// may be left there.
+    private(set) var pasted = false
 
     /// `since`: when the run began, so input before the driver's first step (while the zip was read) counts too.
-    init(pid: pid_t, stop: StopFlag, log: @escaping (String) -> Void, since: Date = Date()) {
+    init(pid: pid_t, stop: StopFlag, log: @escaping (String) -> Void, since: Date = Date(), clip: RunClipboard = RunClipboard()) {
         self.pid = pid
         self.stop = stop
         self.log = log
+        self.clip = clip
         lastStep = since
         app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 3.0)
@@ -1079,8 +1502,11 @@ final class ClaudeDriver: @unchecked Sendable {
     // MARK: one chat
 
     func summarize(id: String, title: String, prompt: String, lastCount: Int?) -> Result {
-        guard open(id: id, title: title) else { return cameBack ? .away : .failed(tr("打不开这个对话", "couldn't open the chat")) }
+        pasted = false
+        let stopped = Result.failed(tr("停止了", "stopped"))
+        guard open(id: id, title: title) else { return cameBack ? .away : stop.isSet ? stopped : .failed(tr("打不开这个对话", "couldn't open the chat")) }
         guard wait(12, { self.lastMessage() != nil }) else {
+            if stop.isSet { return stopped }
             // (Claude moved on to a new chat: this one isn't there any more, or is in another account)
             if Archive.isAddress(id) && chatID() != id { return .failed(tr("这个对话打不开了（删了，或在别的账号里？）", "the chat isn't available (deleted, or in another account?)")) }
             return messagesFound() ? .failed(tr("对话内容没加载出来", "the chat didn't load"))
@@ -1093,43 +1519,86 @@ final class ClaudeDriver: @unchecked Sendable {
         if hasDraft() { return .failed(tr("输入框里有你还没发的草稿，没动它", "there's an unsent draft in the message box: left alone")) }
         // still this chat (another may have been opened meanwhile): the message goes nowhere else
         if Archive.isAddress(id) && chatID() != id { return .failed(tr("打开的已经不是这个对话", "another chat is open now")) }
-        guard type(prompt) else { return cameBack ? .away : .failed(tr("找不到输入框", "couldn't find the message box")) }
+        // stopped: nothing more is pasted, nor sent (a request already pasted may stay in the box: that's said)
+        guard !stop.isSet, type(prompt) else { return cameBack ? .away : stop.isSet ? (pasted ? .unsent : stopped) : .failed(tr("找不到输入框", "couldn't find the message box")) }
+        guard !stop.isSet else { return .unsent }
         guard send() else { return .failed(tr("发不出去", "couldn't send")) }
-        guard waitReply(after: before) else { return .failed(stop.isSet ? tr("停止了", "stopped") : tr("等回复超时", "no reply in time")) }
+        guard waitReply(after: before) else { return stop.isSet ? stopped : .failed(tr("等回复超时", "no reply in time")) }
         // still this chat (you may have opened another meanwhile): another chat's reply isn't this one's summary
         if Archive.isAddress(id) && chatID() != id { return .failed(tr("打开的已经不是这个对话", "another chat is open now")) }
         guard let text = copyLast() else { return .failed(tr("复制不到回复", "couldn't copy the reply")) }
         return .done(text, messageCount())
     }
 
-    /// A new chat with `files` attached and `text` as its first message; pinned and renamed to `title`.
-    /// Returns its id.
-    /// What became of a chat Import started.
-    enum Start { case made(String), failed, leftOver, notEmpty }
+    /// What became of a chat Import started. `leftOver`: what was put in Claude's message box may still be there, unsent;
+    /// `stopped`: stopped before anything was put there; `unconfirmed`: Send was pressed, but the chat it made wasn't seen
+    /// (no address), so it isn't known.
+    enum Start { case made(Made), failed, leftOver, notEmpty, stopped, unconfirmed }
+    /// A chat Import made (its summary sent): whether Claude replied, and whether pinning and renaming it worked;
+    /// `shown`, its name in Claude's window as it was left.
+    struct Made { var id: String; var replied = false; var pinned = false; var renamed = false; var shown = "" }
 
-    /// A new chat whose first message is `text`, with `files` attached.
+    /// A new chat whose first message is `text`, with `files` attached; once Claude has replied, pinned and renamed to
+    /// `title`. Stopped (Stop, or KIKUmap quitting), it pastes and sends nothing more: what's in the box stays there
+    /// (said), and a chat already sent is still read for its address (so it's recorded), but left to pin and rename by hand.
     func startChat(with text: String, files: [URL], title: String) -> Start {
-        guard newChat() else { log(tr("  开不了新对话", "  couldn't start a new chat")); return .failed }
+        pasted = false
+        // stopped before Send: anything pasted may be left in the box (said), else nothing was put there
+        func halt() -> Start {
+            guard pasted else { return .stopped }
+            log(tr("  停在发送前：可能留在了输入框里", "  stopped before sending: may be left in the message box"))
+            return .leftOver
+        }
+        guard newChat() else {
+            if stop.isSet { return .stopped }
+            log(tr("  开不了新对话", "  couldn't start a new chat")); return .failed
+        }
         // the box must start empty: anything there (a draft of yours) would be sent along
         guard !hasDraft(), !canSend() else { log(tr("  新对话的输入框里有东西", "  the new chat's box isn't empty")); return .notEmpty }
         if !files.isEmpty {
-            // landed: the files make Send usable (it waits while they upload)
-            guard attach(files), wait(20, { self.canSend() }) else { log(tr("  文件没附上", "  the files weren't attached")); return .leftOver }
-            log(tr("  附上 \(files.count) 个文件", "  attached \(files.count) files"))
+            // landed: the files make Send usable (it waits while they upload); what you had copied goes back then
+            guard !stop.isSet, attach(files), wait(20, { self.canSend() }) else {
+                if stop.isSet { return halt() }
+                log(tr("  文件没附上", "  the files weren't attached")); return .leftOver
+            }
+            clip.putBack()
+            log(tr("  附上 \(files.count) 个文件", files.count == 1 ? "  attached 1 file" : "  attached \(files.count) files"))
         }
-        guard type(text) else { log(tr("  找不到输入框", "  couldn't find the message box")); return files.isEmpty ? .failed : .leftOver }
+        guard !stop.isSet, type(text) else {
+            if stop.isSet { return halt() }
+            log(tr("  找不到输入框", "  couldn't find the message box")); return files.isEmpty ? .failed : .leftOver
+        }
+        // stopped now: not sent
+        guard !stop.isSet else { return halt() }
         guard send() else { log(tr("  发不出去", "  couldn't send")); return .leftOver }
-        guard wait(30, { self.chatID() != nil }), let id = chatID() else { log(tr("  新对话没有地址", "  the new chat has no address")); return .leftOver }
-        guard waitReply(after: 0) else { log(tr("  等回复超时（对话已建好：\(id)）", "  no reply in time (the chat was made: \(id))")); return .made(id) }
+        // sent: the chat is made, stopped or not. Its address is looked for a moment more once stopped, to record it
+        var id = wait(30) { self.chatID() != nil } ? chatID() : nil
+        if id == nil && stop.isSet { id = soon { self.chatID() } }
+        guard let id else { log(tr("  新对话没有地址", "  the new chat has no address")); return .unconfirmed }
+        var made = Made(id: id)
+        guard waitReply(after: 0) else {
+            log(stop.isSet ? tr("  停下了，Claude 还没回复（对话已建好：\(id)）", "  stopped before Claude replied (the chat was made: \(id))")
+                           : tr("  等回复超时（对话已建好：\(id)）", "  no reply in time (the chat was made: \(id))"))
+            made.shown = pageTitle()
+            return .made(made)
+        }
+        made.replied = true
         // Claude names the chat after the first reply
         _ = wait(20) { let t = self.pageTitle(); return !t.isEmpty && !ClaudeWords.untitled.contains(t) }
         let auto = pageTitle()
-        // (not the name Claude gave it: chat titles stay out of the log)
-        if !pin(rowTitle: auto) { log(tr("  置顶失败", "  couldn't pin it")) }
-        pause(1)
-        if !rename(rowTitle: auto, to: title) { log(tr("  改名失败，还是 Claude 起的名字", "  couldn't rename it: it keeps the name Claude gave it")) }
+        // (not the name Claude gave it: chat titles stay out of the log. Stopped: left as it is, yours to finish)
+        if !stop.isSet {
+            made.pinned = pin(rowTitle: auto)
+            if !made.pinned { log(tr("  置顶失败", "  couldn't pin it")) }
+        }
+        if !stop.isSet {
+            pause(1)
+            made.renamed = rename(rowTitle: auto, to: title)
+            if !made.renamed { log(tr("  改名失败，还是 Claude 起的名字", "  couldn't rename it: it keeps the name Claude gave it")) }
+        }
+        made.shown = made.renamed ? title : pageTitle()
         log(tr("  已导入 → ", "  imported → ") + id)
-        return .made(id)
+        return .made(made)
     }
 
     // MARK: steps
@@ -1150,39 +1619,43 @@ final class ClaudeDriver: @unchecked Sendable {
         return wait(20) { self.chatID() == id }
     }
 
-    /// Pastes files into the message box as attachments.
+    /// Pastes files into the message box as attachments (what you had copied goes back once they've landed: see
+    /// startChat). Not once stopped.
     func attach(_ files: [URL]) -> Bool {
         guard let w = web(), let box = composer(w), activate() else { return false }
         AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         pause(0.4)
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.writeObjects(files as [NSURL])
-        ownChange = pb.changeCount
-        guard !youCameBack() else { return false }
-        command("v")                                              // ⌘V
-        pause(2.5 + 0.4 * Double(files.count))                    // let them upload
+        guard !stop.isSet, !youCameBack(), let v = keyCode("v"), clip.put(files: files) else { return false }
+        guard !stop.isSet, !youCameBack(), clip.paste({ key(v, cmd: true) }) else { clip.putBack(); return false }    // ⌘V
+        pasted = true
+        // let them upload (not once stopped: nothing is sent then)
+        nap(2.5 + 0.4 * Double(files.count))
         return true
     }
 
+    /// Pastes `text` into the message box (not once stopped): true once it's there.
     func type(_ text: String) -> Bool {
         guard let w = web(), let box = composer(w), activate() else { return false }
         AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         pause(0.4)
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(text, forType: .string)
-        ownChange = pb.changeCount
         let sendable = canSend()
         // (you came back while Claude was brought forward: your typing isn't mixed with this)
-        guard !youCameBack() else { return false }
-        command("v")                                              // ⌘V
+        guard !stop.isSet, !youCameBack(), let v = keyCode("v"), clip.put(text: text) else { return false }
+        guard !stop.isSet, !youCameBack(), clip.paste({ key(v, cmd: true) }) else { clip.putBack(); return false }    // ⌘V
+        pasted = true
         pause(1.2)
         // it landed (else nothing is sent, rather than an empty message waited on for minutes): in the box, or, for a
         // long text, as the "Pasted text" attachment Claude makes of it, which makes Send usable
         let start = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(24))
-        return wait(3) { (self.web().flatMap { self.composer($0) }.map { AXScan.str($0, "AXValue").contains(start) } ?? false) || (!sendable && self.canSend()) }
+        let landed = wait(3) { self.boxHolds(start) || (!sendable && self.canSend()) }
+        // Claude has read it: what you had copied goes back now (one that didn't land: when the run ends, in case
+        // Claude reads it late)
+        if landed { clip.putBack() }
+        return landed
     }
+
+    /// The message box holds `text`.
+    func boxHolds(_ text: String) -> Bool { web().flatMap { composer($0) }.map { AXScan.str($0, "AXValue").contains(text) } ?? false }
 
     /// Claude's Send button is there and usable (something is in the message box, typed or attached).
     private func canSend() -> Bool {
@@ -1210,7 +1683,8 @@ final class ClaudeDriver: @unchecked Sendable {
         var steady = 0
         while Date().timeIntervalSince(start) < 600 {
             if stop.isSet { return false }
-            pause(2)
+            nap(2)
+            if stop.isSet { return false }
             if messageCount() < before + 2 || busy() { steady = 0; continue }
             guard let m = lastMessage(), isClaude(m), copyButton(m) != nil else { steady = 0; continue }
             steady += 1
@@ -1220,15 +1694,24 @@ final class ClaudeDriver: @unchecked Sendable {
     }
 
     /// The newest reply as Markdown (through its Copy button), or its plain text (also when you've come back during a
-    /// run while you're away: Claude isn't brought forward for the button).
+    /// run while you're away: Claude isn't brought forward for the button). The copy is read at once, and what you had
+    /// copied goes back: the summary isn't left on the clipboard.
     func copyLast() -> String? {
         guard let w = web(), let m = lastMessage(in: w), isClaude(m) else { return nil }
-        let pb = NSPasteboard.general
-        if let b = copyButton(m), activate() {
-            let before = pb.changeCount
+        if let b = copyButton(m), activate(), let before = clip.willCopy() {
             AXUIElementPerformAction(b, kAXPressAction as CFString)
-            if wait(4, { pb.changeCount != before }), let s = pb.string(forType: .string),
-               !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { ownChange = pb.changeCount; return s }
+            // (waited for even once stopped: a copy that lands after would be left on the clipboard)
+            var landed = clip.copied(since: before)
+            for _ in 0..<16 where !landed { pause(0.25); landed = clip.copied(since: before) }
+            // (one written in more than one step settles first: what you had goes back over all of it)
+            var count = clip.changeCount
+            for _ in 0..<4 where landed {
+                pause(0.3)
+                if clip.changeCount == count { break }
+                count = clip.changeCount
+            }
+            if landed, let s = clip.takeCopy(), !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
+            clip.putBack()
             log(tr("  Copy 按钮没反应，改用纯文本", "  the Copy button did nothing: plain text instead"))
         }
         let t = plainText(m)
@@ -1251,19 +1734,20 @@ final class ClaudeDriver: @unchecked Sendable {
         if rowTitle == title { return true }
         guard menu(rowTitle: rowTitle, items: ClaudeWords.rename) else { return false }
         pause(0.8)
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(title, forType: .string)
-        ownChange = pb.changeCount
-        command("a")                                              // ⌘A
-        command("v")                                              // ⌘V
+        // (nothing to paste, or stopped: Esc leaves the name as it was)
+        guard !stop.isSet, let a = keyCode("a"), let v = keyCode("v"), clip.put(text: title) else { key(53); return false }
+        key(a, cmd: true)                                         // ⌘A
+        guard !stop.isSet, clip.paste({ key(v, cmd: true) }) else { clip.putBack(); key(53); return false }          // ⌘V
         pause(0.4)
         if let w = web(), let save = button(w, prefixes: ClaudeWords.save, anywhere: true) {
             AXUIElementPerformAction(save, kAXPressAction as CFString)
         } else {
             key(36)
         }
-        return wait(8) { self.pageTitle() == title }
+        let ok = wait(8) { self.pageTitle() == title }
+        // (saved or not, the paste was read long since)
+        clip.putBack()
+        return ok
     }
 
     /// Opens the "More options for …" menu of a sidebar row and picks an item.
@@ -1421,14 +1905,15 @@ final class ClaudeDriver: @unchecked Sendable {
         return true
     }
 
-    /// ⌘ and a letter, on whichever key types that letter with ⌘ in the keyboard layout in use (on a French
-    /// keyboard the US "A" position is "Q": ⌘Q would quit Claude). Not found: nothing is pressed.
-    private func command(_ letter: Character) {
+    /// The key that types `letter` with ⌘ in the keyboard layout in use (on a French keyboard the US "A" position is
+    /// "Q": ⌘Q would quit Claude). Not found: nil, and nothing is pressed. (Looked up before a paste, not during it:
+    /// the paste holds the clipboard, which a quit on the main thread waits for.)
+    private func keyCode(_ letter: Character) -> CGKeyCode? {
         guard let code = DispatchQueue.main.sync(execute: { ClaudeDriver.keyCode(typing: letter) }) else {
             log(tr("  键盘布局读不了，没按 ⌘\(letter.uppercased())", "  couldn't read the keyboard layout: ⌘\(letter.uppercased()) not pressed"))
-            return
+            return nil
         }
-        key(code, cmd: true)
+        return code
     }
 
     /// `layout`: a keyboard layout's id ("com.apple.keylayout.French"); nil: the one in use.
@@ -1475,30 +1960,182 @@ final class ClaudeDriver: @unchecked Sendable {
         return ok()
     }
 
+    /// `ok`'s answer, looked for a moment even once stopped: what has already gone to Claude (a message sent), seen
+    /// through.
+    func soon<T>(_ ok: () -> T?) -> T? {
+        for i in 0..<6 {
+            if let v = ok() { return v }
+            if i < 5 { pause(0.25) }
+        }
+        return nil
+    }
+
     private func pause(_ s: Double) { usleep(useconds_t(s * 1_000_000)) }
 
-    // MARK: clipboard (put back when done)
+    /// A pause of up to `s` seconds that ends once stopped (a quit waits only a few seconds for the run to stop).
+    private func nap(_ s: Double) {
+        let end = Date().addingTimeInterval(s)
+        while !stop.isSet, Date() < end { pause(min(0.1, max(0, end.timeIntervalSinceNow))) }
+    }
+}
 
-    func saveClipboard() -> [[NSPasteboard.PasteboardType: Data]] {
-        (NSPasteboard.general.pasteboardItems ?? []).map { item in
+// MARK: the clipboard while a run pastes through it
+
+/// The pasteboard as a run uses it: the Mac's, or a test's stand-in (the checks run where there's no pasteboard server).
+protocol RunBoard: AnyObject {
+    var changeCount: Int { get }
+    /// Every item, with each kind of data it holds.
+    func read() -> [[NSPasteboard.PasteboardType: Data]]
+    /// Replaces what's there. `localOnly`: kept off your other devices (Universal Clipboard).
+    func write(_ items: [[NSPasteboard.PasteboardType: Data]], localOnly: Bool)
+    /// Files, as a paste of them, kept off your other devices; the first item carries `marks` too.
+    func write(files: [URL], marks: [NSPasteboard.PasteboardType])
+    func string() -> String?
+}
+
+/// The Mac's clipboard (reached only when a run uses it).
+final class SystemBoard: RunBoard {
+    private var pb: NSPasteboard { .general }
+    var changeCount: Int { pb.changeCount }
+    func read() -> [[NSPasteboard.PasteboardType: Data]] {
+        (pb.pasteboardItems ?? []).map { item in
             var d: [NSPasteboard.PasteboardType: Data] = [:]
             for t in item.types { if let v = item.data(forType: t) { d[t] = v } }
             return d
         }
     }
-
-    /// The clipboard as KIKUmap last left it: put back only if it's still that (whatever you copied meanwhile stays).
-    private var ownChange: Int?
-
-    func restoreClipboard(_ items: [[NSPasteboard.PasteboardType: Data]]) {
-        let pb = NSPasteboard.general
-        guard let own = ownChange, pb.changeCount == own else { return }
-        pb.clearContents()
+    func write(_ items: [[NSPasteboard.PasteboardType: Data]], localOnly: Bool) {
+        _ = localOnly ? pb.prepareForNewContents(with: .currentHostOnly) : pb.clearContents()
         guard !items.isEmpty else { return }
         pb.writeObjects(items.map { d in
             let it = NSPasteboardItem()
             for (t, v) in d { it.setData(v, forType: t) }
             return it
         })
+    }
+    func write(files: [URL], marks: [NSPasteboard.PasteboardType]) {
+        _ = pb.prepareForNewContents(with: .currentHostOnly)
+        pb.writeObjects(files as [NSURL])
+        for m in marks { pb.setData(Data(), forType: m) }
+    }
+    func string() -> String? { pb.string(forType: .string) }
+}
+
+/// The clipboard while a run (summaries, or an import) pastes and copies through it. What you had copied is kept, and
+/// put back as soon as each paste has landed and each copy has been read (and at the run's end, and when KIKUmap
+/// quits). What KIKUmap puts there is marked for clipboard history apps to skip (the nspasteboard.org types) and kept
+/// off your other devices. Claude's own Copy button, which brings each summary, can't be marked: that copy is read at
+/// once and what you had goes back.
+final class RunClipboard: @unchecked Sendable {
+    /// KIKUmap's own pastes: passing, private, not copied by you.
+    static let marks = ["org.nspasteboard.TransientType", "org.nspasteboard.ConcealedType", "org.nspasteboard.AutoGeneratedType"]
+        .map { NSPasteboard.PasteboardType($0) }
+    /// What you had, put back: not a new copy of yours either.
+    static let backMarks = ["org.nspasteboard.TransientType", "org.nspasteboard.AutoGeneratedType"].map { NSPasteboard.PasteboardType($0) }
+    /// A quit waits this long after the last ⌘V before putting what you had back (Claude may not have read the paste
+    /// yet: it would paste what you had instead).
+    static var settle: TimeInterval = 1.5
+
+    let board: RunBoard
+    private let lock = NSLock()
+    /// What you had copied, while the clipboard holds KIKUmap's paste (or Claude's copy) instead.
+    private var saved: [[NSPasteboard.PasteboardType: Data]]?
+    /// The clipboard as KIKUmap last left it: what you had goes back only while it's still that (what you copy
+    /// meanwhile stays).
+    private var own: Int?
+    private var pastedAt: Date?
+    /// KIKUmap is quitting: nothing more is put there or pasted.
+    private(set) var closed = false
+
+    init(_ board: RunBoard = SystemBoard()) { self.board = board }
+
+    private func locked<T>(_ f: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return f() }
+
+    /// What's there now is kept, unless it's still KIKUmap's own.
+    private func keep() { if own == nil || own != board.changeCount { saved = board.read() } }
+
+    /// `text` there, for a paste. False: KIKUmap is quitting.
+    func put(text: String) -> Bool {
+        locked {
+            guard !closed else { return false }
+            keep()
+            var item: [NSPasteboard.PasteboardType: Data] = [.string: Data(text.utf8)]
+            for m in RunClipboard.marks { item[m] = Data() }
+            board.write([item], localOnly: true)
+            own = board.changeCount
+            return true
+        }
+    }
+
+    /// `files` there, for a paste. False: KIKUmap is quitting.
+    func put(files: [URL]) -> Bool {
+        locked {
+            guard !closed else { return false }
+            keep()
+            board.write(files: files, marks: RunClipboard.marks)
+            own = board.changeCount
+            return true
+        }
+    }
+
+    /// ⌘V (`keys`), only while the clipboard still holds what KIKUmap put there: not something you copied meanwhile,
+    /// and not once KIKUmap is quitting.
+    func paste(_ keys: () -> Void) -> Bool {
+        locked {
+            guard !closed, let o = own, o == board.changeCount else { return false }
+            keys()
+            pastedAt = Date()
+            return true
+        }
+    }
+
+    /// Before Claude's Copy button is pressed: what you have is kept. The clipboard's count, to see the copy land
+    /// (nil: KIKUmap is quitting).
+    func willCopy() -> Int? {
+        locked {
+            guard !closed else { return nil }
+            keep()
+            return board.changeCount
+        }
+    }
+
+    func copied(since count: Int) -> Bool { locked { board.changeCount != count } }
+    var changeCount: Int { locked { board.changeCount } }
+
+    /// Claude's copy, read; what you had goes back at once.
+    func takeCopy() -> String? {
+        locked {
+            own = board.changeCount
+            let s = board.string()
+            restore()
+            return s
+        }
+    }
+
+    /// What you had, back (if the clipboard is still as KIKUmap left it).
+    func putBack() { locked { restore() } }
+
+    private func restore() {
+        if let o = own, o == board.changeCount {
+            board.write((saved ?? []).map { item in
+                var d = item
+                for m in RunClipboard.backMarks where d[m] == nil { d[m] = Data() }
+                return d
+            }, localOnly: false)
+        }
+        own = nil
+        saved = nil
+        pastedAt = nil
+    }
+
+    /// The run is over, or KIKUmap is quitting: nothing more is put there or pasted, and what you had goes back, once a
+    /// paste sent a moment ago has had time to be read.
+    func close() {
+        let last: Date? = locked { closed = true; return pastedAt }
+        if let t = last {
+            let left = RunClipboard.settle - Date().timeIntervalSince(t)
+            if left > 0 { usleep(useconds_t(left * 1_000_000)) }
+        }
+        putBack()
     }
 }

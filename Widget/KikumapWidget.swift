@@ -1,7 +1,8 @@
 import SwiftUI
 import WidgetKit
 
-// The desktop widget: how long Claude worked (the last 24 hours, the last 7 days) and usage, as of when KIKUmap last wrote.
+// The desktop widget: how long Claude, ChatGPT and Codex worked (the last 24 hours, the last 7 days) and usage, as of when
+// KIKUmap last wrote.
 // It only reads ~/Library/Application Support/ClaudeConsole/widget.json (Widget.entitlements), which
 // KIKUmap rewrites when something changes and asks WidgetKit to redraw.
 
@@ -47,13 +48,11 @@ struct KikumapWidgetEntryView: View {
 
 struct KikumapWidget: Widget {
     var body: some WidgetConfiguration {
-        let zh = WidgetText.systemChinese
-        return StaticConfiguration(kind: "KikumapWidget", provider: KikumapProvider()) { entry in
+        StaticConfiguration(kind: "KikumapWidget", provider: KikumapProvider()) { entry in
             KikumapWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("KIKUmap")
-        .description(zh ? "最近 24 小时和 7 天 Claude 干了多久，还有用量。在跑和未读的看菜单栏。"
-                        : "How long Claude worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar.")
+        .description(WidgetText.gallery(!WidgetText.systemChinese))
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

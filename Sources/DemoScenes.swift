@@ -1,7 +1,8 @@
 import Cocoa
 
 // The demos on Settings → Shortcuts, one per row of ShortcutTable: a sample map, list and timeline, and the steps
-// that act a shortcut out. Each one follows what the real code does (named by the row's id).
+// that act a shortcut out. Each one follows what the real code does (named by the row's id). Settings → Access's,
+// one per item (`access`), act out what the item gets you.
 
 extension DemoWorld {
     mutating func node(_ id: String) -> Int? { nodes.firstIndex { $0.id == id } }
@@ -87,7 +88,8 @@ enum DemoScenes {
     private static func point(_ at: String, keys: [KeyPart]? = nil, dur: Double = 1.0, _ change: ((inout DemoWorld) -> Void)? = nil) -> DemoStep {
         DemoStep(keys: keys, lights: keys != nil, pointAt: at, dur: dur, change: change)
     }
-    private static func cut(_ change: @escaping (inout DemoWorld) -> Void) -> DemoStep { DemoStep(dur: 0.5, change: change) }
+    /// What was just shown put away, or the next part set up (a still ends before it).
+    private static func cut(_ change: @escaping (inout DemoWorld) -> Void) -> DemoStep { DemoStep(dur: 0.5, cut: true, change: change) }
     private static func g(_ zh: String, _ en: String, _ symbol: String) -> [KeyPart] { [.chip(tr(zh, en), symbol: symbol)] }
     private static func newTopic(_ id: String, under parent: String) -> DemoNode {
         DemoNode(id: id, title: "", parent: parent, kind: parent == "root" ? .topic : .sub)
@@ -96,20 +98,20 @@ enum DemoScenes {
     private static var inFront: String { tr("KIKUmap 的窗口在最前面时", "While a KIKUmap window is in front") }
     private static var onMap: String { tr("导图 · 先选中一个条目", "Map · with an item selected") }
     private static var withMouse: String { tr("导图 · 鼠标或触控板", "Map · mouse or trackpad") }
-    private static var inList: String { tr("左栏 · 先在左栏里点一下", "Left column · click in the list first") }
-    private static var onTimeline: String { tr("时间线 · 导图窗口最下面", "Timeline · bottom of the map window") }
+    private static var inList: String { tr("左栏 · 先在左栏里点一下", "Left column · click in it first") }
+    private static var onTimeline: String { tr("时间轴 · 导图窗口最下面", "Timeline · bottom of the map window") }
 
     /// The demo for a row (by its id in ShortcutTable).
     static func slice(_ id: String) -> DemoSlice {
         var b = base()
         let hot = [KeyPart.keys(Prefs.hotKeyLabel())]
         switch id {
-        // MARK: anywhere
+        // MARK: global
         case "hotkey":
             b.windowShown = 0
             guard Prefs.hotKeyWorks else {
                 // switched off, or refused by macOS: pressing it does nothing
-                let why = Prefs.hotKeyEnabled ? tr("没有生效：见上面", "Not active: see above") : tr("已关闭：在上面勾上「启用」", "Off: tick Enabled above")
+                let why = Prefs.hotKeyEnabled ? tr("没有生效：见上面", "Not active: see above") : tr("已关闭：在上面勾上「启用」", "Off: check Enabled above")
                 return DemoSlice(whereText: tr("任何 App 里", "In any app"), part: .desktop, view: .window, setup: b, steps: [
                     DemoStep(keys: hot, lights: false, dur: 2.2) { $0.bubble = why; $0.bubbleAt = CGPoint(x: 200, y: 60) },
                 ])
@@ -120,10 +122,10 @@ enum DemoScenes {
             ])
         case "menuBar":
             return DemoSlice(whereText: tr("菜单栏", "Menu bar"), part: .menuBar, view: .menuBar, setup: b, steps: [
-                click("icon", keys: g("点击", "click", "cursorarrow.click")) {
+                click("icon", keys: g("点菜单栏图标", "click the menu-bar icon", "menubar.rectangle")) {
                     $0.menuAt = CGPoint(x: 330, y: 50)
                     $0.menu = [tr("打开导图", "Open map") + (Prefs.hotKeyWorks ? "   " + Prefs.hotKeyLabel() : ""), "—",
-                               tr("进行中 · 1", "Running · 1"), "◯ " + tr("报税问题", "Tax question"), "—",
+                               tr("在跑 · 1", "Running · 1"), "◯ " + tr("报税问题", "Tax question"), "—",
                                tr("未读 · 1", "Unread · 1"), "● " + tr("周报草稿", "Weekly report")]
                 },
                 click("menu1", lights: false) { $0.menu = nil; $0.card = (tr("报税问题", "Tax question"), "claude") },
@@ -324,9 +326,9 @@ enum DemoScenes {
             return DemoSlice(whereText: withMouse, part: .map, view: .map, setup: b, steps: [
                 click("trip", right: true, keys: g("右键", "right-click", "contextualmenu.and.cursorarrow"), dur: 1.8) {
                     $0.pick("trip"); $0.menuAt = CGPoint(x: 260, y: 34)
-                    $0.menu = [tr("新主题  ⇧↩", "New topic  ⇧↩"), tr("新子主题  ⇥", "New subtopic  ⇥"), tr("新同级主题  ↩", "New sibling  ↩"), "—",
-                               tr("改名  ⌘↩", "Rename  ⌘↩"), tr("分支颜色 ▸", "Branch colour ▸"), tr("图标 ▸", "Icon ▸"), tr("标签 ▸", "Tags ▸"),
-                               tr("折叠  ⌥.", "Collapse  ⌥."), "—", tr("删除  ⌫", "Delete  ⌫"), tr("只删这个主题（保留下面的）  ⌥⌫", "Delete topic, keep its items  ⌥⌫")]
+                    // (most of a topic's menu, in its order: all of it is taller than the picture)
+                    $0.menu = [tr("新子主题  ⇥", "New subtopic  ⇥"), tr("改名  ⌘↩", "Rename  ⌘↩"), tr("分支颜色 ▸", "Branch color ▸"), tr("图标 ▸", "Icon ▸"),
+                               tr("标签 ▸", "Tags ▸"), tr("折叠  ⌥.", "Collapse  ⌥."), "—", tr("删除  ⌫", "Delete  ⌫")]
                 },
                 cut { $0.menu = nil },
             ])
@@ -392,7 +394,9 @@ enum DemoScenes {
                 },
                 cut { $0.menu = nil },
                 click("r:kikumap", right: true, keys: g("右键", "right-click", "contextualmenu.and.cursorarrow"), dur: 1.6) {
-                    $0.menuAt = CGPoint(x: 100, y: 150); $0.menu = [tr("在 KIKUmap 置顶", "Pin in KIKUmap"), tr("打开", "Open")]
+                    $0.menuAt = CGPoint(x: 100, y: 150)
+                    // (a session in a terminal, done, not on the map: the menu's words for it)
+                    $0.menu = [SidebarView.keepTitle(kept: false, onMap: false, script: false, running: false), tr("打开", "Open")]
                 },
                 cut { $0.menu = nil },
             ])
@@ -403,7 +407,7 @@ enum DemoScenes {
                 press(k("esc"), lights: false) { $0.filter = "" },
             ])
         case "tags":
-            return DemoSlice(whereText: tr("左栏 · 标签栏", "Left column · Tags shelf"), part: .tags, view: .map, setup: b, steps: [
+            return DemoSlice(whereText: tr("左栏 · 标签区", "Left column · tags"), part: .tags, view: .map, setup: b, steps: [
                 press(g("点标签「等别人」", "click Waiting on others", "tag"), dur: 1.6) { $0.lit = ["weekly": Theme.highlight("yellow") ?? .systemYellow]; $0.bright = ["weekly"] },
                 press(g("再点一下", "click it again", "tag"), dur: 1.0) { $0.lit = [:]; $0.bright = nil },
             ])
@@ -418,7 +422,7 @@ enum DemoScenes {
             return DemoSlice(whereText: onTimeline, part: .timeline, view: .timeline, setup: b, steps: [
                 point("lanes", keys: g("悬停", "hover", "cursorarrow.rays"), dur: 1.3) { $0.tlHover = 0 },
                 point("lanes2", dur: 1.3) { $0.tlHover = 1 },
-                point("bar", dur: 1.4) { $0.tlHover = nil; $0.bubble = tr("报税问题 13:55 – 进行中", "Tax question 13:55 – running"); $0.bubbleAt = CGPoint(x: 260, y: 36) },
+                point("bar", dur: 1.4) { $0.tlHover = nil; $0.bubble = tr("报税问题 13:55 – 在跑", "Tax question 13:55 – running"); $0.bubbleAt = CGPoint(x: 260, y: 36) },
                 cut { $0.bubble = nil },
             ])
         case "tlScroll":
@@ -446,6 +450,142 @@ enum DemoScenes {
             ])
         default:
             return DemoSlice(whereText: inFront, part: .window, view: .window, setup: b, steps: [DemoStep(dur: 1.5)])
+        }
+    }
+
+    // MARK: Settings → Access
+
+    /// The ids of Settings → Access's items, in its order (AccessItem.all), each with a demo here.
+    static let accessIDs = ["accessibility", "fullDisk", "claudeCode", "chatGPT", "usage", "gptUsage"]
+
+    /// What an item of Settings → Access gets you, acted out on made-up chats: what KIKUmap reads on the left, what it
+    /// then shows on the right, as the real map, left column and menu draw it (MapView, SidebarView, StatusBar). Each
+    /// is a few seconds; a caption under it says what's happening.
+    static func access(_ id: String) -> DemoSlice {
+        let weekly = tr("周报草稿", "Weekly report"), tax = tr("报税问题", "Tax question"), tokyo = tr("东京机票", "Tokyo flights")
+        // a small map: what's on it was put there before
+        var m = DemoWorld()
+        m.nodes = [
+            DemoNode(id: "root", title: "", parent: nil, kind: .root),
+            DemoNode(id: "work", title: tr("工作", "Work"), parent: "root", kind: .topic),
+            DemoNode(id: "weekly", title: weekly, parent: "work", kind: .chat),
+            DemoNode(id: "tax", title: tax, parent: "work", kind: .chat),
+        ]
+        func chat(_ w: inout DemoWorld, _ id: String, _ f: (inout DemoNode) -> Void) { if let i = w.node(id) { f(&w.nodes[i]) } }
+        func appRow(_ w: inout DemoWorld, _ id: String, _ state: Int) {
+            if let i = w.appRows.firstIndex(where: { $0.id == id }) { w.appRows[i].state = state }
+        }
+        func row(_ w: inout DemoWorld, _ id: String, _ state: Int, _ note: String?) {
+            if let i = w.rows.firstIndex(where: { $0.id == id }) { w.rows[i].state = state; w.rows[i].note = note }
+        }
+        func step(_ dur: Double, _ caption: String, _ change: @escaping (inout DemoWorld) -> Void) -> DemoStep {
+            DemoStep(dur: dur) { w in change(&w); w.caption = caption }
+        }
+        switch id {
+        case "fullDisk":
+            // Claude's window closed: the chat it was working on can't be seen ("running?"); Claude's banner asks
+            // for an OK; KIKUmap reads it from Notification Center: waiting for you, and the "!" in the menu bar
+            var w = m
+            if let i = w.node("tax") { w.nodes[i].state = 2 }
+            w.icon = (run: 1, seen: true, unread: 0, needs: 0)
+            return DemoSlice(whereText: tr("完全磁盘访问 · 读 Claude 发的通知", "Full Disk Access · reads Claude's notifications"), part: .map, view: .notice, setup: w, steps: [
+                step(1.3, tr("Claude 的窗口关着", "Claude's window is closed")) { w in
+                    w.appShown = 0; w.icon.seen = false
+                    chat(&w, "tax") { $0.seen = false; $0.note = tr("在跑？", "running?") }
+                },
+                step(1.5, tr("Claude 发通知：要你允许一步", "Claude's notification asks for your OK")) { w in
+                    w.banner = (tax, tr("要允许 Claude 运行这条命令吗？", "Allow Claude to run this command?")); w.reads = true
+                },
+                step(1.8, tr("KIKUmap 提醒你：等你确认", "KIKUmap tells you: waiting for you")) { w in
+                    chat(&w, "tax") { $0.state = 1; $0.seen = true; $0.note = tr("等你确认", "waiting for you") }
+                    w.icon = (run: 0, seen: true, unread: 1, needs: 1)
+                },
+            ])
+        case "claudeCode":
+            // a session at work in a terminal reports through Claude Code's hooks: it joins the left column, running,
+            // then finished and unread
+            var w = DemoWorld()
+            w.rows = [DemoRow(id: "weekly", title: weekly), DemoRow(id: "tokyo", title: tokyo)]
+            w.term = ["~/kikumap $ claude"]
+            return DemoSlice(whereText: tr("Claude Code · 会话自己报给 KIKUmap", "Claude Code · sessions report to KIKUmap"), part: .list, view: .terminal, setup: w, steps: [
+                step(1.2, tr("终端里的 Claude Code 开始干活", "Claude Code gets to work in Terminal")) { w in
+                    w.term.append(tr("> 修好登录页的按钮", "> fix the login button"))
+                },
+                step(1.6, tr("左栏里出现，在跑", "It shows up in the left column, running")) { w in
+                    w.term.append(tr("✻ 正在改…", "✻ Working…")); w.reads = true
+                    w.rows.append(DemoRow(id: "kikumap", title: "kikumap", state: 2, app: "code", placed: false, note: tr("在跑", "running")))
+                },
+                step(1.7, tr("做完了：红点，等你去看", "Done: a red dot until you look")) { w in
+                    w.term.append(tr("✓ 改好了", "✓ Done"))
+                    row(&w, "kikumap", 1, tr("刚刚", "just now"))
+                },
+            ])
+        case "chatGPT":
+            // read from the ChatGPT app's files in ~/.codex (not its window: nothing outlined there): the chats pinned
+            // in ChatGPT, one of them a Codex chat, which runs, then is done. Both are in ChatGPT's Pinned section, as a
+            // chat in the app, Codex or not, shows only once it's pinned there (Store.isShown).
+            let hotel = tr("酒店比价", "Hotel deals"), copy = tr("首页文案", "Home page copy")
+            var w = DemoWorld()
+            w.appRows = [DemoRow(id: "hotel", title: hotel, app: "gpt"), DemoRow(id: "codex", title: copy, app: "gpt")]
+            w.rows = [DemoRow(id: "weekly", title: weekly), DemoRow(id: "tokyo", title: tokyo)]
+            return DemoSlice(whereText: tr("ChatGPT · 读 ~/.codex 里的记录（只读）", "ChatGPT · reads its records in ~/.codex (read-only)"), part: .list, view: .chatGPTApp, setup: w, steps: [
+                step(1.4, tr("在 ChatGPT 里置顶的对话，列进左栏", "Chats you pin in ChatGPT join the left column")) { w in
+                    w.reads = true
+                    w.rows += [DemoRow(id: "hotel", title: hotel, app: "gpt", placed: false), DemoRow(id: "codex", title: copy, app: "gpt", placed: false)]
+                },
+                step(1.5, tr("置顶的 Codex 对话，看得出在跑", "A pinned Codex chat shows it's running")) { w in
+                    appRow(&w, "codex", 2)
+                    row(&w, "codex", 2, tr("在跑", "running"))
+                },
+                step(1.6, tr("做完了：红点，等你去看", "Done: a red dot until you look")) { w in
+                    appRow(&w, "codex", 1)
+                    row(&w, "codex", 1, tr("刚刚", "just now"))
+                },
+            ])
+        case "usage":
+            // the drop-down without it: the item that turns it on; with it: the session and the week, as the menu
+            // lays them out
+            var w = DemoWorld()
+            w.icon = (run: 1, seen: true, unread: 1, needs: 0)
+            w.usageHead = tr("用量", "Usage")
+            return DemoSlice(whereText: tr("Claude 用量 · 菜单栏里", "Claude usage · in the menu bar"), part: .menuBar, view: .usageMenu, setup: w, steps: [
+                DemoStep(pointAt: "kicon", clicks: 1, dur: 1.4) { w in w.menuOpen = true; w.caption = tr("没开：菜单里没有 Claude 的用量", "Off: no Claude usage in the menu") },
+                step(2.0, tr("开了：用了多少、什么时候重置", "On: how much you've used, when it resets")) { w in
+                    w.usageHead = tr("用量 · Claude Pro", "Usage · Claude Pro")
+                    w.usage = [DemoUsage(title: tr("当前会话", "Current session"), percent: 42, sub: tr("今天 15:00 重置", "resets today 15:00")),
+                               DemoUsage(title: tr("本周", "This week"), percent: 18, sub: tr("周一 09:00 重置", "resets Mon 09:00"))]
+                },
+            ])
+        case "gptUsage":
+            // without it, ChatGPT's numbers come from Codex's own records: old ones, a reset passed; with it, fresh
+            var w = DemoWorld()
+            w.icon = (run: 1, seen: true, unread: 1, needs: 0)
+            w.usageHead = tr("用量 · ChatGPT Plus", "Usage · ChatGPT Plus")
+            let session = "ChatGPT · " + tr("会话", "Session"), week = "ChatGPT · " + tr("本周", "Week")
+            w.usage = [DemoUsage(title: session, percent: nil, sub: tr("13:00 已重置", "reset 13:00")),
+                       DemoUsage(title: week, percent: 40, sub: tr("09:12 时的数据", "as of 09:12"))]
+            return DemoSlice(whereText: tr("ChatGPT 用量 · 菜单栏里", "ChatGPT usage · in the menu bar"), part: .menuBar, view: .usageMenu, setup: w, steps: [
+                DemoStep(pointAt: "kicon", clicks: 1, dur: 1.4) { w in w.menuOpen = true; w.caption = tr("没开：等下次用 Codex 才更新", "Off: it waits for your next Codex task") },
+                step(2.0, tr("开了：每 10 分钟更新一次", "On: it updates every 10 minutes")) { w in
+                    w.usage = [DemoUsage(title: session, percent: 6, sub: tr("今天 18:00 重置", "resets today 18:00")),
+                               DemoUsage(title: week, percent: 41, sub: tr("周一 09:00 重置", "resets Mon 09:00"))]
+                },
+            ])
+        default:
+            // Accessibility: Claude's own chat list, read; a chat Claude works on runs on the map, then waits there unread
+            var w = m
+            w.nodes += [DemoNode(id: "trip", title: tr("旅行", "Trip"), parent: "root", kind: .topic),
+                        DemoNode(id: "tokyo", title: tokyo, parent: "trip", kind: .chat)]
+            w.appRows = [DemoRow(id: "weekly", title: weekly), DemoRow(id: "tax", title: tax), DemoRow(id: "tokyo", title: tokyo)]
+            return DemoSlice(whereText: tr("辅助功能 · 读 Claude 窗口里的对话列表", "Accessibility · reads the chat list in Claude's window"), part: .map, view: .claudeApp, setup: w, steps: [
+                step(1.3, tr("KIKUmap 读 Claude 窗口里的对话列表", "KIKUmap reads the chat list in Claude's window")) { $0.reads = true },
+                step(1.6, tr("Claude 在回答：导图上显示在跑", "Claude is answering: running on the map")) { w in
+                    appRow(&w, "tax", 2); chat(&w, "tax") { $0.state = 2 }
+                },
+                step(1.7, tr("做完了：红点，等你去看", "Done: a red dot until you look")) { w in
+                    appRow(&w, "tax", 1); chat(&w, "tax") { $0.state = 1 }
+                },
+            ])
         }
     }
 }

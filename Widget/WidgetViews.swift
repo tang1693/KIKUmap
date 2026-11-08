@@ -10,7 +10,7 @@ struct WidgetState: Codable {
     /// One usage window; `group` is whose: "claude" (also when missing) or "gpt"; `minutes` how long it is.
     /// `asOf`: the numbers are from an earlier read (KIKUmap couldn't read usage since): when that was.
     struct Meter: Codable, Hashable { var label: String; var percent: Double; var resets: String?; var group: String?; var minutes: Int?; var asOf: String? }
-    /// One hour: seconds Claude worked per colour slot (legend order); the last one is every other chat.
+    /// One hour: seconds worked per colour slot (legend order); the last one is every other chat.
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
     var english: Bool
@@ -35,7 +35,7 @@ struct WidgetState: Codable {
     /// The named chats' ids and their time in these 24 hours (legend order), for the large widget's list.
     var legendIDs: [String]? = nil
     var legendSeconds: [Double]? = nil
-    /// The last seven days by the calendar day, the latest last: seconds Claude worked.
+    /// The last seven days by the calendar day, the latest last: seconds worked.
     struct Day: Codable, Hashable { var start: String; var seconds: Double }
     var days: [Day]? = nil
     /// Each meter group's plan ("claude": "Max 20x", "gpt": "Pro"), where it's known.
@@ -114,6 +114,13 @@ enum WidgetText {
         if h == 0 { return en ? "\(m)m" : "\(m)分钟" }
         if m == 0 { return en ? "\(h)h" : "\(h)小时" }
         return en ? "\(h)h \(m)m" : "\(h)小时\(m)分"
+    }
+
+    /// What Edit Widgets says the widget is. Its time is everything KIKUmap counts (as Statistics and the menu's Today
+    /// do): Claude's chats and Claude Code sessions, and ChatGPT's chats and Codex sessions while ChatGPT is on.
+    static func gallery(_ en: Bool) -> String {
+        en ? "How long Claude, ChatGPT and Codex worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar."
+           : "最近 24 小时和 7 天 Claude、ChatGPT 和 Codex 干了多久，还有用量。在跑和未读的看菜单栏。"
     }
 
     /// Axis labels stay short in both languages.
@@ -213,8 +220,8 @@ struct KikumapWidgetView: View {
     private func t(_ zh: String, _ e: String) -> String { en ? e : zh }
 
     /// When KIKUmap wrote what's shown. macOS redraws a widget only so often (Apple: about every 15 to 60 minutes),
-    /// so the widget keeps to what still holds when it's a while old: how long Claude worked, by the hour and the day,
-    /// and usage, all as of then, and saying so. What's running or unread right now is the menu bar's.
+    /// so the widget keeps to what still holds when it's a while old: how long the chats and sessions worked, by the hour
+    /// and the day, and usage, all as of then, and saying so. What's running or unread right now is the menu bar's.
     private var asOf: Date { state.flatMap { WidgetTime.parse($0.updated) } ?? date }
 
     /// From a while back: a usage window that has reset since then isn't shown as if known.

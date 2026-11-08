@@ -31,6 +31,8 @@ enum Todos {
 final class TodoButton: NSButton {
     var count = 0 { didSet { if count != oldValue { invalidateIntrinsicContentSize(); needsDisplay = true; setAccessibilityLabel(label) } } }
     private var label: String { tr("待办", "To-do") + (count > 0 ? " · \(count)" : "") }
+    /// Its tip, the one text it has (as it's made, and again in a new language).
+    static func tip() -> String { tr("还有哪些事没做、不做会影响什么。做不做由你。", "What's left to do and what it affects. It's up to you.") }
 
     convenience init(target: AnyObject?, action: Selector) {
         self.init(frame: .zero)
@@ -38,7 +40,7 @@ final class TodoButton: NSButton {
         self.action = action
         isBordered = false
         setButtonType(.momentaryPushIn)
-        toolTip = tr("哪些事还没做，没做会影响什么；做不做由你决定", "What's left to do and what it affects; up to you whether to do it")
+        toolTip = TodoButton.tip()
         setAccessibilityLabel(label)
     }
 

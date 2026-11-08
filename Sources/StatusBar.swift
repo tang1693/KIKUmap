@@ -11,7 +11,11 @@ final class Sounds {
     static var folder: URL?
     /// The name to say for a chat.
     var nameOf: ((String) -> String)?
-    private var last = Date.distantPast
+    /// When each kind of news last rang: "done" (false) and "waiting for you" (true). More of the same kind within 3 s
+    /// (several chats finishing at once) rings once; the other kind still rings right after it.
+    private var last: [Bool: Date] = [:]
+    /// Plays a sound (a system sound's name or a file's path).
+    var ring: (String) -> Void = { Sounds.sound($0)?.play() }
     private var said: [String: Date] = [:]
     private let voice = AVSpeechSynthesizer()
 
@@ -25,10 +29,12 @@ final class Sounds {
         if Prefs.quietWhenGPTFront && (gptFront ?? (front == GPTWatcher.bundleID)) { return }
         let needsInput = events.contains { if case .needsInput = $0 { return true }; return false }
         var rang = false
-        if !(0...3).contains(Date().timeIntervalSince(last)) {           // (a clock set back doesn't silence it)
-            let s = needsInput ? Prefs.soundInput : Prefs.soundDone
+        let s = needsInput ? Prefs.soundInput : Prefs.soundDone
+        // (a clock set back doesn't silence it)
+        if s != "off" && !(0...3).contains(Date().timeIntervalSince(last[needsInput] ?? .distantPast)) {
+            last[needsInput] = Date()
             preview(s)
-            rang = s != "off"
+            rang = true
         }
         guard Prefs.speak, let nameOf = nameOf else { return }
         for e in events.prefix(3) {
@@ -46,8 +52,7 @@ final class Sounds {
 
     func preview(_ name: String) {
         guard name != "off" else { return }
-        last = Date()
-        Sounds.sound(name)?.play()
+        ring(name)
     }
 
     func say(_ text: String, after delay: Double = 0) {
@@ -61,7 +66,6 @@ final class Sounds {
 
     /// Settings → Test: the "finished" sound, then the sentence with a made-up chat.
     func test() {
-        last = .distantPast
         preview(Prefs.soundDone)
         if Prefs.speak {
             say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("定价方案", "Pricing plan")), after: Prefs.soundDone == "off" ? 0 : 0.7)
@@ -112,6 +116,8 @@ final class StatusBar: NSObject, NSMenuDelegate {
     var gptUsage: (() -> [(label: String, window: UsageMonitor.Window?, note: String?)])?
     /// ChatGPT's plan ("Pro"), while its usage is shown.
     var gptPlan: (() -> String?)?
+    /// What's wrong with ChatGPT's usage lookup from OpenAI (nil: it's off or reads fine), said under the usage rows.
+    var gptUsageNote: (() -> String?)?
     /// What's off with reading Claude right now (nil: nothing).
     var claudeNote: (() -> String?)?
     /// What `claudeNote` says is about Claude's unread marks alone (what's running is read as usual).
@@ -149,8 +155,12 @@ final class StatusBar: NSObject, NSMenuDelegate {
         update()
     }
 
-    /// `sure`: of those running, the ones KIKUmap can see run now (the ring turns only for them; the others are "?").
-    private var counts: (run: Int, sure: Int, unread: Int, needs: Int) {
+    private var counts: (run: Int, sure: Int, unread: Int, needs: Int) { StatusBar.counts(store) }
+
+    /// What the icon counts, as the window's top bar counts it too. `sure`: of those running, the ones KIKUmap can see
+    /// run now (the ring turns only for them; the others are "?"). `needs`: of those unread, the ones waiting for you
+    /// (the red count's "!").
+    static func counts(_ store: Store) -> (run: Int, sure: Int, unread: Int, needs: Int) {
         let unread = store.unreadChats
         return (store.runningChats.count, store.seenRunningChats.count, unread.count, unread.filter(store.needsInput).count)
     }
@@ -173,20 +183,31 @@ final class StatusBar: NSObject, NSMenuDelegate {
         } else if c.sure == 0 {
             spin?.invalidate(); spin = nil
         }
-        var tip = tr("进行中 \(c.run) · 未读 \(c.unread)", "Running \(c.run) · Unread \(c.unread)")
-        if c.run > c.sure {
-            tip += tr("（其中 \(c.run - c.sure) 个现在看不到，不知道还在不在跑：带 ?）", " (\(c.run - c.sure) out of KIKUmap's sight, not known if still running: marked ?)")
-        }
-        // (with the counts it's about, before the lines on what can't be read)
-        if c.needs > 0 { tip += tr("（其中 \(c.needs) 个要你处理）", " (\(c.needs) need you)") }
+        // (each with the count it's about, before the lines on what can't be read)
+        let words = StatusBar.countsText(run: c.run, sure: c.sure, unread: c.unread, needs: c.needs)
+        var tip = words.tip
         tip += lines.tip
-        tip += tr("\n红色 = 未读（做完了还没看） · ! = 要你处理（批准、回答，或出错停下了） · 圈里的数字 = 在跑几个（外圈在转：正在跑）", "\nRed = unread (finished, not yet seen) · ! = needs you (an approval, an answer, or it stopped on an error) · number in a ring = how many are running (its arc going round: running now)")
+        tip += tr("\n红色数字 = 未读（做完了，还没看） · ! = 在等你（要你确认或回答，或者出错停下了） · 圈里的数字 = 在跑几个（外圈在转：现在在跑）", "\nRed number = unread (done, not looked at yet) · ! = waiting for you (to approve or answer, or it stopped on an error) · number in a ring = how many are running (arc turning: running now)")
         item.button?.toolTip = tip + StatusBar.usageTip(usage)
         // VoiceOver: the app's name and what it's showing (the icon alone says nothing)
-        var said = tr("KIKUmap，进行中 \(c.run) 个，未读 \(c.unread) 个", "KIKUmap, \(c.run) running, \(c.unread) unread")
-        if c.run > c.sure { said += tr("，其中 \(c.run - c.sure) 个不确定", ", \(c.run - c.sure) of them not confirmed") }
-        if c.needs > 0 { said += tr("，\(c.needs) 个要你处理", ", \(c.needs) need you") }
-        item.button?.setAccessibilityLabel(said + lines.said)
+        item.button?.setAccessibilityLabel(words.said + lines.said)
+    }
+
+    /// The icon's tooltip line for its counts, and VoiceOver's words for them: the ones out of sight are said right
+    /// after the running count (they're of those), the ones waiting for you after the unread count.
+    static func countsText(run: Int, sure: Int, unread: Int, needs: Int) -> (tip: String, said: String) {
+        var tip = tr("在跑 \(run)", "Running \(run)"), said = tr("KIKUmap，在跑 \(run) 个", "KIKUmap, \(run) running")
+        if run > sure {
+            tip += tr("（其中 \(run - sure) 个现在看不到，可能还在跑，标着 ?）", " (\(run - sure) out of sight, maybe still running: marked ?)")
+            said += tr("，其中 \(run - sure) 个现在看不到", ", \(run - sure) of them out of sight")
+        }
+        tip += tr(" · 未读 \(unread)", " · Unread \(unread)")
+        said += tr("，未读 \(unread) 个", ", \(unread) unread")
+        if needs > 0 {
+            tip += tr("（其中 \(needs) 个在等你）", " (\(needs) waiting for you)")
+            said += tr("，其中 \(needs) 个在等你", ", \(needs) of them waiting for you")
+        }
+        return (tip, said)
     }
 
     /// Claude's note and ChatGPT's (what can't be read now), as the menu bar says them: one for both when both come
@@ -197,17 +218,18 @@ final class StatusBar: NSObject, NSMenuDelegate {
     }
 
     /// The icon's tooltip lines for those notes ("? …", each with what it may leave out), and VoiceOver's words for them.
+    /// (A note may already have a colon in it, "Claude not synced: Accessibility off": what follows is a sentence of its own.)
     static func noteLines(_ n: (claude: String?, gpt: String?, both: Bool), claudeUnreadOnly: Bool) -> (tip: String, said: String) {
         var tip = ""
         if let c = n.claude {
             tip += "\n? " + c + (n.both
-                ? tr("：Claude 和 ChatGPT 里在跑和未读的可能不止这些，打开 KIKUmap 看怎么恢复", ": there may be more running or unread in Claude and ChatGPT than shown; open KIKUmap to see how to fix it")
+                ? tr("。Claude 和 ChatGPT 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决", ". There may be more running or unread in Claude and ChatGPT than shown; open KIKUmap to see how to fix it")
                 : claudeUnreadOnly
-                ? tr("：Claude 里哪些看过了，这里可能没跟上，打开 KIKUmap 看怎么恢复", ": which chats you've read in Claude may not show here; open KIKUmap to see how to fix it")
-                : tr("：Claude 里在跑和未读的可能不止这些，打开 KIKUmap 看怎么恢复", ": there may be more running or unread in Claude than shown; open KIKUmap to see how to fix it"))
+                ? tr("。你在 Claude 里看过哪些，这里可能没跟上，打开 KIKUmap 看怎么解决", ". Which chats you've read in Claude may not show here; open KIKUmap to see how to fix it")
+                : tr("。Claude 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决", ". There may be more running or unread in Claude than shown; open KIKUmap to see how to fix it"))
         }
         if let g = n.gpt {
-            tip += "\n? " + g + tr("：ChatGPT 里在跑和未读的可能不止这些，打开 KIKUmap 看怎么恢复", ": there may be more running or unread in ChatGPT than shown; open KIKUmap to see how to fix it")
+            tip += "\n? " + g + tr("。ChatGPT 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决", ". There may be more running or unread in ChatGPT than shown; open KIKUmap to see how to fix it")
         }
         return (tip, [n.claude, n.gpt].compactMap { $0 }.map { tr("，", ", ") + $0 }.joined())
     }
@@ -229,38 +251,57 @@ final class StatusBar: NSObject, NSMenuDelegate {
     /// The drop-down's lines over its two lists: "? …" for what can't be read now (Claude's, then ChatGPT's, as `notes`
     /// gives them), then each count, with "?" when some may be missing ("Not known" under it while it's 0). What's
     /// running is read as usual when only Claude's unread marks can't be (`claudeUnreadOnly`); `unseen`: some running
-    /// are out of sight.
-    static func heads(run: Int, unread: Int, unseen: Bool, claude: String?, claudeUnreadOnly: Bool, gpt: String?)
+    /// are out of sight; `needs`: of the unread, how many wait for you ("!" first, as on the icon).
+    static func heads(run: Int, unread: Int, unseen: Bool, needs: Int = 0, claude: String?, claudeUnreadOnly: Bool, gpt: String?)
         -> (notes: [String], run: [String], unread: [String]) {
         let runBlind = (claude != nil && !claudeUnreadOnly) || gpt != nil, unreadBlind = claude != nil || gpt != nil
-        func count(_ title: String, _ n: Int, _ unsure: Bool, _ blind: Bool) -> [String] {
-            [title + "\(n)" + (unsure ? "?" : "")] + (n == 0 && blind ? [tr("　不知道", "　Not known")] : [])
+        func count(_ title: String, _ n: Int, _ unsure: Bool, _ blind: Bool, bang: Bool = false) -> [String] {
+            [title + (bang ? "!" : "") + "\(n)" + (unsure ? "?" : "")] + (n == 0 && blind ? [tr("　不知道", "　Not known")] : [])
         }
         return ([claude, gpt].compactMap { $0.map { "? " + $0 } },
-                count(tr("进行中 · ", "Running · "), run, runBlind || unseen, runBlind),
-                count(tr("未读 · ", "Unread · "), unread, unreadBlind, unreadBlind))
+                count(tr("在跑 · ", "Running · "), run, runBlind || unseen, runBlind),
+                count(tr("未读 · ", "Unread · "), unread, unreadBlind, unreadBlind, bang: needs > 0))
     }
 
+    /// A chat's line in the drop-down: its name (cut short past 46 characters), then "?" while it runs out of KIKUmap's
+    /// sight, or "!" while it waits for you, as the icon marks them.
+    static func chatTitle(_ name: String, unseen: Bool, waits: Bool) -> String {
+        (name.count > 46 ? String(name.prefix(46)) + "…" : name) + (unseen ? "  ?" : waits ? "  !" : "")
+    }
+
+    /// A chat's row's reason for its "?" (below): since when `store` last saw it running, and a Codex session's app.
+    static func unseenWhy(_ c: Chat, in store: Store, gpt: GPTSidebarIssue?) -> String {
+        let at = store.lastSeenRunning(c.id).map { UsageMonitor.stamp($0) } ?? "?"
+        return unseenWhy(c.id, at: at, gpt: gpt, session: c.isCodexSession ? c.app : nil)
+    }
     /// Why a chat last seen running at `at` is out of KIKUmap's sight now (its row's "?"), on hovering the row and to
-    /// VoiceOver. A Codex task: its log has gone quiet. An ordinary ChatGPT chat: why ChatGPT's window can't be read
-    /// (`gpt`), as the "ChatGPT not synced" line above says it, with its fix; nil: the window was read, but not this
-    /// chat's row. A chat in the Claude app: its chat list can't be seen.
-    static func unseenWhy(_ id: String, at: String, gpt: GPTSidebarIssue?) -> String {
+    /// VoiceOver. A Codex task: its log has gone quiet; a Codex session's (`session`: its app, "vscode" or another
+    /// editor's or a terminal's) waits for you there, not in ChatGPT. An ordinary ChatGPT chat: why ChatGPT's window
+    /// can't be read (`gpt`), as the "ChatGPT not synced" line above says it, with its fix; nil: the window was read,
+    /// but not this chat's row. A chat in the Claude app: its chat list can't be seen.
+    static func unseenWhy(_ id: String, at: String, gpt: GPTSidebarIssue?, session: String? = nil) -> String {
+        if Store.codexThread(id), let app = session {
+            return app == "vscode"
+                ? tr("它的任务记录 \(at) 起没再动：可能在 VS Code 里等你确认，可能有一步做得久，也可能 Codex 退出了。从那时起的时长是估算的（≈）。到 VS Code 里看看。",
+                     "Its task log hasn't moved since \(at): it may be waiting for your approval in VS Code, a long step may be running, or Codex quit. Its time from then is estimated (≈). Look in VS Code to see.")
+                : tr("它的任务记录 \(at) 起没再动：可能在它的终端或编辑器里等你确认，可能有一步做得久，也可能 Codex 退出了。从那时起的时长是估算的（≈）。到那里看看。",
+                     "Its task log hasn't moved since \(at): it may be waiting for your approval in its terminal or editor, a long step may be running, or Codex quit. Its time from then is estimated (≈). Look there to see.")
+        }
         if Store.codexThread(id) {
-            return tr("它的任务记录 \(at) 起没再动：可能在等你批准、一步做得久，或者 ChatGPT 停了。从那时起的时长是估算的（≈）。在 ChatGPT 里打开它看看。",
-                      "Its task log hasn't moved since \(at): it may be waiting for your approval, a long step may be running, or ChatGPT stopped. Its time from then is estimated (≈). Open it in ChatGPT to see.")
+            return tr("它的任务记录 \(at) 起没再动：可能在等你确认，可能有一步做得久，也可能 ChatGPT 停了。从那时起的时长是估算的（≈）。在 ChatGPT 里打开看看。",
+                      "Its task log hasn't moved since \(at): it may be waiting for you to approve, a long step may be running, or ChatGPT stopped. Its time from then is estimated (≈). Open it in ChatGPT to see.")
         }
         if id.hasPrefix("gpt-chat-") {
             let since = tr("\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。",
                            "It was running at \(at); whether it has finished isn't known yet, and its time from then is estimated (≈). ")
             // (its row isn't found by its name: two pinned chats share it, or it was renamed a moment ago)
             guard let i = gpt else {
-                return tr("ChatGPT 的左栏里按名字找不到这个对话（刚改了名，或者另一个置顶对话和它同名）。", "ChatGPT's sidebar doesn't show this chat by its name (renamed just now, or another pinned chat has the same name). ")
+                return tr("ChatGPT 的侧边栏里按名字找不到这个对话（刚改了名，或者另一个置顶对话和它同名）。", "ChatGPT's sidebar doesn't show this chat by its name (renamed just now, or another pinned chat has the same name). ")
                     + since + tr("怎么办：两个置顶对话同名的话，在 ChatGPT 里给其中一个改个名。", "Fix: if two pinned chats share its name, rename one of them in ChatGPT.")
             }
             return tr("ChatGPT 没同步：", "ChatGPT not synced: ") + i.note + tr("。", ". ") + since + i.fix
         }
-        return tr("KIKUmap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。看看窗口顶部的同步状态怎么恢复。",
+        return tr("KIKUmap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：\(at) 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。窗口顶部的同步状态写着怎么解决。",
                   "KIKUmap can't see Claude's chat list right now (window closed or on another desktop, sidebar hidden or folded, Code mode, Claude quit, or Accessibility off): it was running at \(at); whether it has finished isn't known yet, and its time from then is estimated (≈). The sync status at the top of the window says how to fix it.")
     }
 
@@ -272,11 +313,40 @@ final class StatusBar: NSObject, NSMenuDelegate {
         return tr("计划任务", "Scheduled tasks") + (usage.routinesAsOf.map { tr(" · \(UsageMonitor.stamp($0)) 时的列表", " · as of \(UsageMonitor.stamp($0))") } ?? "")
     }
 
-    /// The Today submenu's last line when it lists only the first `shown` chats: how many more, and their time.
-    static func moreLine(_ day: [(id: String, secs: Double)], after shown: Int) -> String? {
+    /// The drop-down's lines under the usage rows: what's wrong with reading Claude's (or that it's being read, while
+    /// it's on), then with ChatGPT's lookup from OpenAI (`gpt`, nil while it's off or reads fine); each points to To-do
+    /// only when that actually lists it (an ignored one isn't pointed to).
+    static func usageLines(_ usage: UsageMonitor, gpt: String?, todo: [Todo]) -> [String] {
+        let see = tr("（见「待办」）", " (see To-do)")
+        var lines: [String] = []
+        if UsageMonitor.enabled {
+            switch usage.status {
+            case .unknown: lines.append(tr("　读取中…", "　Reading…"))
+            case .ok where usage.session == nil && usage.weekly == nil:
+                lines.append(tr("　这个套餐没有 5 小时 / 每周额度可看", "　No 5-hour or weekly limit on this plan"))
+            case .ok: break
+            default: lines.append("　" + usage.hint + (todo.contains { $0.id.hasPrefix("usage-") } ? see : ""))
+            }
+        }
+        if let g = gpt, !g.isEmpty { lines.append("　" + g + (todo.contains { $0.id.hasPrefix("gpt-usage-") } ? see : "")) }
+        return lines
+    }
+
+    /// The drop-down's Usage section under its heading, in order: the rows (Claude's, then ChatGPT's), the lines on
+    /// what's wrong with reading either (`usageLines`) right under them, and last, while Claude's usage is off, the item
+    /// that turns it on: ChatGPT's line stays with ChatGPT's rows, not under that item.
+    enum UsagePart: Equatable { case rows, line(String), turnOn }
+    static func usageParts(_ usage: UsageMonitor, rows: Bool, gpt: String?, todo: [Todo]) -> [UsagePart] {
+        (rows ? [.rows] : []) + usageLines(usage, gpt: gpt, todo: todo).map { .line($0) } + (UsageMonitor.enabled ? [] : [.turnOn])
+    }
+
+    /// The Today submenu's last line when it lists only the first `shown` chats: how many more, and their time ("≈" when
+    /// a minute or more of it is estimated, `est` by chat, as each row says it).
+    static func moreLine(_ day: [(id: String, secs: Double)], after shown: Int, est: [String: Double] = [:]) -> String? {
         guard day.count > shown else { return nil }
         let rest = day.dropFirst(shown)
-        return tr("　还有 \(rest.count) 个 · ", "　\(rest.count) more · ") + Clock.duration(rest.reduce(0) { $0 + $1.secs })
+        let guessed = rest.reduce(0) { $0 + (est[$1.id] ?? 0) }
+        return tr("　还有 \(rest.count) 个 · ", "　\(rest.count) more · ") + (guessed >= 60 ? "≈" : "") + Clock.duration(rest.reduce(0) { $0 + $1.secs })
     }
 
     private func draw() {
@@ -315,7 +385,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
             var x: CGFloat = 0
             if run > 0 {
                 Theme.drawRunCount(run > 99 ? "99+" : "\(run)", in: NSRect(x: 0, y: (H - ringD) / 2, width: ringD, height: ringD),
-                                   ink: ink, arc: Logo.orange, font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .bold),
+                                   ink: ink, arc: Theme.running, font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .bold),
                                    phase: phase, lineWidth: 1.7)
                 x = ringD
                 if unsure {
@@ -327,7 +397,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
             }
             if unread > 0 {
                 let r = NSRect(x: x, y: (H - pillH) / 2, width: pillW, height: pillH)
-                NSColor.systemRed.setFill()
+                Theme.unread.setFill()
                 NSBezierPath(roundedRect: r, xRadius: pillH / 2, yRadius: pillH / 2).fill()
                 let ts = badge.size()
                 badge.draw(at: NSPoint(x: r.midX - ts.width / 2, y: r.midY - ts.height / 2))
@@ -352,6 +422,21 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) { usage.refreshIfStale() }
 
+    /// The menu's Today line: chats and sessions counted apart (as the left column names them), the time, and how much
+    /// of it is estimated.
+    static func todayTitle(_ n: (chats: Int, sessions: Int), total: Double, estimated: Double) -> String {
+        guard n.chats + n.sessions > 0 else { return tr("今日回顾 · 还没有", "Today · nothing yet") }
+        let est = estimated >= 60 ? tr("（含估算 ≈\(Clock.duration(estimated))）", " (≈ \(Clock.duration(estimated)) estimated)") : ""
+        return tr("今日回顾 · ", "Today · ") + ChatCount.both(n) + " · " + Clock.duration(total) + est
+    }
+
+    /// What Today's ≈ is: time KIKUmap couldn't see (a window out of sight, a quiet Codex task, a request you may have
+    /// answered where it can't see), and how each is counted.
+    static var estimateTip: String {
+        tr("Claude 或 ChatGPT 的窗口看不到时（关了、在别的桌面、退出了），或者 Codex 任务没动静时，KIKUmap 不知道对话还在不在跑，这段时间是估算的：两次看到它在跑之间，或者到确定做完的时刻（Claude 的通知、任务记录），整段都算；其余按你一次运行的常见时长算，最多算到看到它做完的时候。你可能已经回答了的请求（在终端或编辑器里批准了，或者它的通知被清掉了）也是估算的：算到 KIKUmap 听到那一步结束，最多按你一次运行的常见时长算。",
+           "While Claude's or ChatGPT's window can't be seen (closed, on another desktop, the app quit), or a Codex task is quiet, KIKUmap can't tell whether a chat is still running, so that time is estimated: in full between two sightings, or up to a known finish (Claude's notification, the task's log); otherwise your typical run's length, never past when it was seen finished. A request you may have answered (approved in its terminal or editor, or its notification cleared) is estimated too: counted up to when KIKUmap hears that step end, at most your typical run.")
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         @discardableResult func header(_ t: String) -> NSMenuItem {
@@ -361,18 +446,18 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         func chatItems(_ list: [Chat], _ state: Int) {
             for c in list.prefix(15) {
-                var t = store.name(c.id)
-                if t.count > 46 { t = String(t.prefix(46)) + "…" }
-                let unseen = state == 2 && store.outOfSight(c.id)
-                let it = menu.addItem(withTitle: t + (unseen ? "  ?" : ""), action: #selector(openItem(_:)), keyEquivalent: "")
+                let unseen = state == 2 && store.outOfSight(c.id), waits = state == 1 && store.needsInput(c)
+                let it = menu.addItem(withTitle: StatusBar.chatTitle(store.name(c.id), unseen: unseen, waits: waits),
+                                      action: #selector(openItem(_:)), keyEquivalent: "")
                 it.target = self
                 it.representedObject = c.id
                 it.image = StatusBar.mark(state, store.branchColor(c.id))
                 it.toolTip = store.timeLabel(c)
+                // (what it waits for: on hovering it, and to VoiceOver)
+                if waits { it.setAccessibilityHelp(it.toolTip) }
                 if unseen {
-                    let at = store.lastSeenRunning(c.id).map { UsageMonitor.stamp($0) } ?? "?"
                     // (VoiceOver gives the same reason as hovering)
-                    it.toolTip = StatusBar.unseenWhy(c.id, at: at, gpt: gptWindowIssue?())
+                    it.toolTip = StatusBar.unseenWhy(c, in: store, gpt: gptWindowIssue?())
                     it.setAccessibilityHelp(it.toolTip)
                 }
             }
@@ -414,6 +499,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         let run = store.runningChats, unread = store.unreadChats
         let notes = StatusBar.notes(claude: claudeNote?(), gpt: gptNote?(), accessOff: accessOffForBoth?() == true)
         let heads = StatusBar.heads(run: run.count, unread: unread.count, unseen: run.contains { store.outOfSight($0.id) },
+                                    needs: unread.filter(store.needsInput).count,
                                     claude: notes.claude, claudeUnreadOnly: !notes.both && claudeUnreadOnly?() == true, gpt: notes.gpt)
         for t in heads.notes + heads.run { header(t) }
         chatItems(run, 2)
@@ -427,14 +513,9 @@ final class StatusBar: NSObject, NSMenuDelegate {
         let total = day.reduce(0) { $0 + $1.secs }
         // (time KIKUmap didn't see is estimated: said, with how much)
         let guessed = store.todayEstimated()
-        let est = guessed >= 60 ? tr("（含估算 ≈\(Clock.duration(guessed))）", " (≈ \(Clock.duration(guessed)) estimated)") : ""
-        let todayItem = menu.addItem(withTitle: day.isEmpty ? tr("今日回顾 · 还没有", "Today · nothing yet")
-                                                             : tr("今日回顾 · \(day.count) 个对话 · \(Clock.duration(total))", "Today · \(day.count) chats · \(Clock.duration(total))") + est,
+        let todayItem = menu.addItem(withTitle: StatusBar.todayTitle(store.chatCount(day.map(\.id)), total: total, estimated: guessed),
                                      action: nil, keyEquivalent: "")
-        if guessed >= 60 {
-            todayItem.toolTip = tr("Claude 或 ChatGPT 的窗口看不到时（关了、在别的桌面、退出了），或 Codex 任务没动静时，KIKUmap 看不到对话还在不在跑。这段时间是估算的：两次看到它之间，或到已知的做完时刻（Claude 的通知、任务记录），都算满；否则按你一次运行的常见时长算，不超过它被看到做完的时候。",
-                                   "While Claude's or ChatGPT's window can't be seen (closed, on another desktop, the app quit), or a Codex task is quiet, KIKUmap can't see whether a chat is still running. That time is estimated: in full between two sightings or up to a known finish (Claude's notification, the task's log); otherwise at your typical run's length, never past when it was seen finished.")
-        }
+        if guessed >= 60 { todayItem.toolTip = StatusBar.estimateTip }
         if !day.isEmpty {
             let sub = NSMenu()
             // (not one waiting for you)
@@ -456,11 +537,11 @@ final class StatusBar: NSObject, NSMenuDelegate {
             }
             for (id, secs) in day.prefix(20) { add(sub, id, secs) }
             // the rest in one line, so the rows add up to the total above; it opens onto them
-            if let t = StatusBar.moreLine(day, after: 20) {
+            if let t = StatusBar.moreLine(day, after: 20, est: estToday) {
                 let more = sub.addItem(withTitle: t, action: nil, keyEquivalent: "")
                 let rest = NSMenu(), tail = Array(day.dropFirst(20))
                 for (id, secs) in tail.prefix(200) { add(rest, id, secs) }
-                if let t = StatusBar.moreLine(tail, after: 200) { rest.addItem(withTitle: t, action: nil, keyEquivalent: "").isEnabled = false }
+                if let t = StatusBar.moreLine(tail, after: 200, est: estToday) { rest.addItem(withTitle: t, action: nil, keyEquivalent: "").isEnabled = false }
                 more.submenu = rest
             }
             todayItem.submenu = sub
@@ -512,31 +593,25 @@ final class StatusBar: NSObject, NSMenuDelegate {
         if UsageMonitor.enabled && (usage.session != nil || usage.weekly != nil), let p = usage.plan { plans.append("Claude " + p) }
         if !gptRows.isEmpty, let p = gptPlan?() { plans.append("ChatGPT " + p) }
         if !plans.isEmpty { usageHead.title = ([tr("用量", "Usage")] + plans).joined(separator: " · ") }
-        if !rows.isEmpty {
-            let it = NSMenuItem()
-            it.view = UsageMenuView(rows: rows)
-            it.view?.toolTip = who
-            menu.addItem(it)
-        }
-        if !UsageMonitor.enabled {
-            let on = menu.addItem(withTitle: tr("显示 Claude 的用量和计划任务（付费套餐）…", "Show Claude's usage and scheduled tasks (paid plans)…"), action: #selector(turnOnUsage), keyEquivalent: "")
-            on.target = self
-        } else {
-            // say what's wrong; point to To-do only when it actually lists it (an ignored one isn't pointed to)
-            let listed = todo.contains { $0.id.hasPrefix("usage-") }
-            switch usage.status {
-            case .unknown: header(tr("　读取中…", "　Reading…"))
-            case .ok where usage.session == nil && usage.weekly == nil:
-                header(tr("　这个套餐没有 5 小时 / 每周额度可看", "　No 5-hour or weekly limit on this plan"))
-            case .ok: break
-            default: header("　" + usage.hint + (listed ? tr("（见「待办」）", " (see To-do)") : ""))
+        for part in StatusBar.usageParts(usage, rows: !rows.isEmpty, gpt: gptUsageNote?(), todo: todo) {
+            switch part {
+            case .rows:
+                let it = NSMenuItem()
+                it.view = UsageMenuView(rows: rows)
+                it.view?.toolTip = who
+                menu.addItem(it)
+            case .line(let t): header(t)
+            case .turnOn:
+                let on = menu.addItem(withTitle: tr("显示 Claude 的用量和计划任务（付费套餐）…", "Show Claude's usage and scheduled tasks (paid plans)…"), action: #selector(turnOnUsage), keyEquivalent: "")
+                on.target = self
             }
         }
         menu.addItem(.separator())
 
         let all = menu.addItem(withTitle: tr("全部标为已读", "Mark all as read"), action: #selector(markAll), keyEquivalent: "")
         all.target = self
-        all.isEnabled = !unread.isEmpty
+        // (not for chats Claude shows waiting for you alone: they stay unread while it does)
+        all.isEnabled = unread.contains { store.markable($0.id) }
         let st = menu.addItem(withTitle: tr("设置…", "Settings…"), action: #selector(settings), keyEquivalent: ",")
         st.target = self
         let ab = menu.addItem(withTitle: tr("关于 KIKUmap", "About KIKUmap"), action: #selector(about), keyEquivalent: "")
@@ -589,10 +664,24 @@ final class UsageMenuView: NSView {
         super.init(frame: NSRect(x: 0, y: 0, width: max(330, bx + 100 + 70 + 18), height: CGFloat(rows.count) * 46 + 8))
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel(rows.map { "\($0.0): " + ($0.1.map { "\(Int($0.percent.rounded()))%" } ?? "—") }.joined(separator: ", "))
+        setAccessibilityLabel(UsageMenuView.spoken(rows))
     }
     required init?(coder: NSCoder) { fatalError() }
     override var isFlipped: Bool { true }
+
+    /// A row's number on the right ("45% used"); nil: not known (drawn "—").
+    static func used(_ w: UsageMonitor.Window?) -> String? { w.map { "\(Int($0.percent.rounded()))%" + tr(" 已用", " used") } }
+    /// The line under a row's title: its note ("as of 14:05", "reset 14:00"), else when it resets.
+    static func under(_ row: (String, UsageMonitor.Window?, String?)) -> String { row.2 ?? Clock.resets(row.1?.resets) }
+
+    /// VoiceOver's words for the panel: each row as it's drawn, with the line under it, so numbers from an earlier read
+    /// are heard as such and a window that has reset since says when.
+    static func spoken(_ rows: [(String, UsageMonitor.Window?, String?)]) -> String {
+        rows.map { row in
+            let sub = under(row)
+            return row.0 + tr("：", ": ") + (used(row.1) ?? tr("不知道", "not known")) + (sub.isEmpty ? "" : tr("，", ", ") + sub)
+        }.joined(separator: tr("；", "; "))
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         let titleF = UsageMenuView.titleF
@@ -602,10 +691,10 @@ final class UsageMenuView: NSView {
             let y = 4 + CGFloat(i) * 46
             (row.0 as NSString).draw(at: NSPoint(x: 20, y: y + 4),
                                      withAttributes: [.font: titleF, .foregroundColor: NSColor.labelColor])
-            let sub = row.2 ?? Clock.resets(row.1?.resets)
+            let sub = UsageMenuView.under(row)
             (sub as NSString).draw(at: NSPoint(x: 20, y: y + 22),
                                    withAttributes: [.font: subF, .foregroundColor: NSColor.secondaryLabelColor])
-            let pct = row.1.map { "\(Int($0.percent.rounded()))%" + tr(" 已用", " used") } ?? "—"
+            let pct = UsageMenuView.used(row.1) ?? "—"
             let ps = pct.size(pctF)
             (pct as NSString).draw(at: NSPoint(x: bounds.width - 18 - ps.width, y: y + 15 - ps.height / 2 + 3),
                                    withAttributes: [.font: pctF, .foregroundColor: NSColor.secondaryLabelColor])

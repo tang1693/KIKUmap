@@ -2,7 +2,7 @@ import Cocoa
 
 // Settings → Shortcuts: every shortcut by where it works (ShortcutTable), its keys drawn as keycaps, and a small
 // stage that acts each one out on a sample map, list and timeline, so you can see where and how it's used. Rows are
-// for reading: clicking one plays its demo, nothing here runs a shortcut.
+// for reading: clicking one plays its demo once, nothing here runs a shortcut, and nothing plays by itself.
 
 /// A shortcut's keys, drawn as keycaps, right-aligned; the ones the demo presses light up while they're down.
 final class KeyComboView: NSView {
@@ -25,17 +25,19 @@ final class KeyComboView: NSView {
     }
 }
 
-/// One row of the legend: its keys, what it does; hover plays its demo, a click pins it.
+/// One row of the legend: its keys and what it does. A click (or Return / space) plays its demo once; hovering only
+/// highlights it.
 final class ShortcutRowView: NSView {
+    /// What the picture is doing for this row: its demo playing (VoiceOver hears "Playing"), paused, or over (the
+    /// picture and the caption are still about it).
+    enum Mark { case none, playing, paused, done }
     let row: ShortcutRow
     let keys: KeyComboView
     private let text: NSTextField
     var hovered = false { didSet { if hovered != oldValue { needsDisplay = true } } }
-    var playing = false { didSet { if playing != oldValue { needsDisplay = true; sayState() } } }
-    var pinned = false { didSet { if pinned != oldValue { needsDisplay = true; sayState() } } }
-    var onHover: ((ShortcutRowView, Bool) -> Void)?
+    var mark = Mark.none { didSet { if mark != oldValue { needsDisplay = true; sayState() } } }
     var onClick: ((ShortcutRowView) -> Void)?
-    /// ↑ ↓ on a focused row: the row before / after (-1 / 1). Esc: let the pinned row go.
+    /// ↑ ↓ on a focused row: the focus goes to the row before / after (-1 / 1). Esc: stop the demo.
     var onStep: ((ShortcutRowView, Int) -> Void)?
     var onEscape: (() -> Void)?
 
@@ -64,22 +66,23 @@ final class ShortcutRowView: NSView {
         setAccessibilityHelp(row.note)
     }
 
-    // the keyboard: Tab reaches the rows; space or Return plays and pins one, ↑ ↓ move, Esc lets go
+    // the keyboard: Tab reaches the rows (a click focuses one too); space or Return plays one, ↑ ↓ move the focus,
+    // Esc stops the demo
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
     override var focusRingMaskBounds: NSRect { NSRect(x: 0, y: 1, width: bounds.width, height: bounds.height - 2) }
     override func drawFocusRingMask() { NSBezierPath(roundedRect: focusRingMaskBounds, xRadius: 6, yRadius: 6).fill() }
     override func keyDown(with e: NSEvent) {
         switch e.keyCode {
-        case 49, 36, 76: onClick?(self)
+        case 49, 36, 76: if !e.isARepeat { onClick?(self) }  // (held down: once)
         case 125: onStep?(self, 1)
         case 126: onStep?(self, -1)
         default: super.keyDown(with: e)
         }
     }
     override func cancelOperation(_ sender: Any?) { onEscape?() }
-    /// What it's doing, for VoiceOver.
-    private func sayState() { setAccessibilityValue(pinned ? tr("已固定", "Pinned") : playing ? tr("正在演示", "Playing") : nil) }
+    /// What it's doing, for VoiceOver: "Playing" while its demo plays, nothing otherwise.
+    private func sayState() { setAccessibilityValue(mark == .playing ? tr("正在演示", "Playing") : nil) }
     required init?(coder: NSCoder) { fatalError() }
     override var isFlipped: Bool { true }
 
@@ -88,22 +91,33 @@ final class ShortcutRowView: NSView {
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil))
     }
-    override func mouseEntered(with e: NSEvent) { hovered = true; onHover?(self, true) }
-    override func mouseExited(with e: NSEvent) { hovered = false; onHover?(self, false) }
-    override func mouseDown(with e: NSEvent) { onClick?(self) }
-    override func accessibilityPerformPress() -> Bool { onClick?(self); return true }
+    // hovering only highlights: a demo plays when it's clicked
+    override func mouseEntered(with e: NSEvent) { hovered = true }
+    override func mouseExited(with e: NSEvent) { hovered = false }
+    /// A click anywhere on the row, its words and keys too (they never take the focus, so AppKit leaves it where it
+    /// was): the row takes it, so Esc stops the demo it starts and space or Return plays it again.
+    override func mouseDown(with e: NSEvent) { press() }
+    override func accessibilityPerformPress() -> Bool { press(); return true }
+    private func press() {
+        if window?.firstResponder !== self { window?.makeFirstResponder(self) }
+        onClick?(self)
+    }
 
-    override func draw(_ dirtyRect: NSRect) {
-        guard hovered || playing || pinned else { return }
+    override func draw(_ dirtyRect: NSRect) { Self.drawMark(in: bounds, hovered: hovered, mark: mark) }
+
+    /// A row's highlight (Settings → Access's items get the same): a fill while hovered, deeper while its demo plays
+    /// or is paused, lighter once it's over; the row the picture plays gets a bar at its start, so it's plain which
+    /// one it is.
+    static func drawMark(in bounds: NSRect, hovered: Bool, mark: Mark) {
+        let on = mark == .playing || mark == .paused
+        guard hovered || mark != .none else { return }
         let p = NSBezierPath(roundedRect: NSRect(x: 0, y: 1, width: bounds.width, height: bounds.height - 2), xRadius: 6, yRadius: 6)
-        NSColor.labelColor.withAlphaComponent(pinned ? 0.12 : playing ? 0.09 : 0.04).setFill(); p.fill()
-        if pinned { NSColor.labelColor.withAlphaComponent(0.25).setStroke(); p.lineWidth = 1; p.stroke() }
-        // the row the stage plays: a bar at its start, so it's plain which one it is
-        if playing || pinned { NSColor.labelColor.setFill(); NSBezierPath(roundedRect: NSRect(x: 0, y: 5, width: 2.5, height: bounds.height - 10), xRadius: 1.2, yRadius: 1.2).fill() }
+        NSColor.labelColor.withAlphaComponent((on ? 0.09 : mark == .done ? 0.05 : 0) + (hovered ? 0.04 : 0)).setFill(); p.fill()
+        if on { NSColor.labelColor.setFill(); NSBezierPath(roundedRect: NSRect(x: 0, y: 5, width: 2.5, height: bounds.height - 10), xRadius: 1.2, yRadius: 1.2).fill() }
     }
 }
 
-/// A place's rows (with Anywhere's two headings), top-aligned.
+/// A place's rows (with Global's two headings), top-aligned.
 final class ShortcutLegendView: NSView {
     private(set) var rowViews: [ShortcutRowView] = []
     init(_ rows: [ShortcutRow], keysWidth: CGFloat) {
@@ -148,8 +162,9 @@ final class ShortcutLegendView: NSView {
     }
 }
 
-/// The page: the hotkey row on top, then where (a picker), the stage, a caption and that place's rows. The stage plays
-/// the rows in turn; hovering one plays it, a click pins it (click again, or Esc, to let it go on).
+/// The page: the hotkey row on top, then where (a picker), the picture, a caption and that place's rows. Nothing plays
+/// by itself (not when the page opens, a place is picked or Settings comes back): a click on a row plays its demo
+/// once, up from black and back to black; hovering a row only highlights it.
 final class ShortcutsPage: NSObject {
     let view: NSView
     private let stage = ShortcutStage(frame: NSRect(x: 0, y: 0, width: 504, height: 220))
@@ -158,9 +173,8 @@ final class ShortcutsPage: NSObject {
     private let legendBox = NSView()
     private var legends: [ShortcutPlace: ShortcutLegendView] = [:]
     private var place: ShortcutPlace
-    private weak var playing: ShortcutRowView?
-    private weak var pinned: ShortcutRowView?
-    private var dwell: DispatchWorkItem?
+    /// The row last clicked in this place: the picture and the caption are about it (nil: none yet).
+    private weak var chosen: ShortcutRowView?
     private static let placeKey = "ShortcutsPlace"
 
     init(top: NSView) {
@@ -185,7 +199,7 @@ final class ShortcutsPage: NSObject {
         caption.textColor = .secondaryLabelColor
         caption.maximumNumberOfLines = 3
         caption.preferredMaxLayoutWidth = 504
-        caption.lineBreakMode = .byWordWrapping              // two lines, the second cut with …
+        caption.lineBreakMode = .byWordWrapping              // three lines, the last cut with …
         caption.cell?.truncatesLastVisibleLine = true
 
         stack.orientation = .vertical
@@ -204,18 +218,21 @@ final class ShortcutsPage: NSObject {
         picker.widthAnchor.constraint(equalToConstant: 504).isActive = true
         stack.setContentHuggingPriority(.required, for: .vertical)
 
-        stage.onLit = { [weak self] parts in self?.playing?.keys.pressed = parts }
-        stage.onPassEnded = { [weak self] in self?.next() }
+        stage.onLit = { [weak self] parts in self?.chosen?.keys.pressed = parts }
+        stage.onChange = { [weak self] in self?.marks() }
         buildLegends()
         show(place)
     }
 
-    /// The rows again (the hotkey changed, or was switched on or off): the same place, its first row.
+    /// The rows again (the hotkey changed, or was switched on or off): the same place; the row chosen stays chosen,
+    /// stopped (black, "watch again"), with its caption as it reads now.
     func rebuild() {
+        let id = chosen?.row.id
+        chosen?.keys.pressed = nil
         legends.values.forEach { $0.removeFromSuperview() }
         legends = [:]
         buildLegends()
-        show(place)
+        show(place, keeping: id)
     }
 
     private func buildLegends() {
@@ -226,10 +243,9 @@ final class ShortcutsPage: NSObject {
             let l = ShortcutLegendView(ShortcutTable.rows(in: p), keysWidth: keysWidth)
             l.isHidden = true
             for r in l.rowViews {
-                r.onHover = { [weak self] v, on in self?.hover(v, on) }
-                r.onClick = { [weak self] v in self?.click(v) }
+                r.onClick = { [weak self] v in self?.play(v) }
                 r.onStep = { [weak self] v, d in self?.step(from: v, d) }
-                r.onEscape = { [weak self] in self?.pin(nil) }
+                r.onEscape = { [weak self] in self?.stage.stop() }
             }
             legendBox.addSubview(l)
             // pinned to the box's top (an autoresizing frame would grow with the box from zero and slide up over the stage)
@@ -246,62 +262,49 @@ final class ShortcutsPage: NSObject {
         show(p)
     }
 
-    private func show(_ p: ShortcutPlace) {
+    /// A place's rows, nothing playing: the picture black with its hint, the caption saying where these work. (After
+    /// a rebuild, the row `keeping` names stays chosen.)
+    private func show(_ p: ShortcutPlace, keeping id: String? = nil) {
         place = p
         for (q, l) in legends { l.isHidden = q != p }
-        pin(nil)
-        if let first = legends[p]?.rowViews.first { play(first) }
+        chosen?.keys.pressed = nil
+        if let id, let r = legends[p]?.rowViews.first(where: { $0.row.id == id }) {
+            chosen = r
+            say(r.row.note)
+            stage.cue(DemoScenes.slice(id), title: r.row.label)
+        } else {
+            chosen = nil
+            say(p.about)
+            stage.reset()
+        }
+        marks()
     }
 
-    /// ↑ ↓ on a focused row: the next one gets the keys and plays.
+    /// ↑ ↓ on a focused row: the focus moves on (Return or space plays that one).
     private func step(from r: ShortcutRowView, _ d: Int) {
         guard let rows = legends[place]?.rowViews, let i = rows.firstIndex(where: { $0 === r }) else { return }
         let j = max(0, min(rows.count - 1, i + d))
         guard j != i else { return }
         rows[j].window?.makeFirstResponder(rows[j])
-        if pinned != nil { pin(rows[j]) }
-        play(rows[j])
     }
 
+    /// A row clicked (or Return / space on it): its demo once, from the start, and its caption under the picture.
     private func play(_ r: ShortcutRowView) {
-        playing?.playing = false
-        playing?.keys.pressed = nil
-        playing = r
-        r.playing = true
-        caption.stringValue = r.row.note
-        caption.toolTip = r.row.note
-        stage.play(DemoScenes.slice(r.row.id))
+        if chosen !== r { chosen?.keys.pressed = nil }
+        chosen = r
+        say(r.row.note)
+        stage.play(DemoScenes.slice(r.row.id), title: r.row.label)
+        marks()
     }
 
-    /// The pass ended: the pinned row again, else the next one (round the place).
-    private func next() {
-        if let p = pinned { play(p); return }
-        guard let rows = legends[place]?.rowViews, !rows.isEmpty else { return }
-        if let cur = playing, cur.hovered { play(cur); return }
-        let i = playing.flatMap { r in rows.firstIndex { $0 === r } } ?? -1
-        play(rows[(i + 1) % rows.count])
+    private func say(_ s: String) {
+        caption.stringValue = s
+        caption.toolTip = s
     }
 
-    private func hover(_ r: ShortcutRowView, _ on: Bool) {
-        dwell?.cancel()
-        guard on, r !== playing else { return }
-        let w = DispatchWorkItem { [weak self, weak r] in
-            guard let self, let r, r.hovered else { return }
-            self.play(r)
-        }
-        dwell = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
-    }
-
-    private func click(_ r: ShortcutRowView) {
-        if pinned === r { pin(nil); return }
-        pin(r)
-        play(r)
-    }
-
-    private func pin(_ r: ShortcutRowView?) {
-        pinned?.pinned = false
-        pinned = r
-        r?.pinned = true
+    /// Each row follows the picture: the one chosen playing, paused or done; the rest plain.
+    private func marks() {
+        let m: ShortcutRowView.Mark = !stage.isPlaying ? .done : stage.paused ? .paused : .playing
+        for l in legends.values { for r in l.rowViews { r.mark = r === chosen ? m : .none } }
     }
 }

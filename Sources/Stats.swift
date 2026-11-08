@@ -121,7 +121,10 @@ final class StatsView: NSView {
     private var legendRows: [(part: Part, rect: NSRect)] = []
 
     private let pad: CGFloat = 24
-    private let top: CGFloat = 150
+    /// Where the chart starts: lower by however much the note under the summary needs more than two lines.
+    private var top: CGFloat { 150 + noteExtra }
+    /// How much taller than two lines the note is at this width (worked out in `layout`).
+    private var noteExtra: CGFloat = 0
 
     init(store: Store) {
         self.store = store
@@ -159,7 +162,7 @@ final class StatsView: NSView {
             every.setWidth(0, forSegment: i)
         }
         every.selectedSegment = Self.spans.firstIndex(of: hours) ?? 4
-        every.toolTip = tr("每根柱子是多长时间", "How long each bar is")
+        every.toolTip = tr("每根柱子代表多长时间", "How much time each bar covers")
         every.sizeToFit()
         needsLayout = true
         needsDisplay = true
@@ -183,8 +186,26 @@ final class StatsView: NSView {
 
     override func layout() {
         super.layout()
-        every.setFrameOrigin(NSPoint(x: pad, y: 108))
-        range.setFrameOrigin(NSPoint(x: max(bounds.width - pad - range.frame.width, every.frame.maxX + 12), y: 108))
+        // the note takes the lines it needs (at most two, as a rule; three in a narrow window with both the estimate and
+        // the daily-only sentence): the buttons and the chart move down by the rest, so none of it is cut off
+        noteExtra = Self.noteHeight(noteText(), width: bounds.width - pad * 2) - 31
+        every.setFrameOrigin(NSPoint(x: pad, y: 108 + noteExtra))
+        range.setFrameOrigin(NSPoint(x: max(bounds.width - pad - range.frame.width, every.frame.maxX + 12), y: 108 + noteExtra))
+    }
+
+    /// The note under the summary, for what's shown now (the daily-only sentence only under bars shorter than a day,
+    /// and when the range reaches back before that day).
+    private func noteText() -> String {
+        var daily: Date?
+        if hours < 24, let until = store.dailyOnlyUntil, let first = dayStarts.first, until > first { daily = until }
+        return Self.note(hours: hours, who: GPTWatcher.who, estimated: estTotal, dailyOnlyUntil: daily)
+    }
+
+    /// The note's box at width `w`: two lines' 31 points, or as tall as its lines need.
+    static func noteHeight(_ note: String, width w: CGFloat) -> CGFloat {
+        let h = (note as NSString).boundingRect(with: NSSize(width: w, height: 1000), options: .usesLineFragmentOrigin,
+                                                attributes: [.font: Theme.ui(11.5)]).height
+        return max(31, ceil(h) + 3)
     }
 
     /// The summary's days (each day's start, then tomorrow's) and the bars (each bar's start, then the next one's), from
@@ -233,6 +254,7 @@ final class StatsView: NSView {
         slots = slots.filter { top.contains($0.key) }
         var free = (0..<Self.named).filter { s in !slots.values.contains(s) }
         for id in top where slots[id] == nil { slots[id] = free.removeFirst() }
+        needsLayout = true          // (the note may need a line more or less now)
         needsDisplay = true
     }
 
@@ -276,16 +298,19 @@ final class StatsView: NSView {
         i == daySums.count - 1 ? tr("今天", "Today") : Clock.format(dayStarts[i], "M/d", "MMM d")
     }
 
-    /// Under a bar of a day or more: its date ("Today" for the one that holds now).
-    private func barDay(_ i: Int, short: Bool) -> String {
-        if starts[i] <= Date() && Date() < starts[i + 1] { return tr("今天", "Today") }
-        return short ? Clock.format(starts[i], "M/d", "MMM d") : Clock.format(starts[i], "EEE d", "EEE d")
+    /// Under a bar of a day or more: its date. The one that holds now (`now`): "Today", or, for a 2-day bar that began
+    /// yesterday, both days ("Yesterday–today" says it in Chinese; English has no room for that: "Last 2 days").
+    private func barDay(_ i: Int, short: Bool, now: Date = Date()) -> (text: String, now: Bool) {
+        if starts[i] <= now && now < starts[i + 1] {
+            return (Calendar.current.isDate(starts[i], inSameDayAs: now) ? tr("今天", "Today") : tr("昨天–今天", "Last 2 days"), true)
+        }
+        return (short ? Clock.format(starts[i], "M/d", "MMM d") : Clock.format(starts[i], "EEE d", "EEE d"), false)
     }
 
     /// A bar's time, for the tooltip.
     private func barTitle(_ i: Int) -> String {
         let a = starts[i], b = starts[i + 1]
-        if hours == 24 { return barDay(i, short: false) == tr("今天", "Today") ? tr("今天", "Today") : Clock.format(a, "M月d日 EEE", "EEE, MMM d") }
+        if hours == 24 { return barDay(i, short: false).now ? tr("今天", "Today") : Clock.format(a, "M月d日 EEE", "EEE, MMM d") }
         if hours > 24 { return Clock.format(a, "M月d日", "MMM d") + " – " + Clock.format(b.addingTimeInterval(-1), "M月d日", "MMM d") }
         let day = Calendar.current.isDateInToday(a) ? tr("今天 ", "Today ") : Clock.format(a, "M月d日 EEE ", "EEE, MMM d, ")
         return day + Clock.format(a, "H:mm", "H:mm") + "–" + Clock.format(b, "H:mm", "H:mm")
@@ -298,10 +323,18 @@ final class StatsView: NSView {
         if hours >= 24 {
             let short = n > 7 || slotW < 52
             let stride = max(1, Int(ceil((short ? 46 : 52) / slotW)))
-            return (0..<n).filter { (n - 1 - $0) % stride == 0 }.map {
+            var out = (0..<n).filter { (n - 1 - $0) % stride == 0 }.map {
                 let t = barDay($0, short: short)
-                return ($0, t, t == tr("今天", "Today"), false)
+                return ($0, t.text, t.now, false)
             }
+            // the last bar's label can be the widest ("Last 2 days"): the one before it goes if they'd touch
+            let font = Theme.ui(11, .semibold)
+            func w(_ s: String) -> CGFloat { (s as NSString).size(withAttributes: [.font: font]).width }
+            if out.count >= 2, let last = out.last {
+                let prev = out[out.count - 2]
+                if CGFloat(last.0 - prev.0) * slotW < (w(last.1) + w(prev.1)) / 2 + 6 { out.remove(at: out.count - 2) }
+            }
+            return out
         }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
@@ -331,22 +364,25 @@ final class StatsView: NSView {
     }
 
     /// The line under the summary: what the bars are, how much of them is estimated, and before when there are only
-    /// daily totals. With an estimate it takes two lines at the window's narrowest (640 pt), the longest names too.
+    /// daily totals. With an estimate it takes two lines at the window's narrowest (640 pt), the longest names too;
+    /// with the daily-only sentence as well, three (the chart moves down for it: `noteHeight`).
     static func note(hours: Int, who: String, estimated: Double, dailyOnlyUntil: Date?) -> String {
         let per = hours == 24 ? tr("每天", "each day") : hours == 48 ? tr("每 2 天", "every 2 days")
             : hours == 1 ? tr("每小时", "each hour") : tr("每 \(hours) 小时", "every \(hours) hours")
-        var note = tr("\(per) \(who) 干活的时长，按对话分段；几个对话同时进行时，平分那段时间。",
-                      "Hours \(who) worked \(per), split by chat. Chats running side by side share the time.")
-        // (what KIKUmap couldn't see: either app's window, as the menu bar's Today names them, or a quiet Codex task. How
-        // a stretch was estimated, between two sightings, up to a known finish or at a typical run, doesn't fit here:
-        // the timeline's tooltip on it and the menu bar's Today say)
+        // (chats and Claude Code / Codex sessions alike: both are counted, by their own names)
+        var note = tr("\(per) \(who) 干活的时长，按对话和会话分段；几个同时在跑时，平分那段时间。",
+                      "Hours \(who) worked \(per), by chat and session; those running at once share the time.")
+        // (what KIKUmap couldn't see, in the words of the menu bar's Today: either app's window, quiet Codex tasks, requests
+        // you may have answered; in the plural, it keeps to two lines up to the most a view can hold, ≈2161h. How a
+        // stretch was estimated, between two sightings, up to a known finish or at a typical run, doesn't fit here: the
+        // timeline's tooltip on it and the menu bar's Today say)
         if estimated >= 60 {
-            note += tr("其中 ≈\(Clock.duration(estimated)) 是估算的：Claude 或 ChatGPT 的窗口看不到、Codex 任务没动静的那段时间。",
-                       " ≈\(Clock.duration(estimated)) of it is estimated (Claude's or ChatGPT's window out of sight, a Codex task quiet).")
+            note += tr("其中 ≈\(Clock.duration(estimated)) 是估算的：Claude 或 ChatGPT 的窗口看不到、Codex 任务没动静，或请求可能已经回答了的那段时间。",
+                       " ≈\(Clock.duration(estimated)) is estimated: Claude or ChatGPT unseen, quiet Codex tasks, requests you may have answered.")
         }
         if let until = dailyOnlyUntil {
             let d = Clock.format(until, "M月d日", "MMM d")
-            note += tr(" \(d) 以前只记了每天的总数，要按天看。", " Before \(d) only daily totals were kept: see those by day.")
+            note += tr(" \(d) 以前只记了每天的总数，请按天看。", " Before \(d), only daily totals were kept: view those by day.")
         }
         return note
     }
@@ -374,20 +410,18 @@ final class StatsView: NSView {
             draw(value, Theme.mono(24), Theme.ink, in: NSRect(x: x, y: 38, width: 190, height: 32))
             x += 200
         }
-        var daily: Date?
-        if hours < 24, let until = store.dailyOnlyUntil, until > dayStarts[0] { daily = until }
-        // two lines when it needs them (with an estimate it's longer than a narrow window): wrapped, the second cut
-        // with … (`draw` keeps to one line)
-        (Self.note(hours: hours, who: GPTWatcher.who, estimated: estTotal, dailyOnlyUntil: daily) as NSString)
-            .draw(with: NSRect(x: pad, y: 76, width: bounds.width - pad * 2, height: 31), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+        // wrapped, in the lines it needs (`layout` made room for them: with an estimate it's two in a narrow window,
+        // with the daily-only sentence too, three; `draw` keeps to one line)
+        (noteText() as NSString)
+            .draw(with: NSRect(x: pad, y: 76, width: bounds.width - pad * 2, height: 31 + noteExtra), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
                   attributes: [.font: Theme.ui(11.5), .foregroundColor: Theme.muted])
         // a footnote under the chart: the desktop widget's times count the estimates in too, without the ≈
-        draw(tr("注：桌面小组件里的时长也包含估算的部分，只是不标 ≈。", "Note: the desktop widget's times include the estimated part too, without the ≈."),
+        draw(tr("注：小组件里的时长也算上了估算的部分，只是不标 ≈。", "Note: the widget's times include the estimated time too, without the ≈."),
              Theme.ui(10.5), Theme.muted, in: NSRect(x: pad, y: bounds.height - 18, width: plot.maxX - pad, height: 14))
 
         let plot = self.plot
         guard sums.reduce(0, +) > 0 else {
-            draw(tr("这段时间还没有记录。KIKUmap 开着时，\(GPTWatcher.who) 干活的时长都会记下来。", "Nothing recorded in this range yet. While KIKUmap runs, it records how long \(GPTWatcher.who) work."),
+            draw(tr("这段时间还没有记录。KIKUmap 开着时，会记下 \(GPTWatcher.who) 干活的时长。", "Nothing recorded in this range yet. While KIKUmap is open, it records the time \(GPTWatcher.who) spent working."),
                  Theme.ui(13), Theme.muted, in: NSRect(x: plot.minX, y: plot.midY - 10, width: plot.width, height: 20), .center)
             drawLegend(total: 0)
             return
@@ -453,19 +487,25 @@ final class StatsView: NSView {
         drawTip(plot: plot)
     }
 
+    /// The legend's heading: what its rows are (chats, sessions or both, as the left column names them), how many.
+    var legendTitle: String {
+        let shown = totals.filter { $0.value > 0 }
+        return ChatCount.noun(store.chatCount(shown.keys)) + " · \(shown.count)"
+    }
+
     /// The legend: colour, chat, total — the chart's numbers as a table.
     private func drawLegend(total: Double) {
         let w = legendWidth
         let x = bounds.width - pad - w
         var y = top - 6
         let chats = totals.filter { $0.value > 0 }
-        draw(tr("对话 · \(chats.count)", "Chats · \(chats.count)"), Theme.ui(11.5, .semibold), Theme.muted, in: NSRect(x: x, y: y, width: w, height: 16))
+        draw(legendTitle, Theme.ui(11.5, .semibold), Theme.muted, in: NSRect(x: x, y: y, width: w, height: 16))
         y += 24
         var rows: [(Part, String, Double)] = slots.keys.compactMap { id in totals[id].map { (Part.chat(id), store.name(id), $0) } }
             .sorted { $0.2 > $1.2 }
         let rest = chats.filter { slots[$0.key] == nil }
         if !rest.isEmpty {
-            rows.append((.other, tr("其他 \(rest.count) 个对话", rest.count == 1 ? "1 other chat" : "\(rest.count) other chats"), rest.values.reduce(0, +)))
+            rows.append((.other, ChatCount.others(store.chatCount(rest.keys)), rest.values.reduce(0, +)))
         }
         func estimated(_ part: Part) -> Double {
             if case .chat(let id) = part { return estTotals[id] ?? 0 }
@@ -504,7 +544,7 @@ final class StatsView: NSView {
                      (tr("合计 ", "Total ") + dur(sum, estSum), Theme.ui(11.5), Theme.muted)]
         case .other?:
             let rest = day.filter { slots[$0.key] == nil }
-            lines = [(tr("其他 \(rest.count) 个对话", rest.count == 1 ? "1 other chat" : "\(rest.count) other chats"), Theme.ui(12, .semibold), Theme.ink),
+            lines = [(ChatCount.others(store.chatCount(rest.keys)), Theme.ui(12, .semibold), Theme.ink),
                      (date + " · " + dur(rest.values.reduce(0, +), est.filter { slots[$0.key] == nil }.values.reduce(0, +)), Theme.ui(11.5), Theme.ink)]
             for (id, s) in rest.sorted(by: { $0.value > $1.value }).prefix(4) {
                 lines.append(("  " + store.name(id) + " · " + dur(s, est[id] ?? 0), Theme.ui(11), Theme.muted))
@@ -512,7 +552,7 @@ final class StatsView: NSView {
         case nil:
             guard sum > 0 else { return }
             lines = [(date, Theme.ui(12, .semibold), Theme.ink),
-                     (tr("共 ", "Total ") + dur(sum, estSum) + tr(" · \(day.count) 个对话", " · \(day.count) chats"), Theme.ui(11.5), Theme.ink)]
+                     (tr("共 ", "Total ") + dur(sum, estSum) + " · " + ChatCount.both(store.chatCount(day.keys)), Theme.ui(11.5), Theme.ink)]
         }
         let w = min(300, lines.map { ($0.0 as NSString).size(withAttributes: [.font: $0.1]).width }.max()! + 24)
         let ht = CGFloat(lines.count) * 17 + 14
@@ -567,5 +607,39 @@ final class StatsView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         if case .chat(let id)? = hit(convert(event.locationInWindow, from: nil))?.part, store.canOpen(id) { onOpen?(id) }
+    }
+}
+
+/// Chats and sessions counted apart, in the left column's words: chats are Claude's and ChatGPT's, sessions are
+/// Claude Code's and Codex's in terminals and editors (会话, not 对话). Today in the menu and Statistics count both.
+enum ChatCount {
+    /// "3 chats, 2 sessions" / "3 个对话、2 个会话"; one kind alone just says it ("1 chat", "2 sessions").
+    static func both(_ n: (chats: Int, sessions: Int)) -> String {
+        let c = tr("\(n.chats) 个对话", n.chats == 1 ? "1 chat" : "\(n.chats) chats")
+        let s = tr("\(n.sessions) 个会话", n.sessions == 1 ? "1 session" : "\(n.sessions) sessions")
+        return n.sessions == 0 ? c : n.chats == 0 ? s : c + tr("、", ", ") + s
+    }
+    /// A heading over them: "Chats", "Sessions", or "Chats and sessions".
+    static func noun(_ n: (chats: Int, sessions: Int)) -> String {
+        n.sessions == 0 ? tr("对话", "Chats") : n.chats == 0 ? tr("会话", "Sessions") : tr("对话和会话", "Chats and sessions")
+    }
+    /// The ones not named one by one: "2 other chats", "1 other session"; both kinds: "3 others".
+    static func others(_ n: (chats: Int, sessions: Int)) -> String {
+        let all = n.chats + n.sessions
+        return n.sessions == 0 ? tr("其他 \(all) 个对话", all == 1 ? "1 other chat" : "\(all) other chats")
+            : n.chats == 0 ? tr("其他 \(all) 个会话", all == 1 ? "1 other session" : "\(all) other sessions")
+            : tr("其他 \(all) 个", "\(all) others")
+    }
+}
+
+extension Store {
+    /// How many of these are chats and how many Claude Code or Codex sessions, told apart as the left column does (one
+    /// no longer known goes by its id: "cc-" is a Claude Code session).
+    func chatCount<S: Sequence>(_ ids: S) -> (chats: Int, sessions: Int) where S.Element == String {
+        var n = (chats: 0, sessions: 0)
+        for id in ids {
+            if chat(id).map({ $0.isCode || $0.isCodexSession }) ?? id.hasPrefix("cc-") { n.sessions += 1 } else { n.chats += 1 }
+        }
+        return n
     }
 }

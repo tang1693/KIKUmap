@@ -180,8 +180,8 @@ final class Onboarding: NSObject, NSWindowDelegate {
         switch p {
         case .welcome:
             titleL.stringValue = "KIKUmap"
-            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 或 ChatGPT 里把要盯的对话置顶，这个菜单栏小工具就告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
-                                   "Many Claude and ChatGPT chats going at once? Pin the ones to watch in Claude or ChatGPT, and this menu-bar app tells you which are still running and which finished unread — and lets you sort them into a mind map.")
+            bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 或 ChatGPT 里把要盯的对话置顶，这个菜单栏小工具就会告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
+                                   "Lots of Claude and ChatGPT chats going at once? Pin the ones you want to watch in Claude or ChatGPT. This menu-bar app then tells you which are still running and which are done but not read yet, and lets you sort them into a mind map.")
             let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
             seg.selectedSegment = Prefs.english ? 1 : 0
             center(seg)
@@ -189,35 +189,35 @@ final class Onboarding: NSObject, NSWindowDelegate {
             art.settled = 1.8
         case .menubar:
             titleL.stringValue = tr("菜单栏一眼看完", "Everything at a glance")
-            bodyL.stringValue = tr("菜单栏里只占一个图标：红色数字 = 未读，做完了还没看（带 ! 表示要你批准），圈里的数字 = 在跑几个，外圈在转就是正在跑。点开是列表和用量，点一下直接跳到那个对话。",
-                                   "One icon in the menu bar: a red number = unread, finished but not yet seen (with ! when it needs your approval); a number in a ring = how many are running, its arc going round while they do. Click for the list and your usage; click a chat to jump to it.")
+            bodyL.stringValue = tr("菜单栏里只有一个图标。红色数字 = 未读（做完了还没看），带 ! 表示有对话在等你确认。圈里的数字 = 几个在跑，圈上的弧在转，就是正在跑。点开图标看列表和用量，点一个对话就直接跳过去。",
+                                   "KIKUmap is one icon in the menu bar. A red number = unread (done, not looked at yet); a ! means one is waiting for you. A number in a ring = how many are running; an arc turns around it while they run. Click the icon for the list and your usage; click a chat to jump to it.")
             art.painter = { r, t in Onboarding.paintMenuBar(r, t) }
             art.settled = 4
         case .map:
             titleL.stringValue = tr("导图：把对话归好类", "A map for your chats")
-            let open = Prefs.hotKeyWorks ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) for the map. ")
+            let open = Prefs.hotKeyWorks ? tr("按 \(Prefs.hotKeyLabel()) 打开导图。", "Press \(Prefs.hotKeyLabel()) to open the map. ")
                                            : tr("点菜单栏图标 →「打开导图」。", "Click the menu-bar icon → Open map. ")
-            bodyL.stringValue = open + tr("左栏是你在 Claude 和 ChatGPT 里置顶的对话，还有编辑器里的 Claude Code、Codex 会话，拖到主题上就归好了。键盘操作和 MindNode 一样。",
-                                          "The left column holds the chats you pinned in Claude and ChatGPT, and Claude Code / Codex sessions from your editors; drag them onto a topic. Keys work like MindNode.")
+            bodyL.stringValue = open + tr("左栏里是你在 Claude 和 ChatGPT 里置顶的对话，还有编辑器、终端里的 Claude Code 和 Codex 会话。把它们拖到主题上就归好类了。快捷键和 MindNode 一样。",
+                                          "The left column lists the chats you pinned in Claude and ChatGPT, plus Claude Code and Codex sessions from your editors and terminal. Drag them onto a topic to sort them. Keys work like MindNode.")
             art.painter = { r, t in Onboarding.paintMap(r, t) }
             art.settled = 3
         case .timeline:
-            titleL.stringValue = tr("时间线", "Timeline")
-            bodyL.stringValue = tr("导图下方是时间线：Claude 和 ChatGPT 什么时候在忙哪个对话、计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。",
-                                   "Below the map: when Claude and ChatGPT worked on which chat and when scheduled tasks run (with countdowns). Hover for names.")
+            titleL.stringValue = tr("时间轴", "Timeline")
+            bodyL.stringValue = tr("导图下方是时间轴：Claude 和 ChatGPT 什么时候在跑哪个对话，计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。",
+                                   "Below the map is the timeline: when Claude and ChatGPT worked on which chat, and when scheduled tasks run (with a countdown). Hover to see names.")
             art.painter = { r, t in Onboarding.paintTimeline(r, t) }
             art.settled = 3
         case .colors:
-            titleL.stringValue = tr("颜色只留给你", "Colour is yours")
-            bodyL.stringValue = tr("界面本身是灰阶的，状态用形状区分（空心环 = 在跑，实心点 = 未读）。颜色只用来做你自己的标记：给分支上色，给对话和主题加任意多个标签。",
-                                   "The interface is greyscale; status is shown by shape (ring = running, dot = unread). Colour is only for your own marks: colour branches, and give chats and topics as many tags as you like.")
+            titleL.stringValue = tr("颜色留给你", "Color is yours")
+            bodyL.stringValue = tr("状态有自己的颜色：转动的线 = 在跑，圆点 = 未读（可以在 设置 → 配色 里换）。其余的颜色都留给你：给分支上色，给对话和主题加任意多个标签。",
+                                   "Status has colors of its own: a moving line = running, a dot = unread (change them in Settings → Colors). The rest is yours: color branches, and give chats and topics as many tags as you like.")
             art.painter = { r, t in Onboarding.paintColors(r, t) }
             art.settled = 5
         case .sources:
             titleL.stringValue = tr("KIKUmap 能看到什么", "What KIKUmap can see")
             // (ordinary ChatGPT chats too: read off its window, as the next page says, so less surely than Codex's)
-            bodyL.stringValue = tr("它读的是这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算）、在这台 Mac 上跑的 Claude Code 和 Codex、ChatGPT App 里置顶的对话（也能看到进行中、未读：Codex 对话最准；普通对话只在 ChatGPT 的窗口露出来时看得到）。别的电脑、服务器或云端（SSH、远程）跑的 Claude Code / Codex，以及没在 ChatGPT App 里置顶的 ChatGPT 对话，它看不到。",
-                                   "It reads what's on this Mac: chats you pin in the Claude app (or on your phone or the web), Claude Code and Codex run on this Mac, and chats you pin in the ChatGPT app (running and unread too: Codex chats best; ordinary ones only while ChatGPT's window shows). Claude Code or Codex on another computer, a server or in the cloud (SSH, remote), and ChatGPT chats not pinned in the app, are out of its sight.")
+            bodyL.stringValue = tr("KIKUmap 只看这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算），在这台 Mac 上跑的 Claude Code 和 Codex，ChatGPT App 里置顶的对话（在跑、未读也看得到：Codex 对话最准；普通对话只在 ChatGPT 的窗口露出来时看得到）。别的电脑、服务器或云端跑的 Claude Code / Codex，还有没在 ChatGPT App 里置顶的对话，它看不到。",
+                                   "KIKUmap sees what's on this Mac: chats you pin in the Claude app (on your phone or the web too), Claude Code and Codex running on this Mac, and chats you pin in the ChatGPT app (running and unread too: Codex chats best; ordinary ones only while ChatGPT's window shows). Claude Code or Codex on another computer, a server or in the cloud, and ChatGPT chats not pinned in the app, are out of its sight.")
             art.painter = { r, t in Onboarding.paintSources(r, t) }
             art.settled = 0.4
         case .accessibility where !perms.accessNeeded && !AXIsProcessTrusted():
@@ -228,24 +228,43 @@ final class Onboarding: NSObject, NSWindowDelegate {
         case .accessibility:
             permissionPage(step: 1, symbol: "accessibility",
                            title: tr("只需要一步：辅助功能", "Just one step: Accessibility"),
-                           body: tr("用来读 Claude App 的对话列表：哪些在跑、做完了、置顶了；ChatGPT 的普通对话在不在跑、有没有未读，也从它的窗口里看。它不会自己改任何东西；只有你让它做时（打开对话、导出）才会在 Claude 里点按。\n点下面的按钮 → 在列表里打开 KIKUmap。",
-                                    "Lets KIKUmap read the Claude app's chat list: which chats are running, done or pinned; and, from ChatGPT's window, whether its ordinary chats are running or unread. It changes nothing by itself; it clicks in Claude only when you ask (opening a chat, exporting).\nClick below → switch on KIKUmap in the list."),
+                           body: tr("用来读 Claude App 窗口里的对话列表：哪些在跑、做完了、置顶了；ChatGPT 普通对话的在跑、未读，也从它的窗口里看。会话所在的编辑器或终端在最前面时，还读它的窗口标题，判断你有没有看到做完的会话。KIKUmap 不会自己改任何东西，只有你让它做事时（打开对话、导出）才会在 Claude 里点按。\n点下面的按钮，在列表里打开 KIKUmap 的开关。",
+                                    "Lets KIKUmap read the Claude app's chat list (running, done, pinned), ChatGPT's for its ordinary chats (running, unread), and the window titles of a session's editor or terminal in front, to tell if you saw it finish. KIKUmap changes nothing by itself; it clicks in Claude only when you ask (to open a chat or export).\nClick below, then switch on KIKUmap in the list."),
                            action: tr("打开系统设置", "Open System Settings"),
                            check: { AXIsProcessTrusted() }, run: { [perms] in perms.openAccessibility() })
         case .extras:
             extrasPage()
         case .done:
             sawDone = true
-            titleL.stringValue = tr("准备好了", "You're set")
-            bodyL.stringValue = tr("下一步：在 Claude 或 ChatGPT 里置顶对话，它就会出现在菜单和左栏里。KIKUmap 在菜单栏右上角；语言、外观、通知、授权和快捷键随时可以在「设置」里改。",
-                                   "Next: pin a chat in Claude or ChatGPT, and it shows up in the menu and the left column. KIKUmap lives in the menu bar; change language, appearance, notifications, access and shortcuts any time in Settings.")
+            titleL.stringValue = tr("准备好了", "You're all set")
+            bodyL.stringValue = tr("接下来：在 Claude 或 ChatGPT 里置顶一个对话，它就会出现在 KIKUmap 的菜单和左栏里。KIKUmap 在屏幕右上角的菜单栏里；语言、外观、通知、授权和快捷键，随时可以在「设置」里改。",
+                                   "Next: pin a chat in Claude or ChatGPT, and it shows up in KIKUmap's menu and left column. KIKUmap lives in the menu bar at the top right; change language, appearance, notifications, access and shortcuts any time in Settings.")
             bodyL.frame = NSRect(x: 90, y: 150, width: (extra.superview?.bounds.width ?? 720) - 180, height: 62)
             extra.frame = NSRect(x: 40, y: 70, width: (extra.superview?.bounds.width ?? 720) - 80, height: 74)
             let looks = Prefs.Appearance.allCases
             let seg = NSSegmentedControl(labels: [tr("跟随系统", "System"), tr("浅色", "Light"), tr("深色", "Dark")],
                                          trackingMode: .selectOne, target: self, action: #selector(pickLook(_:)))
             seg.selectedSegment = looks.firstIndex(of: Prefs.appearance) ?? 0
+            // a color set that's always dark (or light) decides the look: the choice can't be made here then, and a
+            // line under it says so (as in Settings → General)
+            let mode = Theme.palette.mode
+            seg.isEnabled = mode == .both
             seg.sizeToFit()
+            // a choice made elsewhere meanwhile (the ☾ / ☀︎ button, Settings) shows here; another kind of color set, the
+            // page again while it's shown (only this page's own control: one a later page took off doesn't count)
+            let tokens = [Prefs.appearanceChanged, Theme.paletteChanged].map { name in
+                ObserverToken(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self, weak seg] _ in
+                    MainActor.assumeIsolated {
+                        guard let self = self, let seg = seg, seg.superview != nil else { return }
+                        if name == Theme.paletteChanged, Theme.palette.mode != mode {
+                            if self.window.isVisible { self.render() }
+                            return
+                        }
+                        seg.selectedSegment = looks.firstIndex(of: Prefs.appearance) ?? 0
+                    }
+                })
+            }
+            objc_setAssociatedObject(seg, "lookTokens", tokens, .OBJC_ASSOCIATION_RETAIN)
             // open at login: on a first run with nothing chosen yet it's ticked, and applied when you leave; otherwise (the
             // installer asked, it's already on, the intro again) the box is the setting itself. From the disk image it
             // can't be turned on: the To-do offers it once KIKUmap runs from Applications.
@@ -263,9 +282,17 @@ final class Onboarding: NSObject, NSWindowDelegate {
             b = box
             box.isEnabled = !away
             if !away { box.toolTip = tr("macOS 会提示一次「已添加后台项目」，说的就是这个。随时可以在 设置 → 通用 里改。", "macOS then says \"Background Items Added\" once: that's this. Change it any time in Settings → General.") }
-            let stack = NSStackView(views: [seg, box])
+            var views: [NSView] = [seg]
+            if mode != .both {
+                let why = NSTextField(labelWithString: SettingsWindow.lookNoteShort(mode))
+                why.font = .systemFont(ofSize: 11.5)
+                why.textColor = .secondaryLabelColor
+                views.append(why)
+            }
+            let stack = NSStackView(views: views + [box])
             stack.orientation = .vertical
             stack.spacing = 10
+            stack.setCustomSpacing(4, after: seg)
             center(stack)
             art.painter = { r, t in Onboarding.paintDone(r, t) }
         }
@@ -277,31 +304,31 @@ final class Onboarding: NSObject, NSWindowDelegate {
     /// window KIKUmap doesn't read.
     static func accessNotNeeded(olderGPT: Bool) -> String {
         olderGPT
-            ? tr("辅助功能只用来看 Claude App 和 ChatGPT 窗口里的对话列表。这台 Mac 上没有 Claude App，ChatGPT 是旧版，KIKUmap 不读它的窗口，跳过就好；以后装了 Claude App 或新版 ChatGPT，在 设置 → 授权 里再开。Claude Code 不需要它。",
-                 "Accessibility is only for reading the chat lists in the Claude and ChatGPT windows. This Mac has no Claude app, and its ChatGPT app is the older one, whose window KIKUmap doesn't read, so skip it. If you install the Claude app or the current ChatGPT app later, turn it on in Settings → Access. Claude Code doesn't need it.")
-            : tr("辅助功能只用来看 Claude App 和 ChatGPT 窗口里的对话列表，这台 Mac 上两个都没装，跳过就好；以后装了，在 设置 → 授权 里再开。Claude Code 不需要它。",
-                 "Accessibility is only for reading the chat lists in the Claude and ChatGPT windows, and neither app is on this Mac, so skip it. If you install one later, turn it on in Settings → Access. Claude Code doesn't need it.")
+            ? tr("辅助功能主要用来看 Claude App 和 ChatGPT 窗口里的对话列表。这台 Mac 上没有 Claude App，ChatGPT 是旧版，KIKUmap 不读它的窗口，跳过就好；以后装了 Claude App 或新版 ChatGPT，在 设置 → 授权 里再开。Claude Code 不需要它。",
+                 "Accessibility is mainly for reading the chat lists in the Claude and ChatGPT windows. This Mac has no Claude app, and its ChatGPT app is the older one, whose window KIKUmap doesn't read, so skip it. If you install the Claude app or the current ChatGPT app later, turn it on in Settings → Access. Claude Code doesn't need it.")
+            : tr("辅助功能主要用来看 Claude App 和 ChatGPT 窗口里的对话列表，这台 Mac 上两个都没装，跳过就好；以后装了，在 设置 → 授权 里再开。Claude Code 不需要它。",
+                 "Accessibility is mainly for reading the chat lists in the Claude and ChatGPT windows, and neither app is on this Mac, so skip it. If you install one later, turn it on in Settings → Access. Claude Code doesn't need it.")
     }
 
     /// The optional extras, each a button with what it adds; all can be skipped and turned on later in Settings.
     private func extrasPage() {
-        titleL.stringValue = tr("可以再开的功能（都可选）", "Optional extras")
+        titleL.stringValue = tr("可选功能", "Optional extras")
         bodyL.stringValue = tr("不开也能正常用。以后在 设置 → 授权 里随时能开。", "KIKUmap works without them. Turn them on any time in Settings → Access.")
         bodyL.frame = NSRect(x: 90, y: 184, width: extra.superview!.bounds.width - 180, height: 22)
         extra.frame = NSRect(x: 40, y: 66, width: extra.superview!.bounds.width - 80, height: 116)
         var rows: [(String, String, () -> Bool, () -> Void)] = [
-            (tr("更全的提醒", "Fuller alerts"),
-             tr("Claude 问「允许这个操作吗？」或等你回答时提醒你；Claude App 里的 Cowork 任务做完时，窗口关着也知道。要开「完全磁盘访问」。（普通对话回复完，Claude 不发通知。）",
-                "Get told when Claude asks \"Allow this?\" or waits for your answer, and know when a Cowork task in the Claude app finishes, even with its window closed. Needs Full Disk Access. (Claude sends no notification when an ordinary chat's reply finishes.)"),
+            (tr("更多提醒", "More alerts"),
+             tr("Claude 问「允许吗？」或等你回答时提醒你；Claude App 里的 Cowork 任务做完了，窗口关着也知道。要开「完全磁盘访问」。（普通对话回复完，Claude 不发通知。）",
+                "Be told when Claude asks \"Allow this?\" or waits for your answer, and know when a Cowork task in the Claude app finishes, even with its window closed. Needs Full Disk Access. (Claude sends no notification when an ordinary chat's reply finishes.)"),
              { [perms] in perms.fullDisk }, { [perms] in perms.openFullDisk() }),
             (tr("Claude 用量（付费套餐）", "Claude usage (paid plans)"),
-             tr("在菜单和小组件里看 Claude 的 5 小时和每周用量。借用 Claude Code 的登录：要先装好 Claude Code 并用付费账号登录。",
-                "Claude's 5-hour and weekly usage in the menu and the widget. Uses Claude Code's sign-in, so Claude Code must be installed and signed in with a paid plan."),
+             tr("在菜单和小组件里看 Claude 的 5 小时和每周用量。它借用 Claude Code 的登录，所以要先装好 Claude Code，并用付费账号登录。",
+                "See Claude's 5-hour and weekly usage in the menu and the widget. It uses Claude Code's sign-in, so Claude Code must be installed and signed in with a paid plan."),
              { [perms] in perms.usageOK }, { [perms] in perms.connectUsage() }),
         ]
         if FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.claude") {
             rows.append(("Claude Code",
-                         tr("终端、VS Code 里的 Claude Code 会话也显示进行中和未读。", "Claude Code sessions in Terminal or VS Code show as running and unread too."),
+                         tr("终端、VS Code 里的 Claude Code 会话也显示在跑和未读。", "Claude Code sessions in Terminal or VS Code show running and unread too."),
                          { [perms] in perms.codeHooks }, { [perms] in perms.connectCode() }))
         }
         let width = extra.bounds.width
@@ -338,10 +365,10 @@ final class Onboarding: NSObject, NSWindowDelegate {
                 // Full Disk Access opened and still off: if it was switched on, macOS gives it only after a reopen
                 if k == 0, let l = diskLabel {
                     let text = !done && pm.fullDiskAsked
-                        ? tr("在系统设置里开好了？KIKUmap 要退出并重新打开才能用上：再点一下这个按钮。", "Switched it on in System Settings? KIKUmap gets it once it quits and reopens: click this button again.")
+                        ? tr("在系统设置里开好了？KIKUmap 要退出并重新打开才能用上：再点一下这个按钮。", "Switched it on in System Settings? KIKUmap has to quit and reopen to use it: click this button again.")
                         // on, but Notification Center's database can't be read (moved or changed by a macOS update)
                         : done && pm.notifications.status == .unreadable
-                        ? tr("「完全磁盘访问」已开，但读不了 macOS 的通知数据库（系统更新改了它？），Claude 通知里的提醒暂时用不了。", "Full Disk Access is on, but macOS's notification database can't be read (changed by an update?), so the alerts from Claude's notifications don't work for now.")
+                        ? tr("「完全磁盘访问」已经开了，但读不了 macOS 的通知记录（可能是系统更新改了它），所以暂时收不到来自 Claude 通知的提醒。", "Full Disk Access is on, but macOS's notification records can't be read (maybe an update changed them), so alerts from Claude's notifications don't work for now.")
                         : diskWhat
                     if l.stringValue != text { l.stringValue = text }
                 }
@@ -389,7 +416,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
         center(row)
         let update = { [weak self] in
             guard let self = self else { return }
-            status.stringValue = self.granted ? tr("✓ 已开启", "✓ Granted") : tr("还没开启 · 可以先跳过", "Not yet · you can skip for now")
+            status.stringValue = self.granted ? tr("✓ 已开启", "✓ On") : tr("还没开启 · 可以先跳过", "Not yet · you can skip for now")
             status.textColor = self.granted ? Theme.ink : Theme.muted
             b.isEnabled = !self.granted
             row.layoutSubtreeIfNeeded()
@@ -513,7 +540,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
             Theme.drawStatus(state, in: NSRect(x: menu.minX + 14, y: y + 3, width: 12, height: 12), phase: t)
             text(s, rf, Theme.ink, NSPoint(x: menu.minX + 34, y: y)); y += 22
         }
-        header(tr("进行中 · \(running.count)", "Running · \(running.count)"))
+        header(tr("在跑 · \(running.count)", "Running · \(running.count)"))
         running.forEach { row($0, 2) }
         y += 6
         header(tr("未读 · \(waiting.count)", "Unread · \(waiting.count)"))
@@ -666,7 +693,7 @@ final class Onboarding: NSObject, NSWindowDelegate {
     static func paintTimeline(_ r: NSRect, _ t: CGFloat) {
         let panel = NSRect(x: 50, y: 30, width: r.width - 100, height: 250)
         card(panel)
-        let lanes = [tr("进行中", "Running"), tr("计划任务", "Scheduled")]
+        let lanes = [tr("在跑", "Running"), tr("计划任务", "Scheduled")]
         let left = panel.minX + 80, right = panel.maxX - 16
         for (i, l) in lanes.enumerated() {
             let y = panel.minY + 30 + CGFloat(i) * 52

@@ -43,8 +43,18 @@ else
   echo "(desktop widget skipped: it needs macOS 14 or later)"
 fi
 
-pkill -x ClaudeConsole 2>/dev/null
-sleep 0.5
+# a KIKUmap that's running quits the ordinary way first, as with its Quit (it ends the runs it's timing and saves what it
+# holds, which stopping it on the spot would lose); one still there after 5 seconds is stopped
+quit_running() {
+  pgrep -x "$1" >/dev/null || return 0
+  echo "Quitting KIKUmap…"
+  pkill -TERM -x "$1"
+  for _ in {1..50}; do pgrep -x "$1" >/dev/null || return 0; sleep 0.1; done
+  echo "(it didn't quit in time: stopping it)"
+  pkill -KILL -x "$1"
+  sleep 0.5
+}
+quit_running ClaudeConsole
 mkdir -p "$HOME/Applications"
 rm -rf "$APP" "$OLD" "$OLD2"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -144,7 +154,7 @@ defaults write ninja.tang.claudeconsole LoginOffered -bool true
 
 open "$APP"
 echo "STATUS=OK"
-echo "Done. Menu bar: red number = unread (! = needs your approval), turning orange burst = running. ⌃⌥C opens the map."
+echo "Done. Menu bar: number in a ring = running, red number = unread, ! = waiting for you (to approve or answer, or it stopped on an error). ⌃⌥C opens the map."
 if [ "$SIGNED" = "stable" ] && [ -z "$FIRST_CERT" ]; then
   echo "Permissions you granted before are kept."
 else

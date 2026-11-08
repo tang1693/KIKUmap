@@ -62,6 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let launched = Date()
     private var widgetTimer: Timer?
     private var archiveTimer: Timer?
+    /// SIGTERM, heard as Quit (see `quitOnTerm`).
+    private var termSource: DispatchSourceSignal?
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandlerInstalled = false
     /// Sessions whose name is being read from their transcript (one read each at a time).
@@ -74,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         takeOver()
+        termSource = AppDelegate.quitOnTerm { NSApp.terminate(nil) }
         NSApp.setActivationPolicy(.accessory)
         Prefs.applyAppearance()
         buildMainMenu()
@@ -85,9 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         main.map.onOpen = { [weak self] id in self?.open(id) }
         main.map.onHide = { [weak self] in self?.main.hide() }
-        main.map.onManageTags = { [weak self] in self?.settings.show(tab: 4) }
-        main.onShowShortcuts = { [weak self] in self?.settings.show(tab: 3) }      // Settings → Shortcuts
-        main.tags.onManage = { [weak self] in self?.settings.show(tab: 4) }
+        main.map.onManageTags = { [weak self] in self?.settings.show(tab: SettingsWindow.tagsTab) }
+        main.onShowShortcuts = { [weak self] in self?.settings.show(tab: SettingsWindow.shortcutsTab) }
+        main.tags.onManage = { [weak self] in self?.settings.show(tab: SettingsWindow.tagsTab) }
         main.sidebar.onOpen = { [weak self] id in self?.open(id) }
         main.sidebar.onArchive = { [weak self] id in self?.archiveOne(id) }
         main.map.onArchive = { [weak self] id in self?.archiveOne(id) }
@@ -98,6 +101,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         perms.gptError = { [weak self] in self?.gpt.readError }
         main.header.onSettings = { [weak self] in self?.settings.show() }
         main.header.onLights = { Prefs.toggleLights() }
+        // a new color set: the menu-bar icon draws again too (the windows already do)
+        NotificationCenter.default.addObserver(forName: Theme.paletteChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.statusBar.update() }
+        }
         main.header.onStats = { [weak self] in self?.stats.show() }
         main.sidebar.onRefresh = { [weak self] in self?.refreshAll() }
         main.sidebar.status = { [weak self] in self?.pinStatus() ?? ("", []) }
@@ -126,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.refreshAll = { [weak self] in self?.refreshAll() }
         statusBar.gptUsage = { [weak self] in self?.gptUsageRows() ?? [] }
         statusBar.gptPlan = { [weak self] in self?.gpt.plan }
+        statusBar.gptUsageNote = { [weak self] in self?.gptUsageNote() }
         statusBar.claudeNote = { [weak self] in self?.claudeNote() }
         statusBar.gptNote = { [weak self] in self?.gptNote() }
         statusBar.accessOffForBoth = { [weak self] in self?.accessOffForBoth() ?? false }
@@ -148,6 +156,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.sounds = sounds
         sounds.nameOf = { [weak self] id in self?.store.mapLabel(id) ?? "" }
         Sounds.folder = store.dir.appendingPathComponent("data/sounds")
+        // chat titles that versions up to 1.0.8 wrote in logs/archive.log go, once (nothing writes there this early)
+        let logs = store.logsDir
+        DispatchQueue.global(qos: .utility).async { ArchiveLog.forgetOld(in: logs) }
         settings.onArchiveAll = { [weak self] in self?.archiveAll() }
         settings.onImport = { [weak self] in self?.importArchive() }
         exportWin.onImport = { [weak self] in self?.importArchive() }
@@ -165,6 +176,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   let win = w, CFGetTypeID(win) == AXUIElementGetTypeID(),
                   AXUIElementCopyAttributeValue(win as! AXUIElement, kAXTitleAttribute as CFString, &t) == .success else { return nil }
             return t as? String
+        }
+        store.otherWindowTitles = {
+            AppDelegate.otherWindowTitles(tabs: !Store.titledByProject(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""))
         }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             guard let b = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier else { return }
@@ -194,7 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notifications.onNotes = { [weak self] notes in
             guard let self = self else { return }
             let ev = self.store.apply(notes, quietBefore: self.launched)
-            if !self.archive.busy { self.sounds.play(ev) }
+            // (quiet only while KIKUmap works Claude's window itself: an export of just the files leaves it alone)
+            if !self.archive.drivesClaude { self.sounds.play(ev) }
             self.sidebar.schedule(0.3)
         }
         notifications.onStatus = { [weak self] in
@@ -205,8 +220,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == claudeBundleID
             let ev = self.store.apply(scan: links, claudeFront: front, noPins: noPins, readKnown: readKnown, startedAt: started, whole: whole)
-            // the archive's own replies stay quiet; "Claude in front" as the read judged its finishes, not as of now
-            if !self.archive.busy { self.sounds.play(ev, claudeFront: self.store.claudeWasFront) }
+            // the archive's own replies stay quiet (a run of just the files has none); "Claude in front" as the read
+            // judged its finishes, not as of now
+            if !self.archive.drivesClaude { self.sounds.play(ev, claudeFront: self.store.claudeWasFront) }
             self.refreshUI()                 // the "synced · just now" line
         }
         sidebar.onQuit = { [weak self] in self?.store.clearRunning() }
@@ -236,6 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == GPTWatcher.bundleID
             let ev = self.store.apply(gpt: threads, unread: unread, pinsRead: pinsRead, front: front)
             self.sounds.play(ev, gptFront: self.store.gptWasFront)     // (in front since they finished, not as of now)
+            self.store.readCodeInFront()          // a Codex session finished while you're looking at it in VS Code
             self.widget.update()                                   // ChatGPT's usage may have moved
             if self.gpt.usage != self.shownGPTUsage { self.shownGPTUsage = self.gpt.usage; self.refreshUI() }
         }
@@ -282,6 +299,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                           name: NSWorkspace.didWakeNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
                                                           name: NSWorkspace.willSleepNotification, object: nil)
+        // the screens on again: should the wake notice ever not come, the runs going on count again from here
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.store.screensWoke() }
+        }
         refreshUI()
         widget.update(force: true)          // the widget may still say "not running" from the last quit
         // the desktop widget's chart moves on while chats run; and a note of when KIKUmap was last alive,
@@ -314,11 +335,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// A run that pastes and copies through the clipboard (summaries, or an import) is stopped first: the quit waits, a
+    /// few seconds at most, until what you had copied is back on the clipboard. A newer copy taking over waits the same
+    /// way; a run that only reads Claude's export zip doesn't hold it up.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard archive.holdsClipboard else { return .terminateNow }
+        archive.stopForQuit { self.replyToQuit(true) }
+        return .terminateLater
+    }
+    /// (a test stands in for it)
+    var replyToQuit: (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) }
+
     func applicationWillTerminate(_ notification: Notification) {
+        // (in case a run still has the clipboard: what you had copied goes back, and nothing more is pasted)
+        archive.closeClipboard()
         store.closeRuns(at: Date(), quitting: true)
         retrySaves()
         // handing over to a newer copy: it fills the widget in; don't tell it KIKUmap stopped
         if !handingOver { widget.closing() }
+    }
+
+    /// SIGTERM (a plain `kill`; Install.command replacing KIKUmap) quits the ordinary way, as Quit does, so the step above
+    /// runs: the runs being timed end as they should, and what's in memory is saved. Left to itself it would just stop the app.
+    static func quitOnTerm(_ quit: @escaping @MainActor () -> Void) -> DispatchSourceSignal {
+        signal(SIGTERM, SIG_IGN)                  // (heard by the source below instead)
+        let s = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        s.setEventHandler { MainActor.assumeIsolated { quit() } }
+        s.resume()
+        return s
     }
 
     /// One KIKUmap at a time: a copy opened while another runs (an update, a second install) takes over, and
@@ -488,7 +532,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if GPTWatcher.enabled { gpt.read() }
         // the network usually needs a few seconds after waking
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in MainActor.assumeIsolated { self?.usage.refresh() } }
-        widget.update(force: true)
+        widget.woke()           // (its redraw paced: wakes come often)
     }
 
     /// Claude's meters as they'd be shown now (the 5-hour session where the plan has it, the week, and a one-model
@@ -515,10 +559,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func refreshUI() {
         statusBar.update()
         let h = main.header
-        h.running = store.runningChats.count
-        h.runningUnsure = store.seenRunningChats.count < store.runningChats.count
-        h.runningSeen = store.seenRunningChats.count
-        h.unread = store.unreadChats.count
+        // (what the menu-bar icon counts: its "?" after the ring, its "!" before the red count)
+        h.show(counts: StatusBar.counts(store))
         h.meters = UsageMonitor.enabled ? claudeMeters() : []
         h.usageHint = ""
         metersShown = meterSignature()
@@ -526,21 +568,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         h.gptMeters = gptUsageRows().map { ($0.label, $0.window?.percent, $0.note ?? Clock.resets($0.window?.resets)) }
         let all = todos()
         h.todoCount = all.isEmpty ? nil : Todos.open(all).count
-        // ("3/12 · title" while it goes chat by chat; a step of its own, such as reading the export, said as it is)
-        let doing = archive.importing ? tr("正在导入", "Importing") : tr("正在存档", "Archiving")
-        let step = archive.progress.isEmpty ? doing : archive.progress.first?.isNumber == true ? doing + " " + archive.progress : doing + " · " + archive.progress
-        h.liveText = archive.busy ? step + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone") : syncText()
-        h.liveImportant = archive.busy || sidebar.syncIssue != nil || sidebar.status == .noApp || sidebar.status == .noAccess || unreadUnsynced || gptUnsynced
-        // shorter, for a narrow window: without the chat's title; the problems alone
-        let count = archive.progress.first?.isNumber == true ? " " + (archive.progress.components(separatedBy: " · ").first ?? "") : ""
-        h.liveShort = archive.busy ? [doing + count + tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone"), doing + count] : syncShort()
-        h.liveHelp = archive.busy
-            ? (archive.importing
-               ? tr("KIKUmap 正在把导出的对话一个个开成新对话，所以会自己在 Claude 窗口里操作。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
-                    "KIKUmap is starting a new chat in Claude for each exported one, so it works in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".")
-               : tr("KIKUmap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
-                    "KIKUmap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\"."))
-            : syncHelp()
+        let run = archiveStatus()
+        h.liveText = run?.text ?? syncText()
+        h.liveImportant = run != nil || sidebar.syncIssue != nil || sidebar.status == .noApp || sidebar.status == .noAccess || unreadUnsynced || gptUnsynced
+        h.liveShort = run?.short ?? syncShort()
+        h.liveHelp = run?.help ?? syncHelp()
         var actions: [(String, Bool, () -> Void, String?)] = []
         if archive.busy {
             actions.append((tr("停止", "Stop"), true, { [weak self] in self?.archive.cancel() }, "square"))
@@ -554,6 +586,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if main.window.isVisible { main.reload() }
         stats.refresh()
         widget.update()
+    }
+
+    /// What the top bar says while an export or import runs (nil: none is), in fewer words for a narrow window too, and
+    /// on hovering it. Claude's window is to be left alone only while KIKUmap works it: not while an export only writes
+    /// the files from Claude's export zip.
+    func archiveStatus() -> (text: String, short: [String], help: String)? {
+        guard archive.busy else { return nil }
+        // ("3/12 · title" while it goes chat by chat; a step of its own, such as reading the export, said as it is)
+        let doing = archive.importing ? tr("正在导入", "Importing") : tr("正在存档", "Archiving")
+        let step = archive.progress.isEmpty ? doing : archive.progress.first?.isNumber == true ? doing + " " + archive.progress : doing + " · " + archive.progress
+        let hands = archive.drivesClaude ? tr(" · 请先别动 Claude 窗口", " · leave the Claude window alone") : ""
+        // shorter, for a narrow window: without the chat's title
+        let count = archive.progress.first?.isNumber == true ? " " + (archive.progress.components(separatedBy: " · ").first ?? "") : ""
+        let help = archive.importing
+            ? tr("KIKUmap 正在把导出的对话一个个开成新对话，所以会自己在 Claude 窗口里操作。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
+                 "KIKUmap is starting a new chat in Claude for each exported one, so it works in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".")
+            : archive.drivesClaude
+            ? tr("KIKUmap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。",
+                 "KIKUmap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".")
+            : tr("KIKUmap 正在用 Claude 的官方导出包写每个对话的文件（提示词、完整对话、artifacts 和附件），不碰 Claude 窗口。\n想停下就点右边的「停止」。",
+                 "KIKUmap is writing each chat's files from Claude's data export (prompts, the whole conversation, artifacts and attachments). It doesn't touch Claude's window.\nTo stop, click \"Stop\".")
+        return (step + hands, hands.isEmpty ? [doing + count] : [doing + count + hands, doing + count], help)
     }
 
     /// How fresh the Claude-app data is — or exactly what's stopping it.
@@ -626,9 +680,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return !i.passing || store.gptChatUnseen ? i : nil
     }
     private var unreadUnsyncedHelp: String {
-        let what = tr("有对话在后台做完了，Claude 却没给它们 KIKUmap 认得的未读标记（Claude 可能改了说法）", "Chats finished in the background without an unread mark KIKUmap knows (Claude may have reworded it)")
-        return what + tr("，所以分不清哪些对话你已经在 Claude 里看过了。\n现在：Claude 对话的未读点不跟 Claude 同步，在这里打开或标为已读才会消失。\n怎么办：更新 KIKUmap；或者写一份诊断报告（设置 → 授权）发给开发者。KIKUmap 一认出 Claude 的未读标记，就会自动恢复同步。",
-                         ", so KIKUmap can't tell which chats you've read in Claude.\nMeanwhile: unread dots for Claude chats aren't synced with Claude; they clear when you open a chat here or mark it read.\nFix: update KIKUmap, or write a diagnostic report (Settings → Access) and send it. Syncing resumes by itself as soon as KIKUmap recognises Claude's unread marks again.")
+        tr("有对话在后台做完了，Claude 的对话列表里却没出现 KIKUmap 认得的未读标记。可能是 Claude 自己的问题（它最近更新后，也有别人发现列表上的状态点不见了），也可能是 Claude 换了标记的样子。\n现在：Claude 对话的未读点不跟 Claude 同步，在这里打开或标为已读才会消失。\n不用做什么：Claude 一恢复标未读，KIKUmap 就会自己恢复同步，这条也会消失。一直不好的话，可以写一份诊断报告（设置 → 授权）发给开发者。",
+           "Chats finished in the background, but Claude's chat list showed no unread mark KIKUmap knows. Claude may have stopped showing it (since its recent update, others see the status dots missing from its list too), or changed how it looks.\nMeanwhile: unread dots for Claude chats aren't synced with Claude; they clear when you open a chat here or mark it read.\nNothing to do: once Claude marks unread chats again, syncing comes back by itself and this goes away. If it stays, write a diagnostic report (Settings → Access) and send it to the developer.")
     }
 
     /// On hovering the status: what it means, what it holds up, what to do.
@@ -642,11 +695,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .noAccess:
             return (both ? tr("KIKUmap 读不了 Claude 的对话列表和 ChatGPT 的窗口：辅助功能关着。", "KIKUmap can't read Claude's chat list or ChatGPT's window: Accessibility is off. ")
                          : tr("KIKUmap 读不了 Claude 的对话列表：辅助功能关着。", "KIKUmap can't read Claude's chat list: Accessibility is off. "))
-                + tr("Claude 里的对话（进行中、未读、置顶）都没同步，看到的是上次读到的样子。\n", "Claude's chats (running, unread, pinned) aren't synced; what you see is as last read.\n")
+                + tr("Claude 里的对话（在跑、未读、置顶）都没同步，看到的是上次读到的样子。\n", "Claude's chats (running, unread, pinned) aren't synced; what you see is as last read.\n")
                 + (both ? GPTSidebarIssue.paused : "")
                 + tr("怎么办：设置 → 授权 → 辅助功能。", "Fix: Settings → Access → Accessibility.") + also
         case .noApp:
-            return tr("Claude 桌面 App 没在运行。\n不受影响：Claude Code 会话、导图上已有的内容。\n暂停：Claude App 里对话的进行中、做完、未读和置顶同步。\n怎么办：打开 Claude App，会自动接上。",
+            return tr("Claude 桌面 App 没在运行。\n不受影响：Claude Code 会话、导图上已有的内容。\n暂停：Claude App 里对话的在跑、做完、未读和置顶。\n怎么办：打开 Claude App，会自动接上。",
                       "The Claude desktop app isn't running.\nStill works: Claude Code sessions and everything already on your map.\nPaused: running, finished, unread and pins for chats in the Claude app.\nFix: open Claude; KIKUmap picks it up by itself.") + also
         default:
             if let i = sidebar.syncIssue { return i.help + also }
@@ -663,7 +716,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// What's off with reading ChatGPT, if anything: its files, or its window for the ordinary chats.
     private var gptHelp: String? {
         if GPTWatcher.enabled && GPTWatcher.available, let e = gpt.readError {
-            return tr("ChatGPT 的数据读不了（\(e)），它的对话停在上次读到的样子。KIKUmap 每分钟会再试，读到了就自动恢复。", "ChatGPT's data can't be read (\(e)): its threads stay as last read. KIKUmap tries again every minute and picks up by itself.")
+            return tr("ChatGPT 的数据读不了（\(e)），它的对话停在上次读到的样子。KIKUmap 每分钟会再试，读到了就自动恢复。", "ChatGPT's data can't be read (\(e)): its chats stay as last read. KIKUmap tries again every minute and picks up by itself.")
         }
         return gptWindowIssue?.help
     }
@@ -689,11 +742,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var again = ""
         if let d = days {
             let zh = d == 1 ? "每天" : d == 30 ? "每月" : "每周", en = d == 1 ? "every day" : d == 30 ? "every month" : "every week"
-            again = tr("\n· 开着「自动更新」：以后\(zh)会自己再这样做一遍，在 Mac 闲置 10 分钟以上、你不在的时候；你一回来就停下",
-                       "\n· With \"Keep it updated\" on, this happens again on its own \(en), once the Mac has been idle for 10 minutes, while you're away; it stops as soon as you're back")
+            again = tr("\n· 开着「自动更新」：以后\(zh)会自己再这样做一遍，在 Mac 闲置 10 分钟以上、你不在的时候（Claude App 要开着）；你一回来就停下",
+                       "\n· With \"Keep it updated\" on, this happens again on its own \(en), once the Mac has been idle for 10 minutes, while you're away (with the Claude app open); it stops as soon as you're back")
         }
-        let downloads = ClaudeExport.canLookInDownloads ? "" : tr("\n\n第一次存到「文稿」「桌面」或「下载」里时，macOS 会问一次是否允许 KIKUmap 存到这里。",
-                                                                  "\n\nThe first time it saves into Documents, Desktop or Downloads, macOS asks once whether KIKUmap may save there.")
+        let downloads = Archive.asksNote.map { "\n\n" + $0 } ?? ""
+        let clipboard = AppDelegate.summaryClipboard
         if one {
             return (tr("让 Claude 写交接总结（memory）", "Have Claude write a hand-off summary (memory)"), tr("""
             会在 Claude App 里打开这个对话，发一条消息请 Claude 写交接总结，再把总结存成 memory.md（\(Archive.folder.path)）。
@@ -701,12 +754,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             · 就算上次总结后没有新内容，也会再问一次：多一轮问答，用掉一点额度
             · 在 Claude 里打开后，Claude 会把它当作已读
             · 运行时 Claude 窗口会自己切到这个对话，先别动它（顶栏可以随时停止）
+            · \(clipboard.zh)
             """, """
             The Claude app will open this chat, send a message asking Claude for a hand-off summary, and save the reply as memory.md (\(Archive.folder.path)).
 
             · It's asked even if nothing changed since the last summary: one more exchange, which uses a little of your quota
             · Once it's open in Claude, Claude treats it as read
             · The Claude window switches to this chat while this runs — leave it alone (you can stop from the top bar)
+            · \(clipboard.en)
             """) + downloads)
         }
         return (tr("让 Claude 写交接总结（memory）", "Have Claude write hand-off summaries (memory)"), tr("""
@@ -715,19 +770,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         · 每个对话会多一轮问答，用掉一点额度
         · 运行时 Claude 窗口会自己切换对话，先别动它（顶栏可以随时停止）
         · 正在跑、未读、没有新内容的对话会跳过
+        · \(clipboard.zh)
         """, """
         The Claude app will open \(count == 1 ? "this chat" : "these \(count) chats") in turn, send a message asking Claude for a hand-off summary, and save the reply as memory.md (\(Archive.folder.path)).
 
         · Each chat gets one more exchange, which uses a little of your quota
         · The Claude window switches chats while this runs — leave it alone (you can stop from the top bar)
         · Chats that are running, unread or unchanged are skipped
+        · \(clipboard.en)
         """) + again + downloads)
     }
+
+    /// How a summary run uses the clipboard (the export window's note says it too): Claude's Copy button can't be told to
+    /// keep the summary out of clipboard history apps; what you had copied goes back right after.
+    static let summaryClipboard = (zh: "每份总结要经过 Claude 的复制按钮，剪贴板历史类 App 可能会存下它；之后马上放回你原来的剪贴板",
+                                   en: "Each summary comes through Claude's Copy button, so a clipboard history app may keep it; your clipboard is put back right after")
 
     /// Right-click → Archive a summary…: a chat that's running isn't opened at all, so that's said and nothing is
     /// asked (nor once you've said yes, if it started meanwhile).
     func archiveOne(_ id: String) {
-        guard !archive.busy else { return }
+        // (while an export or import runs nothing else starts: said, not left to do nothing)
+        if let why = archive.busyNote { Archive.say(why.title, why.text); return }
         if let why = archive.notNow(id) { Permissions.alert(why.title, why.text); return }
         guard confirmArchive(1, one: true) else { return }
         if !archive.runOne(id), let why = archive.notNow(id) { Permissions.alert(why.title, why.text) }
@@ -736,7 +799,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func archiveAll() { exportWin.show() }
 
     func importArchive() {
-        guard !archive.busy else { return }
+        if let why = archive.busyNote { Archive.say(why.title, why.text); return }
         let p = NSOpenPanel()
         p.canChooseDirectories = true
         p.canChooseFiles = false
@@ -744,33 +807,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         p.message = tr("选存档文件夹", "Choose the archive folder")
         NSApp.activate(ignoringOtherApps: true)
         guard p.runModal() == .OK, let dir = p.url else { return }
+        importFolder(dir)
+    }
+
+    /// Runs an alert, and says which button was clicked (a test stands in for it).
+    var ask: (NSAlert) -> NSApplication.ModalResponse = { a in
+        NSApp.activate(ignoringOtherApps: true)
+        return a.runModal()
+    }
+
+    /// The folder picked for Import: nothing new in it is said; else what Import does is asked first.
+    func importFolder(_ dir: URL) {
         let all = Archive.notes(in: dir)
         let todo = all.filter { !archive.alreadyImported($0) }
-        let a = NSAlert()
-        if todo.isEmpty {
-            a.messageText = all.isEmpty ? tr("这个文件夹里没有存档", "No archived chats in this folder")
-                                        : tr("这些都已经导入过了", "These were all imported already")
-            a.runModal()
-            return
-        }
-        a.messageText = tr("导入 \(todo.count) 个对话到现在登录的 Claude 账号？", "Import \(todo.count) chats into the Claude account that's signed in now?")
-        a.informativeText = tr("""
-        每个存档会在 Claude App 里开一个新对话，把总结发进去让 Claude 接上，然后置顶、改回原来的名字。导图上会接到原来的位置。
+        if todo.isEmpty { _ = ask(AppDelegate.nothingToImport(found: !all.isEmpty)); return }
+        guard ask(AppDelegate.importDialog(todo.count)) == .alertFirstButtonReturn else { return }
+        archive.importNotes(todo)
+    }
 
+    /// Nothing new to import from that folder: said with KIKUmap's own button, as Permissions.alert does (macOS's own
+    /// would be in English: the app declares no Chinese).
+    static func nothingToImport(found: Bool) -> NSAlert {
+        let a = NSAlert()
+        a.messageText = found ? tr("这些都已经导入过了", "These were all imported already") : tr("这个文件夹里没有存档", "No archived chats in this folder")
+        a.informativeText = found ? tr("每个存档只会导入一次。", "Each archived chat is imported only once.")
+            : tr("导入找的是导出时写的 memory.md 总结。选导出文件夹，或者里面的主题、对话文件夹。",
+                 "Import looks for the memory.md summaries an export writes. Pick the export folder, or a topic's or chat's folder in it.")
+        a.addButton(withTitle: tr("好", "OK"))
+        return a
+    }
+
+    /// What Import does, asked before it starts: each chat is an exchange with Claude (quota), what goes along, and the
+    /// clipboard it pastes through.
+    static func importDialog(_ count: Int) -> NSAlert {
+        let a = NSAlert()
+        a.messageText = tr("导入 \(count) 个对话到现在登录的 Claude 账号？", "Import \(count) \(count == 1 ? "chat" : "chats") into the Claude account that's signed in now?")
+        a.informativeText = tr("""
+        每个存档会在 Claude App 里开一个新对话，发进总结和最多 19 个 artifact（每个小于 5 MB）让 Claude 接上，然后置顶、改回原来的名字。导图上会接到原来的位置。
+
+        · 每个对话是和 Claude 的一轮问答，会用掉一些额度（文件多或大时更多）
         · 先在 Claude App 里登录要导入的账号
         · 运行时先别动 Claude 窗口
-        · 图片、视频等大文件带不过去，总结里会列出它们
+        · 更大的和第 19 个之后的 artifact 留在导出文件夹里，会告诉 Claude 有几个
+        · 会借用剪贴板粘贴，并标记让剪贴板历史类 App 跳过；每次粘贴后放回你原来的内容
         """, """
-        Each one starts a new chat in the Claude app with the summary sent in so Claude can pick up, then pins it and gives it the old name. On the map it takes the old chat's place.
+        Each one starts a new chat in the Claude app, sends in the summary with up to 19 of the chat's artifacts (under 5 MB each) so Claude can pick up, then pins the chat and gives it the old name. On the map it takes the old chat's place.
 
+        · Each chat is one exchange with Claude, which uses some of your quota (more with many or large files)
         · Sign in to the target account in the Claude app first
         · Leave the Claude window alone while it runs
-        · Images, videos and other big files don't come along — the summary lists them
+        · Larger artifacts, and any past 19, stay in the export folder; Claude is told how many
+        · It pastes through the clipboard, marked for clipboard history apps to skip, and puts yours back after each paste
         """)
         a.addButton(withTitle: tr("导入", "Import"))
         a.addButton(withTitle: tr("取消", "Cancel"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
-        archive.importNotes(todo)
+        return a
+    }
+
+    /// What's wrong with ChatGPT's usage lookup from OpenAI, in a line for the menu under the usage rows, as Claude's is
+    /// said there (nil: it's off, reads fine, or its first answer is on its way; or ChatGPT is disconnected, when
+    /// nothing shows ChatGPT's usage, as gptUsageRows and the widget have none then).
+    func gptUsageNote() -> String? {
+        guard GPTUsageMonitor.enabled, GPTWatcher.enabled, !gptUsage.brief.isEmpty else { return nil }
+        return gptUsage.brief
     }
 
     /// ChatGPT's usage, as its latest answer on this Mac reported it (Codex used elsewhere draws on the same limits):
@@ -864,8 +963,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let shownList = store.pinnedList()
         let sessions = shownList.filter { $0.isCode || $0.isCodexSession }.count
-        var sessionLine = tr("编辑器里的 Claude Code、Codex 会话：显示 \(sessions) 个（运行中、未读，或做完后 12 小时内）",
-                             "Claude Code and Codex sessions in editors: \(sessions) shown (while running or unread, and for 12 hours after)")
+        // (as Store.isShown lists them: a script's run only while it runs; one kept or on the map for good)
+        var sessionLine = tr("终端和编辑器里的 Claude Code、Codex 会话：显示 \(sessions) 个（在跑、未读，或做完后 12 小时内；脚本启动的只在跑的时候；一直留着的、在导图上的一直显示）",
+                             "Claude Code and Codex sessions in terminals and editors: \(sessions) shown (while running or unread, and for 12 hours after; ones a script started only while running; kept or on the map: always)")
         if !fx.hooks && (fx.claudeCode || fx.claudeFolder) {
             sessionLine += tr("。Claude Code 还没连接（设置 → 授权）", ". Claude Code isn't connected (Settings → Access)")
         } else if fx.hooks, let why = fx.blocked {
@@ -896,22 +996,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar.attach()
         sidebar.schedule(0)
         if GPTWatcher.enabled { gpt.read() }
-        usage.refreshNow()
-        gptUsage.refresh(now: true)
+        refreshUsage()
         widget.update()
         refreshUI()
+    }
+
+    /// Usage, from the refresh button: Claude's and ChatGPT's alike, now but not twice a minute, and not while Anthropic
+    /// or OpenAI asked to wait (only Settings' Read again asks then).
+    func refreshUsage() {
+        usage.refreshNow()
+        gptUsage.refreshNow()
     }
 
     /// What waits for Accessibility, for the apps it's off for: Claude's sidebar, ChatGPT's window (its ordinary chats).
     static func accessImpact(claude: Bool, gpt: Bool) -> String {
         let what = claude && gpt
-            ? tr("在那之前读不到 Claude App 里的置顶、进行中和未读；ChatGPT 置顶的普通对话也看不出在不在跑、有没有未读。",
-                 "Until then, Claude app chats have no pins, running or unread, and ChatGPT's pinned ordinary chats show no running or unread.")
+            ? tr("在那之前，Claude App 的对话看不到置顶、在跑和未读；ChatGPT 置顶的普通对话也看不出在不在跑、有没有未读。",
+                 "Until then, Claude app chats show no pins, running or unread, and ChatGPT's pinned ordinary chats show no running or unread.")
             : gpt
             ? tr("在那之前，ChatGPT 置顶的普通对话看不出在不在跑、有没有未读。", "Until then, ChatGPT's pinned ordinary chats show no running or unread.")
-            : tr("在那之前读不到 Claude App 里的置顶、进行中和未读。", "Until then, Claude app chats have no pins, running or unread.")
+            : tr("在那之前，Claude App 的对话看不到置顶、在跑和未读。", "Until then, Claude app chats show no pins, running or unread.")
         return what + (GPTWatcher.enabled ? tr("Codex 对话和 Claude Code 不受影响。", " Codex chats and Claude Code aren't affected.")
                                           : tr("Claude Code 不受影响。", " Claude Code isn't affected."))
+    }
+
+    /// Why KIKUmap can't tell which chat Claude's "needs your approval" is about (its notification names none), as its
+    /// To-do says: what's in the way of reading Claude's chats now; with nothing in the way, what ran when it asked
+    /// (chats in plain sight aren't guessed at: until a read of Claude's sidebar shows the one that waits, it's unknown).
+    func approvalWhy() -> String {
+        switch sidebar.status {
+        case .noAccess: return tr("KIKUmap 又读不了 Claude 的窗口（辅助功能关着）", "KIKUmap can't read Claude's window (Accessibility is off)")
+        case .noApp: return tr("而 Claude 后来退出了", "Claude has quit since")
+        default: break
+        }
+        switch sidebar.status == .ok ? sidebar.syncIssue : nil {
+        case .accessOff?: return tr("KIKUmap 又读不了 Claude 的窗口（辅助功能权限失效了）", "KIKUmap can't read Claude's window (Accessibility stopped working)")
+        case .noWindow?: return tr("KIKUmap 又看不到 Claude 的窗口（关了，或在别的桌面）", "KIKUmap can't see Claude's window (closed, or on another desktop)")
+        case .codeMode?: return tr("Claude 又停在 Code 模式，看不到你的对话", "Claude is in Code mode, which doesn't show your chats")
+        case .pinsCollapsed?: return tr("Claude 的 Pinned 区又折叠着", "Claude's Pinned section is folded")
+        case .sidebarHidden?: return tr("Claude 的侧边栏又收起来了", "Claude's sidebar is hidden")
+        case .noChatsShown?: return tr("Claude 的侧边栏里又一个对话也没显示", "Claude's sidebar shows no chats")
+        case nil:
+            switch store.approvalNoChat {
+            case .beforeLaunch: return tr("当时 KIKUmap 又没在运行", "KIKUmap wasn't running then")
+            case .inSight: return tr("Claude 的侧边栏里又还看不出是哪个", "Claude's sidebar doesn't show which one yet")
+            case .several: return tr("当时在跑的对话又不止一个", "more than one chat was running then")
+            case .noneRunning: return tr("当时 KIKUmap 看得到的对话又都没在跑", "none of the chats KIKUmap sees was running then")
+            }
+        }
     }
 
     /// What's left to do, each with what it affects until it's done (the ▸ To-do in the top bar and the menu).
@@ -931,12 +1063,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             out.append(Todo(id: "sync-\(i)", title: i.note, impact: i.help, action: nil))
         }
         if UsageMonitor.enabled {
-            let stale = tr("在那之前用量不会更新（显示的是上次读到的数）。", "Until then, usage doesn't update (what's shown is from the last read).")
+            let stale = tr("在那之前用量不会更新，显示的是上次读到的数字。", "Until then, usage doesn't update (what's shown is from the last read).")
             let none = tr("在那之前，菜单、窗口和小组件里没有 Claude 的用量。", "Until then, no Claude usage in the menu, the window or the widget.")
             // older numbers are on screen only while they're marked "as of" (set() clears them for .noScope and .denied)
             let until = usage.asOf != nil ? stale : none
             let again: (String, () -> Void) = (tr("重新读取", "Read again"), { [weak self] in self?.usage.reconnect() })
             let off: (String, () -> Void) = (tr("关闭用量", "Turn off usage"), { [weak self] in self?.perms.disconnectUsage(); self?.refreshUI() })
+            let tryNow: (String, () -> Void) = (tr("现在再试", "Try now"), { [weak self] in self?.usage.refreshNow() })
+            // (no answer, an answer it can't read, the Keychain: said once the numbers shown are a quarter of an hour
+            // old, or there are none, each with its own cause and when it tries again)
+            let aged = usage.updated.map { Date().timeIntervalSince($0) > 900 } ?? true
             switch usage.status {
             case .noLogin where !fx.claudeCode:
                 out.append(Todo(id: "usage-login", title: tr("Claude 用量需要 Claude Code", "Claude usage needs Claude Code"),
@@ -957,38 +1093,101 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 out.append(Todo(id: "usage-denied", title: usage.hint,
                                 impact: tr("点「重新读取」，macOS 问的时候选「允许」（Claude Code 续登录后它可能会再问）。\n", "Click Read again and choose Allow when macOS asks (it may ask again after Claude Code renews its sign-in).\n") + until,
                                 action: again))
-            case .error where (usage.updated.map { Date().timeIntervalSince($0) > 900 } ?? true):
+            case .offline where aged:
+                out.append(Todo(id: "usage-offline", title: usage.hint,
+                                impact: tr("可能是 Mac 没联网，也可能是 Anthropic 那边出了问题。KIKUmap 隔十来分钟会自己再试。",
+                                           "The Mac may be offline, or there's trouble on Anthropic's side. KIKUmap tries again by itself every 10 minutes or so."),
+                                action: tryNow))
+            case .error where aged:
                 out.append(Todo(id: "usage-error", title: usage.hint,
-                                impact: tr("KIKUmap 每 5 分钟会自动再试；看看网络是否正常。", "KIKUmap tries again every 5 minutes by itself; check that the Mac is online."),
-                                action: (tr("现在再试", "Try now"), { [weak self] in self?.usage.refreshNow() })))
+                                impact: tr("查用量的接口没有公开，可能改了。KIKUmap 隔十来分钟会自己再试。",
+                                           "The usage interface isn't public and may have changed. KIKUmap tries again by itself every 10 minutes or so."),
+                                action: tryNow))
+            case .keychain where aged:
+                out.append(Todo(id: "usage-keychain", title: usage.hint,
+                                impact: tr("是 macOS 的钥匙串报的错，不是网络的问题。KIKUmap 隔 15 分钟左右会自己再读一次。",
+                                           "The error comes from macOS's Keychain, not the network. KIKUmap reads the sign-in again by itself every 15 minutes or so."),
+                                action: tryNow))
+            case .refused:
+                out.append(Todo(id: "usage-refused", title: usage.hint,
+                                impact: tr("KIKUmap 隔十来分钟会再试。一直这样的话，可能是网络、代理或公司的设置拦下了它；用不上用量就关掉它。\n",
+                                           "KIKUmap tries again every 10 minutes or so. If it keeps happening, your network, a proxy or your organization may be blocking it; if you don't need usage, turn it off.\n") + until,
+                                action: off))
+            default: break
+            }
+        }
+        // ChatGPT's usage from OpenAI, when it's on: what Claude's gets when its lookup fails (not while OpenAI only
+        // asked to wait; no answer, once its tries in a minute are over). Not while ChatGPT is disconnected: then
+        // nothing shows its usage, even after a Codex task (gptUsageRows and the widget have none).
+        if GPTUsageMonitor.enabled && GPTWatcher.enabled {
+            let g = gptUsage
+            let until = tr("在那之前，ChatGPT 的用量只在你用 Codex 跑任务时更新。", "Until then, ChatGPT's usage updates only when you run a Codex task.")
+            let again: (String, () -> Void) = (tr("重新读取", "Read again"), { [weak self] in self?.gptUsage.reconnect() })
+            let off: (String, () -> Void) = (tr("关闭 ChatGPT 用量", "Turn off ChatGPT usage"), { [weak self] in self?.perms.disconnectGPTUsage(); self?.refreshUI() })
+            let tryNow: (String, () -> Void) = (tr("现在再试", "Try now"), { [weak self] in self?.gptUsage.refreshNow() })
+            let aged = g.usage.map { Date().timeIntervalSince($0.at) > 900 } ?? true
+            switch g.status {
+            case .noLogin:
+                out.append(Todo(id: "gpt-usage-login", title: g.brief,
+                                impact: tr("在 ChatGPT 桌面 App 或 Codex 里用 ChatGPT 账号登录，再点「重新读取」。Codex 用的是 API key 的话，没有 ChatGPT 用量可查，那就关掉 ChatGPT 用量。\n",
+                                           "Sign in with your ChatGPT account in the ChatGPT desktop app or in Codex, then click Read again. If Codex uses an API key, there's no ChatGPT usage to look up: then turn ChatGPT usage off.\n") + until,
+                                action: again))
+            case .expired:
+                out.append(Todo(id: "gpt-usage-expired", title: g.brief, impact: until, action: again))
+            case .refused:
+                out.append(Todo(id: "gpt-usage-refused", title: g.brief,
+                                impact: tr("KIKUmap 隔十来分钟会再试。一直这样的话，可能是网络、代理或公司的设置拦下了它；用不上就关掉 ChatGPT 用量。\n",
+                                           "KIKUmap tries again every 10 minutes or so. If it keeps happening, your network, a proxy or your organization may be blocking it; if you don't need it, turn ChatGPT usage off.\n") + until,
+                                action: off))
+            case .offline where aged && g.failures >= 3:
+                out.append(Todo(id: "gpt-usage-offline", title: g.brief,
+                                impact: tr("可能是 Mac 没联网，也可能是 OpenAI 那边出了问题。KIKUmap 隔十来分钟会自己再试。\n",
+                                           "The Mac may be offline, or there's trouble on OpenAI's side. KIKUmap tries again by itself every 10 minutes or so.\n") + until,
+                                action: tryNow))
+            case .error where aged:
+                out.append(Todo(id: "gpt-usage-error", title: g.brief,
+                                impact: tr("这个接口没有公开，可能改了。KIKUmap 隔十来分钟会自己再试。\n",
+                                           "The interface isn't public and may have changed. KIKUmap tries again by itself every 10 minutes or so.\n") + until,
+                                action: tryNow))
             default: break
             }
         }
         if fx.hooks, let why = fx.blocked {
-            out.append(Todo(id: "code-blocked", title: tr("Claude Code 不运行 KIKUmap 的 hook", "Claude Code won't run KIKUmap's hooks"),
-                            impact: why + tr("。在那之前终端、VS Code 里的会话不显示进行中和未读。", ". Until then, sessions in Terminal or VS Code don't show running or unread."),
+            out.append(Todo(id: "code-blocked", title: tr("Claude Code 的会话报不到 KIKUmap", "Claude Code sessions can't report to KIKUmap"),
+                            impact: why + tr("。在那之前，终端、VS Code 里的会话不显示在跑和未读。", ". Until then, sessions in Terminal or VS Code don't show running or unread."),
                             action: nil))
         }
         // never asked about starting at login (the intro closed early, an update from 0.9, a first run from the disk image)
         if let t = LoginItem.todo({ [weak self] in self?.refreshUI() }) { out.append(t) }
-        // data that couldn't be read or saved: what happened, and where the file is
-        if let a = store.approvalAsked, Date().timeIntervalSince(a) < 1800 {
+        // an approval Claude asked for in a chat KIKUmap couldn't tell: until a read of Claude's chats settles it, for half
+        // an hour at most; unsure once its notification has left Notification Center (as a chat's request is)
+        if let a = store.approvalAsked, Date().timeIntervalSince(a) < Store.approvalShown {
             let t = Clock.format(a, "HH:mm", "HH:mm")
+            let open: (String, () -> Void) = (tr("打开 Claude", "Open Claude"), {
+                if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
+                    NSWorkspace.shared.openApplication(at: u, configuration: NSWorkspace.OpenConfiguration())
+                }
+            })
             // (one id per request: ignoring one doesn't silence the next)
-            out.append(Todo(id: "claude-approval-\(Int(a.timeIntervalSince1970))", title: tr("Claude 在等你批准", "Claude is waiting for your approval"),
-                            impact: tr("\(t) Claude 问了一次「允许吗？」，但它的通知没说是哪个对话，KIKUmap 又看不到 Claude 的窗口（关了，或在别的桌面）。打开 Claude 看看。",
-                                       "At \(t) Claude asked for an approval, but its notification doesn't say in which chat, and KIKUmap can't see Claude's window (closed, or on another desktop). Open Claude to answer."),
-                            action: (tr("打开 Claude", "Open Claude"), {
-                                if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: claudeBundleID) {
-                                    NSWorkspace.shared.openApplication(at: u, configuration: NSWorkspace.OpenConfiguration())
-                                }
-                            })))
+            let id = "claude-approval-\(Int(a.timeIntervalSince1970))"
+            if store.approvalUnsure {
+                out.append(Todo(id: id, title: tr("Claude 可能还在等你确认", "Claude may still be waiting for you to approve"),
+                                impact: tr("\(t) Claude 问了一次「允许吗？」，它的通知没说是哪个对话。这条通知后来不见了：可能已经确认过了，也可能只是被清掉了。打开 Claude 看看。",
+                                           "At \(t) Claude asked for an approval in a chat its notification doesn't name. That notification has gone since: it may have been answered, or only cleared. Open Claude to check."),
+                                action: open))
+            } else {
+                out.append(Todo(id: id, title: tr("Claude 在等你确认", "Claude is waiting for you to approve"),
+                                impact: tr("\(t) Claude 问了一次「允许吗？」，但它的通知没说是哪个对话，", "At \(t) Claude asked for an approval, but its notification doesn't say in which chat, and ")
+                                    + approvalWhy() + tr("。打开 Claude 去确认。", ". Open Claude to answer."),
+                                action: open))
+            }
         }
         if unreadUnsynced && sidebar.status == .ok {
-            out.append(Todo(id: "unread-unsynced", title: tr("Claude 的未读标记认不出来", "Claude's unread marks aren't recognised"),
+            out.append(Todo(id: "unread-unsynced", title: tr("看不到 Claude 的未读标记", "Can't see Claude's unread marks"),
                             impact: unreadUnsyncedHelp,
                             action: (tr("诊断报告", "Diagnostic report"), { [weak self] in self?.diagnose() })))
         }
+        // data that couldn't be read or saved: what happened, and where the file is
         let unreadable = store.unreadable + [archive.unreadable].compactMap { $0 }
         if !unreadable.isEmpty {
             out.append(Todo(id: "data-unreadable", title: tr("有数据文件读不了，已另存", "A data file couldn't be read and was kept aside"),
@@ -1067,9 +1266,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openCode(_ c: Chat) {
-        let terms = ["vscode": "com.microsoft.VSCode", "Apple_Terminal": "com.apple.Terminal", "iTerm.app": "com.googlecode.iterm2"]
         let raw = c.app ?? ""
-        let bundle = terms[raw] ?? raw
+        let bundle = Store.appBundles[raw] ?? raw
         let folder = c.cwd.map { URL(fileURLWithPath: $0) }
         if !bundle.isEmpty, let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
             if let f = folder, bundle.lowercased().contains("vscode") || bundle.lowercased().contains("cursor") {
@@ -1105,6 +1303,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AXUIElementPerformAction(w, kAXRaiseAction as CFString)
         app.activate()
         return true
+    }
+
+    /// The titles of the front app's windows but its focused one, and with `tabs` of their tabs (a tab group's buttons,
+    /// among a window's children or theirs) but the one shown in its focused window, read with Accessibility: what else
+    /// in that app could show a session's folder. (An editor's tabs are its files: not asked.) nil: they can't be read
+    /// (no Accessibility, the app doesn't answer, or there's too much of it to go through on the main thread).
+    static func otherWindowTitles(tabs: Bool) -> [String]? {
+        guard AXIsProcessTrusted(), let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var stuck = false, asks = 0
+        func value(_ e: AXUIElement, _ a: String) -> CFTypeRef? {
+            asks += 1
+            if asks > 800 { stuck = true }
+            guard !stuck else { return nil }
+            var v: CFTypeRef?
+            let r = AXUIElementCopyAttributeValue(e, a as CFString, &v)
+            if r == .cannotComplete { stuck = true }               // it doesn't answer: the rest wouldn't either
+            return r == .success ? v : nil
+        }
+        func kids(_ e: AXUIElement) -> [AXUIElement] {
+            let all = value(e, kAXChildrenAttribute) as? [AXUIElement] ?? []
+            if all.count > 100 { stuck = true }                    // (not all of them looked at: what's left isn't known)
+            return Array(all.prefix(100))
+        }
+        guard let f = value(app, kAXFocusedWindowAttribute), CFGetTypeID(f) == AXUIElementGetTypeID(),
+              let wins = value(app, kAXWindowsAttribute) as? [AXUIElement], wins.count <= 60 else { return nil }
+        let focused = f as! AXUIElement
+        var out: [String] = []
+        for w in wins {
+            let front = CFEqual(w, focused)
+            if !front, let t = value(w, kAXTitleAttribute) as? String { out.append(t) }
+            guard tabs else { continue }
+            let near = kids(w)
+            for g in near + near.flatMap(kids) where value(g, kAXRoleAttribute) as? String == kAXTabGroupRole {
+                for tab in kids(g) where value(tab, kAXRoleAttribute) as? String == kAXRadioButtonRole {
+                    if front && (value(tab, kAXValueAttribute) as? NSNumber)?.intValue == 1 { continue }   // the one shown
+                    if let t = value(tab, kAXTitleAttribute) as? String { out.append(t) }
+                }
+            }
+        }
+        return stuck ? nil : out
     }
 
     private func openURL(_ id: String) {
@@ -1157,15 +1397,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var checking = false
 
-    /// Earlier versions' window files kept pieces of what was open (ChatGPT's: of the links in a chat; Claude's, with no
-    /// chat list found: its short texts). Those copies go, once, so they aren't sent along with the next report.
+    /// Earlier versions' window files kept pieces of what was open (ChatGPT's: of the links in a chat, then words found
+    /// in its messages and chat titles; Claude's, with no chat list found: its short texts). Those copies go, once for
+    /// each, so they aren't sent along with the next report.
     static func forgetOldReports(in logs: URL) {
         let d = UserDefaults.standard, fm = FileManager.default
-        guard !d.bool(forKey: "ReportLogClean") else { return }
-        for f in (try? fm.contentsOfDirectory(atPath: logs.path)) ?? [] where f.hasPrefix("chatgpt-window-") || f == "claude-sidebar.txt" {
-            try? fm.removeItem(at: logs.appendingPathComponent(f))
+        for (key, old) in [("ReportLogClean", { (f: String) in f.hasPrefix("chatgpt-window-") || f == "claude-sidebar.txt" }),
+                           ("ReportLogClean2", { (f: String) in f.hasPrefix("chatgpt-window-") })] where !d.bool(forKey: key) {
+            for f in (try? fm.contentsOfDirectory(atPath: logs.path)) ?? [] where old(f) {
+                try? fm.removeItem(at: logs.appendingPathComponent(f))
+            }
+            d.set(true, forKey: key)
         }
-        d.set(true, forKey: "ReportLogClean")
     }
 
     /// What KIKUmap can see on this Mac, without anything personal.
@@ -1196,7 +1439,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             Claude app: \(version(claudeBundleID)) · \(sidebar.claudePID != 0 ? "running" : "not running")
             Accessibility: \(AXIsProcessTrusted() ? "on" : "off")
-            Sidebar: \(sidebar.status) · last read \(ago(sidebar.lastSync)) · \(sidebar.syncNote ?? "no problem")\(sidebar.marksMissed ? " · Claude's unread marks not recognised lately (unread not synced)" : "")\(sidebar.unknownMark.map { " · unknown row status: '\($0)'" } ?? "")
+            Sidebar: \(sidebar.status) · last read \(ago(sidebar.lastSync)) · \(sidebar.syncNote ?? "no problem")\(sidebar.marksMissed ? " · Claude's unread marks not recognized lately (unread not synced)" : "")\(sidebar.unknownMark.map { " · unknown row status: '\($0)'" } ?? "")
             Chats: Claude \(claude.count) (pinned \(claude.filter { $0.pinned == true }.count)) · Claude Code \(codeChats.count) · ChatGPT \(gptChats.count) (pinned \(gptChats.filter { $0.pinned == true }.count)) · in the sidebar \(store.pinnedList().count)
 
             Notifications (Full Disk Access): \(notifications.status)\(notifications.problem.map { " · " + $0 } ?? "")
@@ -1205,6 +1448,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Usage: \(UsageMonitor.enabled ? "on" : "off") · \(usage.status) · updated \(ago(usage.updated))
 
             ChatGPT app: \(version(GPTWatcher.bundleID))\(GPTWatcher.oldAppOnly ? " (only the older app is installed)" : "") · its data \(GPTWatcher.available ? "found" : "missing") · reading \(GPTWatcher.enabled ? "on" : "off") · usage \(gpt.usage == nil ? "none yet" : "found")\(gpt.readError.map { " · error: " + $0 } ?? "")
+            ChatGPT usage from OpenAI: \(GPTUsageMonitor.enabled ? "on" : "off") · \(gptUsage.status) · updated \(ago(gptUsage.usage?.at))
             ChatGPT window (ordinary chats): \(store.gptChatNames.count) pinned · \(store.gptChatsRead.count) read · window last read \(ago(self.gptChats.lastRead)) · \(self.gptChats.issue.map { "\($0)" } ?? "no problem")\(self.gptChats.otherStatus.map { " · a row's status not taken for working: '\(AXScan.short($0, 40))'" } ?? "")
 
             Data: \(unreadable.isEmpty ? "all read" : "kept aside: " + unreadable.joined(separator: ", "))\(unsaved.isEmpty ? "" : " · can't save: " + unsaved.joined(separator: ", "))\(store.rulesProblem.map { " · rules: " + $0 } ?? "")
@@ -1298,7 +1542,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let view = NSMenu(title: tr("显示", "View"))
         let side = view.addItem(withTitle: tr("显示 / 隐藏左栏", "Show / Hide Left Column"), action: #selector(toggleSide), keyEquivalent: "s")
         side.keyEquivalentModifierMask = [.control, .command]
-        let tl = view.addItem(withTitle: tr("显示 / 隐藏时间线", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
+        let tl = view.addItem(withTitle: tr("显示 / 隐藏时间轴", "Show / Hide Timeline"), action: #selector(toggleTimeline), keyEquivalent: "t")
         tl.keyEquivalentModifierMask = [.control, .command]
         let tg = view.addItem(withTitle: tr("显示 / 隐藏标签", "Show / Hide Tags"), action: #selector(toggleTags), keyEquivalent: "g")
         tg.keyEquivalentModifierMask = [.control, .command]

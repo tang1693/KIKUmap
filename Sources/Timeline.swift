@@ -104,7 +104,7 @@ final class TimelineView: NSView {
     private let labelW: CGFloat = 70
     private let rowTop: CGFloat = 34
     private let laneH: CGFloat = 26
-    private var lanes: [String] { [tr("进行中", "Running"), tr("计划任务", "Scheduled")] }
+    private var lanes: [String] { [tr("在跑", "Running"), tr("计划任务", "Scheduled")] }
     private var lanesBottom: CGFloat { rowTop + runLaneH + laneH }
     /// Chats Claude worked on at the same time get rows of their own in the Running lane (up to 4),
     /// and the strip grows to fit them.
@@ -166,6 +166,51 @@ final class TimelineView: NSView {
         return out.sorted { $0.1 < $1.1 }
     }
 
+    /// Where the header's next-task line goes (`x`), what it says, and whether the title is shown: after the title, as
+    /// `nextLine` fits it before ◎ Now (at `nowX`); in a strip too narrow to say there whole how old the list is (Chinese,
+    /// zoomed in), in the title's place (the lanes and buttons say what the strip is).
+    static func headerLine(name: String, countdown: String, asOf: String?, titleWidth: CGFloat, nowX: CGFloat, font: NSFont)
+        -> (x: CGFloat, line: (text: String, whole: Bool)?, titled: Bool) {
+        let x = 14 + titleWidth + 16
+        let line = nextLine(name: name, countdown: countdown, asOf: asOf, room: nowX - 12 - x, font: font)
+        // (only the last way out ends in "…": the as-of cut short)
+        if asOf != nil, line?.text.hasSuffix("…") ?? true,
+           let alone = nextLine(name: name, countdown: countdown, asOf: asOf, room: nowX - 12 - 14, font: font), !alone.text.hasSuffix("…") {
+            return (14, alone, false)
+        }
+        return (x, line, true)
+    }
+
+    /// The header's line about the next scheduled task, as much of it as fits in `room` points (it must end before
+    /// ◎ Now): the task's name shortened first, then left out, then all but how old the list is. That ("list as of …",
+    /// for a list from an earlier read, `asOf`) is the timeline's only word of it, so it goes last: cut short only when
+    /// nothing else is left. `whole`: nothing was left out. nil: no room for it.
+    static func nextLine(name: String, countdown: String, asOf: String?, room: CGFloat, font: NSFont) -> (text: String, whole: Bool)? {
+        let lead = tr("下一个计划任务：", "Next scheduled task: ")
+        let tail = asOf.map { tr(" · \($0) 时的列表", " · list as of \($0)") } ?? ""
+        func fits(_ s: String) -> Bool { s.size(font).width <= room }
+        let whole = lead + name + " · " + countdown + tail
+        if fits(whole) { return (whole, true) }
+        // the most of the name that fits, three characters at the least
+        let chars = Array(name)
+        var lo = 3, hi = chars.count - 1, named: String?
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            let s = lead + String(chars[..<mid]).trimmingCharacters(in: .whitespaces) + "… · " + countdown + tail
+            if fits(s) { named = s; lo = mid + 1 } else { hi = mid - 1 }
+        }
+        if let s = named { return (s, false) }
+        var shorter = [lead + countdown + tail]
+        if let t = asOf { shorter += [tr("计划任务 · \(t) 时的列表", "Scheduled tasks · as of \(t)"), tr("\(t) 时的列表", "List as of \(t)")] }
+        if let s = shorter.first(where: fits) { return (s, false) }
+        // (without a list that's out of date: nothing that says anything fits, and the lane shows the next one anyway)
+        guard asOf != nil, let last = shorter.last else { return nil }
+        let cut = Array(last)
+        var n = cut.count - 1
+        while n > 0 && !fits(String(cut[..<n]) + "…") { n -= 1 }
+        return n >= 2 ? (String(cut[..<n]).trimmingCharacters(in: .whitespaces) + "…", false) : nil
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let t = tracking { removeTrackingArea(t) }
@@ -225,18 +270,8 @@ final class TimelineView: NSView {
         let cal = Calendar.current
         let left = time(labelW), right = time(bounds.width - 12)
 
-        // header: next scheduled run + range buttons
-        var hx: CGFloat = 14
-        let head = tr("时间线", "Timeline")
-        text(head, Theme.ui(13, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
-        hx += head.size(Theme.ui(13, .semibold)).width + 16
-        if let (r, d) = TimelineView.upcoming(usage.routines).first {
-            // (a list from an earlier read says when it's from: a task changed since isn't known)
-            let s = tr("下一个计划任务：", "Next scheduled task: ") + "\(r.name) · \(Clock.countdown(d))"
-                + (usage.routinesAsOf.map { tr(" · \(UsageMonitor.stamp($0)) 时的列表", " · list as of \(UsageMonitor.stamp($0))") } ?? "")
-            text(s, Theme.ui(12, .semibold), Theme.ink, at: NSPoint(x: hx, y: 10))
-            hx += s.size(Theme.ui(12, .semibold)).width + 16
-        }
+        // header: the title, the next scheduled run, ◎ Now and the range buttons
+        let head = tr("时间轴", "Timeline"), headF = Theme.ui(13, .semibold)
         // the ranges: one segmented control
         let segW = ranges.map { $0.0.size(smallB).width + 16 }
         let group = NSRect(x: bounds.width - 14 - segW.reduce(0, +), y: 7, width: segW.reduce(0, +), height: 20)
@@ -264,12 +299,31 @@ final class TimelineView: NSView {
         let np = NSBezierPath(roundedRect: nowBtn.insetBy(dx: 0.75, dy: 0.75), xRadius: 10, yRadius: 10)
         if follow {
             Theme.paper.setFill(); np.fill()
-            Logo.orange.setStroke(); np.lineWidth = 1.5; np.stroke()
+            Theme.running.setStroke(); np.lineWidth = 1.5; np.stroke()
         } else {
-            Logo.orange.setFill(); np.fill()
+            Theme.running.setFill(); np.fill()
         }
-        text(nowL, smallB, follow ? Logo.orange : .white, at: NSPoint(x: nowBtn.minX + 9, y: nowBtn.minY + 3))
+        text(nowL, smallB, follow ? Theme.running : Theme.onColor(Theme.running), at: NSPoint(x: nowBtn.minX + 9, y: nowBtn.minY + 3))
         hits.append((nowBtn, "", { [weak self] in self?.follow = true; self?.needsDisplay = true }))
+        // the next scheduled task, between the title and ◎ Now: as much as fits there (a list from an earlier read says
+        // when it's from, a task changed since isn't known: that goes last, and where only that fits, in the title's
+        // place rather than cut short); hovering it shows all of it when cut short (the lane's tasks say the as-of too)
+        let listAsOf = usage.routinesAsOf.map { UsageMonitor.stamp($0) }
+        let asOfTip = listAsOf.map { "\n" + tr("\($0) 时的列表", "List as of \($0)") } ?? ""
+        var titled = true
+        if let (r, d) = TimelineView.upcoming(usage.routines).first {
+            let f = Theme.ui(12, .semibold)
+            let h = Self.headerLine(name: r.name, countdown: Clock.countdown(d), asOf: listAsOf, titleWidth: head.size(headF).width, nowX: nowBtn.minX, font: f)
+            titled = h.titled
+            if let line = h.line {
+                text(line.text, f, Theme.ink, at: NSPoint(x: h.x, y: 10))
+                if !line.whole {
+                    let tip = "\(r.name)\n" + tr("下一个计划任务：", "Next scheduled task: ") + "\(Self.dayHM(d)) · \(Clock.countdown(d))" + asOfTip
+                    hits.append((NSRect(x: h.x, y: 8, width: line.text.size(f).width, height: 18), tip, {}))
+                }
+            }
+        }
+        if titled { text(head, headF, Theme.ink, at: NSPoint(x: 14, y: 10)) }
 
         // lane labels and night shading
         for (i, l) in lanes.enumerated() {
@@ -297,7 +351,8 @@ final class TimelineView: NSView {
             // your branch colour if the chat has one, otherwise neutral; time KIKUmap didn't see (estimated) faint,
             // with a dashed edge
             let base = store.branchColor(id) ?? Theme.muted
-            (live ? base : base.withAlphaComponent(est ? 0.22 : 0.55)).setFill()
+            let fill = live ? base : base.withAlphaComponent(est ? 0.22 : 0.55)
+            fill.setFill()
             NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3).fill()
             if live || est {
                 (est ? base.withAlphaComponent(0.8) : Theme.ink).setStroke()
@@ -309,17 +364,19 @@ final class TimelineView: NSView {
             if r.width > 46 {
                 NSGraphicsContext.current?.saveGraphicsState()
                 NSBezierPath(rect: r.insetBy(dx: 4, dy: 0)).addClip()
-                text(name, Theme.ui(10.5, .semibold), est ? Theme.ink : .white, at: NSPoint(x: r.minX + 5, y: r.minY + 1))
+                // black or white, whichever reads on the bar as it's seen (a finished one faded over the panel; white
+                // was hard to read on yellow and light gray bars); a faint estimated one in the text color
+                text(name, Theme.ui(10.5, .semibold), est ? Theme.ink : Theme.onColor(fill, over: Theme.paper), at: NSPoint(x: r.minX + 5, y: r.minY + 1))
                 NSGraphicsContext.current?.restoreGraphicsState()
             }
             // still going, but out of sight since its end here (a Codex task whose log went quiet): said so; a stretch
             // KIKUmap didn't see: estimated, and how
             let unseen = !live && !est && store.runStart[id].flatMap(Clock.parse) == s && store.outOfSight(id)
             let typical = Self.dur(store.typicalRun(id))
-            let tip = "\(store.name(id))\n\(est ? "≈ " : "")\(Self.hm(s)) – \(live ? tr("进行中", "running") : Self.hm(e)) (\(est ? "≈ " : "")\(Self.dur(e.timeIntervalSince(s))))"
-                + (unseen ? tr("\n之后没看到动静（在等你批准，还是一步做得久，不知道）", "\nNo activity seen since (waiting for you, or a long step: not known)") : "")
-                + (est ? tr("\n估算：这段 KIKUmap 没看到\n（两次看到它之间，或到已知的做完时刻；\n否则按你一次运行的常见时长 \(typical)）",
-                            "\nEstimated: KIKUmap didn't see this stretch\n(between two sightings or up to a known finish;\nelse your typical run of \(typical))") : "")
+            let tip = "\(store.name(id))\n\(est ? "≈ " : "")\(Self.hm(s)) – \(live ? tr("在跑", "running") : Self.hm(e)) (\(est ? "≈ " : "")\(Self.dur(e.timeIntervalSince(s))))"
+                + (unseen ? tr("\n之后没再看到动静（可能在等你确认，也可能某一步做得久）", "\nNo activity seen since (maybe waiting for you, maybe a long step)") : "")
+                + (est ? tr("\n估算：这段时间 KIKUmap 没看到。\n算到下次看到它、或已知做完的时候；\n都没有时，按你平常一次的时长 \(typical)",
+                            "\nEstimated: KIKUmap didn't see this time.\nCounted up to when it was next seen or known done;\nelse your usual run of \(typical)") : "")
             hits.append((r, tip, { [weak self] in if self?.store.canOpen(id) == true { self?.onOpenChat?(id) } }))
         }
 
@@ -349,7 +406,7 @@ final class TimelineView: NSView {
                 let e = max(r.lastFinished ?? f, f.addingTimeInterval(spp * 4))
                 let rect = NSRect(x: x(f), y: y1 + 8, width: max(4, x(e) - x(f)), height: laneH - 16)
                 Theme.ink.withAlphaComponent(0.55).setFill(); rect.fill()
-                hits.append((rect.insetBy(dx: -3, dy: -4), "\(r.name)\n" + tr("运行于 ", "ran at ") + Self.hm(f), { [weak self] in self?.onOpenRoutines?() }))
+                hits.append((rect.insetBy(dx: -3, dy: -4), "\(r.name)\n" + tr("上次运行：", "Last ran: ") + Self.hm(f) + asOfTip, { [weak self] in self?.onOpenRoutines?() }))
             }
             // the server's next run is the one that counts: nothing runs before it, and the cron fills in the rest
             var future = cronRuns[r.id] ?? []
@@ -366,20 +423,21 @@ final class TimelineView: NSView {
             p.move(to: NSPoint(x: mx, y: my - 7)); p.line(to: NSPoint(x: mx + 7, y: my))
             p.line(to: NSPoint(x: mx, y: my + 7)); p.line(to: NSPoint(x: mx - 7, y: my)); p.close()
             (isNext ? Theme.ink : Theme.muted).setFill(); p.fill()
-            let label = isNext ? "\(name) · \(Clock.countdown(d))" : name
-            // the label stops before the next marker (hover shows the full name)
+            let label = isNext ? "\(name) · \(Clock.countdown(d))" : name, lf = isNext ? smallB : small
+            // the label stops before the next marker (hover shows the full name); measured in the font it's drawn in (the
+            // next one's bold: measured plain, its countdown lost its last letter)
             let room = (i + 1 < sortedMarks.count ? x(sortedMarks[i + 1].0) - 12 : bounds.width) - (mx + 11)
-            let lw = min(label.size(small).width, room)
+            let lw = min(label.size(lf).width, room)
             let labelled = mx + 11 > lastLabelEnd && room > 30
             if labelled {
                 NSGraphicsContext.current?.saveGraphicsState()
                 NSBezierPath(rect: NSRect(x: mx + 11, y: my - 9, width: lw, height: 18)).addClip()
-                text(label, isNext ? smallB : small, isNext ? Theme.ink : Theme.muted, at: NSPoint(x: mx + 11, y: my - 7))
+                text(label, lf, isNext ? Theme.ink : Theme.muted, at: NSPoint(x: mx + 11, y: my - 7))
                 NSGraphicsContext.current?.restoreGraphicsState()
                 lastLabelEnd = mx + 11 + lw + 8
             }
             hits.append((NSRect(x: mx - 10, y: my - 11, width: 20 + (labelled ? lw + 4 : 0), height: 22),
-                         "\(name)\n\(Self.dayHM(d)) · \(Clock.countdown(d))", { [weak self] in self?.onOpenRoutines?() }))
+                         "\(name)\n\(Self.dayHM(d)) · \(Clock.countdown(d))" + asOfTip, { [weak self] in self?.onOpenRoutines?() }))
         }
 
         NSGraphicsContext.current?.restoreGraphicsState()

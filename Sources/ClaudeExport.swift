@@ -1,4 +1,5 @@
 import Foundation
+import Compression
 
 /// Reads the zip you get from Claude → Settings → Privacy → Export data: every conversation with its
 /// messages, the artifacts and files Claude made, and the text of what you uploaded.
@@ -14,7 +15,9 @@ struct ExportedChat {
 
 enum ClaudeExport {
     /// Looking through ~/Downloads makes macOS ask about that folder unless KIKUmap has Full Disk Access,
-    /// so without it nothing is looked for by itself: you pick the zip, and the open panel needs no prompt.
+    /// so without it nothing is looked for by itself: you pick the zip, and the open panel needs no prompt. KIKUmap
+    /// reads the zip itself (ZipFile): the open panel's yes is for KIKUmap only, so a helper program reading it (unzip)
+    /// could have macOS ask about Downloads after all.
     static var canLookInDownloads: Bool {
         let tcc = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/com.apple.TCC/TCC.db")
         guard let h = FileHandle(forReadingAtPath: tcc.path) else { return false }
@@ -36,43 +39,33 @@ enum ClaudeExport {
     /// Claude's export, not another app's: ChatGPT's has a conversations.json too, but only Claude's has a users.json
     /// beside it (ChatGPT's is user.json).
     static func isClaude(_ zip: URL) -> Bool {
-        let names = run(["-Z1", zip.path]).out.split(separator: "\n")
-        func folder(_ entry: Substring, of file: String) -> Substring? {
-            entry == file ? "" : entry.hasSuffix("/" + file) ? entry.dropLast(file.count) : nil
-        }
+        guard let names = ZipFile.entries(zip)?.map(\.name) else { return false }
         let convos = Set(names.compactMap { folder($0, of: "conversations.json") })
         return names.contains { folder($0, of: "users.json").map(convos.contains) == true }
+    }
+
+    /// The folder an entry of the zip is `file` in ("" at the top), or nil: it's another file.
+    private static func folder(_ entry: String, of file: String) -> String? {
+        entry == file ? "" : entry.hasSuffix("/" + file) ? String(entry.dropLast(file.count)) : nil
     }
 
     static func modified(_ u: URL) -> Date {
         (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
     }
 
-    private static func run(_ args: [String]) -> (ok: Bool, out: String) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        p.arguments = args
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = Pipe()
-        do { try p.run() } catch { return (false, "") }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
-        return (p.terminationStatus == 0, String(decoding: data, as: UTF8.self))
-    }
-
-    /// Where conversations.json is unpacked to be read (a test points it at a folder it can write in).
+    /// (Nothing is unpacked into it anymore: the zip is read in KIKUmap's own process. Kept for the checks that point
+    /// it at a folder they can write in.)
     nonisolated(unsafe) static var scratch = FileManager.default.temporaryDirectory
 
-    /// Unpacks conversations.json and reads every chat, keyed by its id (nil: it can't be read). `claude` is false when
-    /// it holds chats but none of Claude's shape (a uuid and chat_messages): another app's export, nothing to use.
+    /// Reads conversations.json out of the zip (Claude's: the one with users.json beside it) and every chat in it,
+    /// keyed by its id (nil: it can't be read). `claude` is false when it holds chats but none of Claude's shape (a uuid
+    /// and chat_messages): another app's export, nothing to use.
     static func load(_ zip: URL) -> (chats: [String: ExportedChat], claude: Bool)? {
-        let tmp = scratch.appendingPathComponent("claude-export-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        guard run(["-o", "-q", zip.path, "*conversations.json", "-d", tmp.path]).ok else { return nil }
-        let found = FileManager.default.enumerator(at: tmp, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.first { $0.lastPathComponent == "conversations.json" }
-        guard let file = found, let data = try? Data(contentsOf: file),
+        guard let all = ZipFile.entries(zip) else { return nil }
+        let convos = all.filter { folder($0.name, of: "conversations.json") != nil }
+        let users = Set(all.compactMap { folder($0.name, of: "users.json") })
+        guard let entry = convos.first(where: { folder($0.name, of: "conversations.json").map(users.contains) == true }) ?? convos.first,
+              let data = ZipFile.read(zip, entry),
               let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return nil }
         var out: [String: ExportedChat] = [:], shaped = false
         for c in list {
@@ -254,4 +247,84 @@ enum ClaudeExport {
         if t.isEmpty { t = "untitled" }
         return t.count > 90 ? String(t.prefix(90)) : t
     }
+}
+
+/// A zip read in KIKUmap's own process: the list of what's in it, and one entry's contents (stored or deflated;
+/// zip64 too). What's picked in an open panel is KIKUmap's to read, not a helper program's.
+enum ZipFile {
+    struct Entry { let name: String; let method: Int; let flags: Int; let compressed: UInt64; let size: UInt64; let offset: UInt64 }
+
+    /// Everything in the zip, from its central directory (nil: not a zip, or one cut short).
+    static func entries(_ url: URL) -> [Entry]? {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        guard let end = try? h.seekToEnd(), end >= 22 else { return nil }
+        // the end record is in the last 22 bytes, or before a comment of up to 64 KB
+        let from = end - min(end, 22 + 65535)
+        guard let tail = read(h, at: from, count: Int(end - from)) else { return nil }
+        guard let at = stride(from: tail.count - 22, through: 0, by: -1).first(where: {
+            sig(tail, $0, 0x0605_4b50) && $0 + 22 + u16(tail, $0 + 20) <= tail.count
+        }) else { return nil }
+        var count = UInt64(u16(tail, at + 10)), size = UInt64(u32(tail, at + 12)), start = UInt64(u32(tail, at + 16))
+        // zip64: the real numbers are in an end record of its own, which a locator right before this one points to
+        if count == 0xFFFF || size == 0xFFFF_FFFF || start == 0xFFFF_FFFF {
+            guard from + UInt64(at) >= 20, let loc = read(h, at: from + UInt64(at) - 20, count: 20), sig(loc, 0, 0x0706_4b50),
+                  let rec = read(h, at: u64(loc, 8), count: 56), sig(rec, 0, 0x0606_4b50) else { return nil }
+            count = u64(rec, 32); size = u64(rec, 40); start = u64(rec, 48)
+        }
+        guard count < 1 << 24, size < 1 << 31, let dir = read(h, at: start, count: Int(size)) else { return nil }
+        var out: [Entry] = [], p = 0
+        for _ in 0..<count {
+            guard p + 46 <= dir.count, sig(dir, p, 0x0201_4b50) else { return nil }
+            let n = u16(dir, p + 28), x = u16(dir, p + 30), c = u16(dir, p + 32)
+            guard p + 46 + n + x + c <= dir.count else { return nil }
+            var comp = UInt64(u32(dir, p + 20)), size = UInt64(u32(dir, p + 24)), offset = UInt64(u32(dir, p + 42))
+            // zip64: those that didn't fit are in its extra field, in this order
+            var e = p + 46 + n
+            while e + 4 <= p + 46 + n + x {
+                // (a length running past the field, in a damaged zip, is cut to it)
+                let id = u16(dir, e), stop = min(e + 4 + u16(dir, e + 2), p + 46 + n + x)
+                var q = e + 4
+                func next(_ v: inout UInt64) { if v == 0xFFFF_FFFF && q + 8 <= stop { v = u64(dir, q); q += 8 } }
+                if id == 1 { next(&size); next(&comp); next(&offset) }
+                e = stop
+            }
+            out.append(Entry(name: String(decoding: dir[(p + 46)..<(p + 46 + n)], as: UTF8.self), method: u16(dir, p + 10),
+                             flags: u16(dir, p + 8), compressed: comp, size: size, offset: offset))
+            p += 46 + n + x + c
+        }
+        return out
+    }
+
+    /// One entry's contents, inflated a megabyte at a time (nil: it can't be read: locked with a password, packed some
+    /// other way than stored or deflated, or cut short).
+    static func read(_ url: URL, _ e: Entry) -> Data? {
+        guard e.flags & 1 == 0, e.method == 0 || e.method == 8, let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        guard let head = read(h, at: e.offset, count: 30), sig(head, 0, 0x0403_4b50),
+              (try? h.seek(toOffset: e.offset + 30 + UInt64(u16(head, 26)) + UInt64(u16(head, 28)))) != nil else { return nil }
+        var out = Data()
+        var inflate: OutputFilter?
+        if e.method == 8 {
+            guard let f = try? OutputFilter(.decompress, using: .zlib, writingTo: { if let d = $0 { out.append(d) } }) else { return nil }
+            inflate = f
+        }
+        var left = e.compressed
+        while left > 0 {
+            guard let chunk = try? h.read(upToCount: Int(min(left, 1 << 20))), !chunk.isEmpty else { return nil }
+            if let f = inflate { guard (try? f.write(chunk)) != nil else { return nil } } else { out.append(chunk) }
+            left -= UInt64(chunk.count)
+        }
+        if let f = inflate { guard (try? f.finalize()) != nil else { return nil } }
+        return UInt64(out.count) == e.size ? out : nil
+    }
+
+    private static func read(_ h: FileHandle, at offset: UInt64, count: Int) -> [UInt8]? {
+        guard (try? h.seek(toOffset: offset)) != nil, let d = try? h.read(upToCount: count), d.count == count else { return count == 0 ? [] : nil }
+        return [UInt8](d)
+    }
+    private static func u16(_ b: [UInt8], _ i: Int) -> Int { Int(b[i]) | Int(b[i + 1]) << 8 }
+    private static func u32(_ b: [UInt8], _ i: Int) -> Int { u16(b, i) | u16(b, i + 2) << 16 }
+    private static func u64(_ b: [UInt8], _ i: Int) -> UInt64 { UInt64(u32(b, i)) | UInt64(u32(b, i + 4)) << 32 }
+    private static func sig(_ b: [UInt8], _ i: Int, _ s: UInt32) -> Bool { i >= 0 && i + 4 <= b.count && UInt32(u32(b, i)) == s }
 }

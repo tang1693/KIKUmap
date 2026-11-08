@@ -70,6 +70,9 @@ struct Tag: Codable, Equatable {
     var group: String?
     /// A Lucide icon's name (nil: a plain dot in its colour).
     var icon: String?
+    /// The starter tag it is (its key among the starter tags) while you haven't renamed it: it's named in the app's
+    /// language. nil: a tag you made, or a starter you renamed; KIKUmap never changes its name.
+    var preset: String? = nil
 
     /// Which of `groups` it's in.
     var category: String { group == "status" || group == "output" ? group! : "other" }
@@ -88,8 +91,12 @@ struct MapDoc: Codable {
     var sides: [String: Int]?
     /// The starter tags were added once (delete or rename them freely; they don't come back).
     var presets: Bool?
-    /// Which set of starter tags has been added (2: with categories and icons).
+    /// Which set of starter tags has been added (2: with categories and icons; 3: each starter that keeps its name
+    /// carries its key, `Tag.preset`).
     var presetsV: Int?
+    /// The topics an earlier version saved with the default name's words were given no name of their own, once (a
+    /// name typed since is kept as typed).
+    var untitled: Bool?
 }
 
 /// The user's map: tree operations (MindNode-style) with undo, saved as JSON.
@@ -154,7 +161,13 @@ final class MapModel {
             doc = MapDoc(root: MapNode(id: "root", title: "Claude"), aliases: [:])
         }
         backup()
-        addPresetTags()
+        guard !readOnly else { return }
+        let added = addPresetTags(), marked = markPresetTags()
+        var changed = added || marked
+        if doc.untitled != true { MapModel.forgetDefaultTitles(doc.root); doc.untitled = true; changed = true }
+        // the Mac's language may have changed since the starters were last named
+        if var t = doc.tags, MapModel.relabelPresets(&t) { doc.tags = t; changed = true }
+        if changed { save() }
     }
 
     /// A date for a file name: Gregorian, Latin digits, whatever the Mac's calendar.
@@ -173,37 +186,39 @@ final class MapModel {
     }
 
     /// Starter tags by category: where the work stands, what the chat makes (like Claude's artifact kinds), the rest.
-    /// `since`: the set they came with (one you deleted from an earlier set doesn't come back).
-    private static let presetTags: [(zh: String, en: String, color: String, group: String, icon: String, since: Int)] = [
-        ("未开始", "Not started", "brown", "status", "circle-dashed", 2),
-        ("进行中", "In progress", "orange", "status", "loader-circle", 1),
-        ("等别人", "Waiting on others", "yellow", "status", "hourglass", 1),
-        ("搁置", "On hold", "brown", "status", "circle-pause", 1),
-        ("已完成", "Done", "green", "status", "circle-check", 1),
-        ("文档", "Document", "teal", "output", "file-text", 1),
-        ("网页", "Web page", "blue", "output", "globe", 1),
-        ("幻灯片", "Slides", "violet", "output", "presentation", 1),
-        ("图片", "Image", "pink", "output", "image", 1),
-        ("视频", "Video", "red", "output", "video", 1),
-        ("代码", "Code", "indigo", "output", "code-xml", 1),
-        ("表格", "Spreadsheet", "green", "output", "sheet", 2),
-        ("图表", "Chart", "orange", "output", "chart-column", 2),
-        ("重要", "Important", "yellow", "other", "star", 2),
-        ("紧急", "Urgent", "red", "other", "flame", 2),
-        ("想法", "Idea", "orange", "other", "lightbulb", 2),
-        ("调研", "Research", "blue", "other", "microscope", 2),
-        ("个人", "Personal", "pink", "other", "user", 2),
+    /// `key`: how a starter you haven't renamed is known (`Tag.preset`), whatever its name. `since`: the set they came
+    /// with (one you deleted from an earlier set doesn't come back).
+    private static let presetTags: [(key: String, zh: String, en: String, color: String, group: String, icon: String, since: Int)] = [
+        ("not-started", "未开始", "Not started", "brown", "status", "circle-dashed", 2),
+        ("in-progress", "进行中", "In progress", "orange", "status", "loader-circle", 1),
+        ("waiting", "等别人", "Waiting on others", "yellow", "status", "hourglass", 1),
+        ("on-hold", "搁置", "On hold", "brown", "status", "circle-pause", 1),
+        ("done", "已完成", "Done", "green", "status", "circle-check", 1),
+        ("document", "文档", "Document", "teal", "output", "file-text", 1),
+        ("web-page", "网页", "Web page", "blue", "output", "globe", 1),
+        ("slides", "幻灯片", "Slides", "violet", "output", "presentation", 1),
+        ("image", "图片", "Image", "pink", "output", "image", 1),
+        ("video", "视频", "Video", "red", "output", "video", 1),
+        ("code", "代码", "Code", "indigo", "output", "code-xml", 1),
+        ("spreadsheet", "表格", "Spreadsheet", "green", "output", "sheet", 2),
+        ("chart", "图表", "Chart", "orange", "output", "chart-column", 2),
+        ("important", "重要", "Important", "yellow", "other", "star", 2),
+        ("urgent", "紧急", "Urgent", "red", "other", "flame", 2),
+        ("idea", "想法", "Idea", "orange", "other", "lightbulb", 2),
+        ("research", "调研", "Research", "blue", "other", "microscope", 2),
+        ("personal", "个人", "Personal", "pink", "other", "user", 2),
     ]
 
-    private func addPresetTags() {
+    /// The starter tags, once (true if any were added or given their icon).
+    private func addPresetTags() -> Bool {
         let done = doc.presetsV ?? (doc.presets == true ? 1 : 0)
-        guard done < 2, !readOnly else { return }
+        guard done < 2 else { return false }
         var list = doc.tags ?? []
         for p in MapModel.presetTags {
             if let i = list.firstIndex(where: { $0.name == p.zh || $0.name == p.en }) {
                 if list[i].icon == nil { list[i].icon = p.icon }         // one already there gets its icon
             } else if p.since > done {
-                list.append(Tag(id: MapNode.newId() + p.group, name: tr(p.zh, p.en), color: p.color, group: p.group, icon: p.icon))
+                list.append(Tag(id: MapNode.newId() + p.group, name: tr(p.zh, p.en), color: p.color, group: p.group, icon: p.icon, preset: p.key))
             }
         }
         // the starter tags in their order within each category; your own after them
@@ -211,19 +226,56 @@ final class MapModel {
         doc.tags = list.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
         doc.presets = true
         doc.presetsV = 2
-        save()
+        return true
     }
+
+    /// A map from before starter tags carried their key: a starter is known by its id (made as one: it ends in the
+    /// starter's category) and by its name, which must still be the starter's in the language now. Any other tag is
+    /// yours, never renamed: one you made, or a starter you renamed (earlier versions renamed the starters at every
+    /// language switch, so one left in the other language was renamed by you). True if the map changed.
+    private func markPresetTags() -> Bool {
+        guard (doc.presetsV ?? 0) < 3 else { return false }
+        var list = doc.tags ?? []
+        for i in list.indices where list[i].preset == nil {
+            let t = list[i]
+            if let p = MapModel.presetTags.first(where: { tr($0.zh, $0.en) == t.name }), t.id.count > p.group.count, t.id.hasSuffix(p.group) {
+                list[i].preset = p.key
+            }
+        }
+        if doc.tags != nil { doc.tags = list }
+        doc.presetsV = 3
+        return true
+    }
+
+    /// Topics an earlier version saved with the default name's words (it wrote them for a name left untouched, in
+    /// either language) have no name of their own: they're shown with the default, in the language of the moment.
+    private static func forgetDefaultTitles(_ n: MapNode) {
+        for case .node(let s) in n.children {
+            if s.title == "新主题" || s.title == "New topic" { s.title = "" }
+            forgetDefaultTitles(s)
+        }
+    }
+
+    /// A topic's name as the map shows it: one with no name of its own reads "New topic", in the language of the moment.
+    static func shownTitle(_ n: MapNode) -> String { n.title.isEmpty ? tr("新主题", "New topic") : n.title }
 
     /// Language changed: starter tags you haven't renamed follow it.
     func relabelPresetTags() {
-        guard var list = doc.tags else { return }
+        guard var list = doc.tags, MapModel.relabelPresets(&list) else { return }
+        doc.tags = list
+        save()
+    }
+
+    /// Starter tags you haven't renamed (they carry their key), named in the app's language now; true if any changed.
+    /// Tags you made, and starters you renamed, are never touched, whatever they're called.
+    private static func relabelPresets(_ list: inout [Tag]) -> Bool {
         var changed = false
-        for i in list.indices where list[i].group != nil {
-            if let p = MapModel.presetTags.first(where: { $0.zh == list[i].name || $0.en == list[i].name }), list[i].name != tr(p.zh, p.en) {
-                list[i].name = tr(p.zh, p.en); changed = true
-            }
+        for i in list.indices {
+            guard let key = list[i].preset, let p = presetTags.first(where: { $0.key == key }) else { continue }
+            let name = tr(p.zh, p.en)
+            if list[i].name != name { list[i].name = name; changed = true }
         }
-        if changed { doc.tags = list; save() }
+        return changed
     }
 
     /// Once a day, before the first change, the map as it was is copied to data/backups/map-<date>.json.
@@ -333,10 +385,12 @@ final class MapModel {
     }
 
     /// A snapshot as it would be now: chats that got new ids after it was taken take their places, names, tags and
-    /// sides along (the renames before it are in it already).
+    /// sides along (the renames before it are in it already), and starter tags are named in the language now (it may
+    /// have changed since).
     private func restore(_ s: (data: Data, gen: Int)) -> MapDoc? {
         guard var m = try? JSONDecoder().decode(MapDoc.self, from: s.data) else { return nil }
         for r in renames.dropFirst(s.gen) { MapModel.rename(r.old, to: r.new, in: &m) }
+        if var t = m.tags, MapModel.relabelPresets(&t) { m.tags = t }
         return m
     }
 
@@ -432,7 +486,7 @@ final class MapModel {
             for ch in n.children {
                 switch ch {
                 case .chat(let c): if c == id { return path }
-                case .node(let s): if let p = search(s, path + [s.title]) { return p }
+                case .node(let s): if let p = search(s, path + [MapModel.shownTitle(s)]) { return p }
                 }
             }
             return nil
@@ -512,10 +566,11 @@ final class MapModel {
         return t.id
     }
 
+    /// A starter you rename is yours from then on: it keeps the name you gave it, whatever the language.
     func updateTag(_ id: String, name: String? = nil, color: String? = nil, icon: String?? = nil, group: String? = nil) {
         guard let i = tags.firstIndex(where: { $0.id == id }) else { return }
         commit {
-            if let n = name, !n.isEmpty { doc.tags?[i].name = n }
+            if let n = name, !n.isEmpty, n != doc.tags?[i].name { doc.tags?[i].name = n; doc.tags?[i].preset = nil }
             if let c = color { doc.tags?[i].color = c }
             if let ic = icon { doc.tags?[i].icon = ic }
             if let g = group { doc.tags?[i].group = g }
@@ -576,33 +631,49 @@ final class MapModel {
         return n.id
     }
 
-    /// Removes a topic (with its subtree) or takes a chat off the map. Returns the next selection.
-    func remove(_ key: String, keepChildren: Bool) -> String? {
+    /// Removes a topic (with its subtree) or takes a chat off the map. Returns the next selection, among what the map
+    /// draws (`hidden`: the chats it doesn't, ChatGPT's while ChatGPT is off): the next item in the same topic (at the
+    /// top level, on the same side of the center), else the one before it, else the topic.
+    func remove(_ key: String, keepChildren: Bool, hidden: (String) -> Bool = { _ in false }) -> String? {
         guard let loc = locate(key), let parent = loc.parent else { return nil }
+        let left = side(of: key) == -1
+        func shown(_ it: MapItem) -> Bool {
+            !(it.chatId.map(hidden) ?? false) && (parent !== doc.root || (side(of: it.key) == -1) == left)
+        }
         let arr = parent.children
-        let next: String = loc.index + 1 < arr.count ? arr[loc.index + 1].key
-            : (loc.index > 0 ? arr[loc.index - 1].key : parent.id)
-        commit { takeOut(loc, keepChildren: keepChildren) }
+        let next = (arr[(loc.index + 1)...].first(where: shown) ?? arr[..<loc.index].last(where: shown))?.key ?? parent.id
+        commit { takeOut(loc, keepChildren: keepChildren, hidden: hidden) }
         return next
     }
 
     /// One item out of its topic (inside a `commit`); `keepChildren`: a topic's items take its place, on its side.
-    private func takeOut(_ loc: Location, keepChildren: Bool) {
+    /// Without it, the chats under the topic that the map doesn't draw now (`hidden`) still take its place: you
+    /// couldn't see them, so they aren't taken off the map with it.
+    private func takeOut(_ loc: Location, keepChildren: Bool, hidden: (String) -> Bool = { _ in false }) {
         guard let parent = loc.parent else { return }
         parent.children.remove(at: loc.index)
-        if keepChildren, let n = loc.item.node {
-            parent.children.insert(contentsOf: n.children, at: loc.index)
-            if parent === doc.root { for c in n.children { setSide(c.key, side(of: loc.item.key)) } }
+        guard let n = loc.item.node else { return }
+        var stay: [MapItem] = []
+        func unseen(_ n: MapNode) {
+            for ch in n.children {
+                if let id = ch.chatId { if hidden(id) { stay.append(ch) } } else if let s = ch.node { unseen(s) }
+            }
         }
+        if keepChildren { stay = n.children } else { unseen(n) }
+        parent.children.insert(contentsOf: stay, at: loc.index)
+        if parent === doc.root { for c in stay { setSide(c.key, side(of: loc.item.key)) } }
     }
 
+    /// A new topic's name finished untouched changes nothing (no undo step): it has no name of its own and reads
+    /// "New topic" in the language of the moment. So does a name left empty, or the default typed as it reads.
     func rename(_ key: String, to text: String, chatTitle: String?) {
         guard let loc = locate(key) else { return }
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         commit {
             switch loc.item {
             case .node(let n):
-                n.title = t.isEmpty ? (n === doc.root ? "Claude" : tr("新主题", "New topic")) : t
+                if n === doc.root { n.title = t.isEmpty ? "Claude" : t }
+                else { n.title = t.isEmpty || t == tr("新主题", "New topic") ? "" : t }
             case .chat(let id):
                 if t.isEmpty || t == chatTitle || t == chatTitle?.strippedPrefix {
                     doc.aliases.removeValue(forKey: id)
@@ -669,11 +740,12 @@ final class MapModel {
     }
 
     /// Removes several items as one undo step: topics with what's under them (`keepChildren`: what's under each stays
-    /// in its place, as ⌥⌫ does for one), chats back to the left column.
-    func remove(_ keys: [String], keepChildren: Bool = false) {
+    /// in its place, as ⌥⌫ does for one; chats the map doesn't draw now, `hidden`, always do), chats back to the left
+    /// column.
+    func remove(_ keys: [String], keepChildren: Bool = false, hidden: (String) -> Bool = { _ in false }) {
         commit {
             for k in keys {
-                if let loc = locate(k) { takeOut(loc, keepChildren: keepChildren) }
+                if let loc = locate(k) { takeOut(loc, keepChildren: keepChildren, hidden: hidden) }
             }
         }
     }

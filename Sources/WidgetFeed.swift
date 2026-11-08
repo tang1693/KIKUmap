@@ -57,6 +57,8 @@ final class WidgetFeed {
     /// Where the file goes and how WidgetKit is asked to redraw (the regression checks swap both: a throwaway file, a count).
     var file = WidgetFeed.url
     var reload: () -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: "KikumapWidget") }
+    /// Whether KIKUmap is the app in front, where redraws are free (the regression checks set it).
+    var inFront: () -> Bool = { NSApp.isActive }
 
     init(store: Store, usage: UsageMonitor, gpt: GPTWatcher) {
         self.store = store
@@ -64,12 +66,17 @@ final class WidgetFeed {
         self.gpt = gpt
     }
 
-    func update(force: Bool = false) { write(closed: false, force: force) }
+    /// `force`: written now even if nothing changed, and the widget asked to redraw at once.
+    func update(force: Bool = false) { write(closed: false, force: force, atOnce: force) }
+
+    /// The Mac woke: the file is written again (its "as of" moves on), but the redraw keeps to the pace (see `redraw`):
+    /// a Mac wakes many times a day, and each redraw asked for in the back spends one of the day's few.
+    func woke() { write(closed: false, force: true, atOnce: false) }
 
     /// KIKUmap is quitting: the widget says so, instead of showing chats as still running.
-    func closing() { write(closed: true, force: true) }
+    func closing() { write(closed: true, force: true, atOnce: false) }
 
-    private func write(closed: Bool, force: Bool) {
+    private func write(closed: Bool, force: Bool, atOnce: Bool) {
         // (quitting too: the widget keeps showing them, as of now)
         let run = store.runningChats, unread = store.unreadChats
         var meters: [State.Meter] = []
@@ -156,7 +163,7 @@ final class WidgetFeed {
         try? data.write(to: file, options: .atomic)
         // the widget shows the record and usage (not what's running or unread): any change to them is worth a redraw,
         // paced; quitting changes nothing it shows
-        redraw(body, now: force && !closed)
+        redraw(body, now: atOnce && !closed)
     }
 
     /// macOS lets an app redraw its widget only so many times a day: Apple's "Keeping a widget up to date" gives 40 to
@@ -164,27 +171,32 @@ final class WidgetFeed {
     /// widget shows only what holds up when it's a while old (the record by the hour and the day, and usage, all under
     /// "as of"), and a redraw is asked for when that changes, at most every twenty minutes, the latest always delivered
     /// in the end. While KIKUmap is the app in front, redraws don't count against that, so they go at once (and when
-    /// it comes to the front, one catches up).
+    /// it comes to the front, one catches up: also one asked for in the back that macOS may have let go).
     private static let pace: TimeInterval = 20 * 60
     /// What the widget last drew and what it should show: the body itself, compared whole. (A hash of it missed changes:
     /// Data's covers only its length and first 80 bytes, so Session 35% becoming 70% looked like nothing new.)
     private var lastRedraw = Date.distantPast, redrawnBody = Data(), wantedBody = Data()
     private var redrawLater: Timer?
+    /// The last redraw was asked for with KIKUmap in the back: with the day's redraws spent, macOS let it go, and
+    /// nothing tells KIKUmap so. It's asked for once more when KIKUmap comes to the front, where it's free.
+    private var askedInBack = false
 
-    /// KIKUmap came to the front: the widget catches up for free, if it's behind.
+    /// KIKUmap came to the front: the widget catches up for free, if it's behind or may be (see `askedInBack`).
     func caughtUp() {
-        guard redrawnBody != wantedBody, !wantedBody.isEmpty else { return }
-        redraw(wantedBody, now: true)
+        guard !wantedBody.isEmpty, redrawnBody != wantedBody || askedInBack else { return }
+        redraw(wantedBody, now: true, front: true)
     }
 
-    private func redraw(_ body: Data, now: Bool) {
+    private func redraw(_ body: Data, now: Bool, front: Bool? = nil) {
         wantedBody = body
         guard now || body != redrawnBody else { return }
+        let front = front ?? inFront()
         let wait = Self.pace - Date().timeIntervalSince(lastRedraw)
-        if now || NSApp.isActive || wait <= 0 || wait > Self.pace {
+        if now || front || wait <= 0 || wait > Self.pace {
             redrawLater?.invalidate(); redrawLater = nil
             redrawnBody = body
             lastRedraw = Date()
+            askedInBack = !front
             reload()
         } else if redrawLater == nil {
             redrawLater = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self] _ in
