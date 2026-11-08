@@ -166,6 +166,19 @@
     .xpost { transition: none; }
   }
   .ph img { display: inline-block; width: 250px; height: 54px; }
+  /* Other sites that list or rank KIKUmap (checked by hand; plain links, nothing loaded from them) */
+  .elsewhere { padding-top: 40px; }
+  .mentions { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 980px; margin: 40px auto 0; }
+  .mention {
+    display: flex; flex-direction: column; gap: 8px; height: 100%; padding: 20px 22px 18px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); text-decoration: none; transition: transform .15s, border-color .15s;
+  }
+  .mention:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+  .mention .src { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; }
+  .mention .kind { flex: none; font-size: 12.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--bg2); color: var(--ink2); }
+  .mention .what { color: var(--ink2); font-size: 15.5px; line-height: 1.5; }
+  .mention .when { margin-top: auto; padding-top: 4px; font-size: 13.5px; color: var(--ink2); }
+  @media (prefers-reduced-motion: reduce) { .mention { transition: none; } }
   .shot { border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
   .hero .shot { margin: 56px auto 0; max-width: 1000px; }
 
@@ -249,7 +262,7 @@
     .nav nav { display: none; }
     .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
     .feature.flip .text { order: 0; }
-    .perms, .steps { grid-template-columns: 1fr; }
+    .perms, .steps, .mentions { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 520px) {
@@ -429,6 +442,30 @@
       <p class="sub"><span lang="en">A few posts about KIKUmap.</span><span lang="zh">X 上关于 KIKUmap 的一些帖子。</span></p>
     </div>
     <div class="xrows" id="xrows"></div>
+  </section>
+
+  <section class="elsewhere" id="elsewhere">
+    <div class="wrap">
+      <h2><span lang="en">Featured elsewhere</span><span lang="zh">也出现在这些地方</span></h2>
+      <p class="sub"><span lang="en">Lists and rankings that include KIKUmap.</span><span lang="zh">收录了 KIKUmap 的榜单和列表。</span></p>
+      <ul class="mentions">
+        <li><a class="mention" href="https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer">
+          <span class="src">Trendshift <span class="kind"><span lang="en">Trending</span><span lang="zh">趋势榜</span></span></span>
+          <span class="what"><span lang="en">Reached #5 on Trendshift's daily trending list for Swift.</span><span lang="zh">登上 Trendshift 的 Swift 每日趋势榜第 5 名。</span></span>
+          <span class="when"><span lang="en">Nov 2, 2026</span><span lang="zh">2026年11月2日</span> <span aria-hidden="true">↗</span></span>
+        </a></li>
+        <li><a class="mention" href="https://github.com/jqueryscript/awesome-claude-code" target="_blank" rel="noopener noreferrer">
+          <span class="src">awesome-claude-code <span class="kind"><span lang="en">Curated list</span><span lang="zh">精选列表</span></span></span>
+          <span class="what"><span lang="en">Listed in jqueryscript's GitHub list of Claude Code tools.</span><span lang="zh">收录进 jqueryscript 在 GitHub 上整理的 Claude Code 工具列表。</span></span>
+          <span class="when"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span> <span aria-hidden="true">↗</span></span>
+        </a></li>
+        <li><a class="mention" href="https://www.scriptbyai.com/codex-resource-list/" target="_blank" rel="noopener noreferrer">
+          <span class="src">ScriptByAI <span class="kind"><span lang="en">Curated list</span><span lang="zh">精选列表</span></span></span>
+          <span class="what"><span lang="en">Listed among the session and monitoring tools in its Codex resource list.</span><span lang="zh">收录进它的 Codex 资源列表，归在会话和监控工具里。</span></span>
+          <span class="when"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span> <span aria-hidden="true">↗</span></span>
+        </a></li>
+      </ul>
+    </div>
   </section>
 
   <section class="native" id="native">
