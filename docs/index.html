@@ -166,19 +166,146 @@
     .xpost { transition: none; }
   }
   .ph img { display: inline-block; width: 250px; height: 54px; }
-  /* Other sites that list or rank KIKUmap (checked by hand; plain links, nothing loaded from them) */
-  .elsewhere { padding-top: 40px; }
-  .mentions { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 980px; margin: 40px auto 0; }
-  .mention {
-    display: flex; flex-direction: column; gap: 8px; height: 100%; padding: 20px 22px 18px; border-radius: 14px;
-    background: var(--card); border: 1px solid var(--line); text-decoration: none; transition: transform .15s, border-color .15s;
+  /* Other sites that list, rank or write about KIKUmap (each opened and checked by hand), drawn as a small map in the
+     app's own style: KIKUmap, then one topic per kind (the app's topic shapes, the icon's yellow, blue and red), then
+     the places, underlined like chats on the map, newest first. Nothing moves, unlike the X posts above. Plain links:
+     nothing is loaded from those sites, only the official badges in the row under the map. */
+  .elsewhere { padding-top: 40px; --fy: #E3A008; --fb: #187DFE; --fr: #FE453A; }
+  @media (prefers-color-scheme: dark) { .elsewhere { --fy: #FEC503; --fb: #4D9BFF; --fr: #FF6B61; } }
+  .fcanvas {
+    max-width: 1040px; margin: 40px auto 0; padding: 30px 40px 36px; border-radius: 24px; border: 1px solid var(--line);
+    background: radial-gradient(circle, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--card);
   }
-  .mention:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
-  .mention .src { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; }
-  .mention .kind { flex: none; font-size: 12.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--bg2); color: var(--ink2); }
-  .mention .what { color: var(--ink2); font-size: 15.5px; line-height: 1.5; }
-  .mention .when { margin-top: auto; padding-top: 4px; font-size: 13.5px; color: var(--ink2); }
-  @media (prefers-reduced-motion: reduce) { .mention { transition: none; } }
+  .fcanvas[hidden] { display: none; }
+  .fmap {
+    --wire: color-mix(in srgb, var(--ink) 24%, var(--card));  /* opaque, so lines that overlap don't darken */
+    --r: 10px;     /* how round a branch bends */
+    --row: 30px;   /* an item's name line; its underline is the bottom 2px, and the branch meets it there */
+    --kw: 196px;   /* the topics' column */
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start;
+  }
+  :root[data-lang="zh"] .fmap { --kw: 150px; }
+  .fmap ul { list-style: none; }
+
+  /* Nodes: KIKUmap (ink) and the topics (tinted, with a shape and a count), like topics on the app's map */
+  .fpill {
+    --pb: var(--line); --pf: var(--card);
+    display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; height: 34px; padding: 0 13px 0 11px;
+    border: 1px solid var(--pb); border-radius: 10px; background: var(--pf); color: var(--ink);
+    font-size: 15px; font-weight: 600; line-height: 1; white-space: nowrap;
+  }
+  .froot { display: flex; align-items: center; margin-top: 18px; }
+  .froot::after { content: ""; flex: 1 0 22px; border-top: 2px solid var(--wire); }
+  .froot .fpill { --pb: var(--ink); --pf: var(--ink); color: var(--bg); }
+  .froot .kiku { width: 18px; height: 18px; }
+  .fkinds > li {
+    --arm: 36px; --y: 35px; --w: var(--wire);
+    position: relative; display: grid; grid-template-columns: var(--kw) minmax(0, 1fr); align-items: start; padding: 0 0 18px var(--arm);
+  }
+  .fkinds > li:last-child { padding-bottom: 0; }
+  .fb { --c: var(--fy); --c2: color-mix(in srgb, var(--c) 70%, var(--card)); }
+  .fb[data-tone="b"] { --c: var(--fb); }
+  .fb[data-tone="r"] { --c: var(--fr); }
+  .fkind { display: flex; align-items: center; height: 34px; margin-top: 18px; min-width: 0; font-size: 15px; }
+  .fkind::after { content: ""; flex: 1 0 14px; border-top: 2px solid var(--c2); }
+  .fkind .fpill { --pb: color-mix(in srgb, var(--c) 50%, var(--card)); --pf: color-mix(in srgb, var(--c) 8%, var(--card)); }
+  .fkind .fpill > span:not(.fcount) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .fshape { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  .fb[data-shape="sq"] .fshape { border-radius: 2.5px; }
+  .fb[data-shape="di"] .fshape { border-radius: 1.5px; transform: rotate(45deg) scale(.82); }
+  .fb[data-shape="tr"] .fshape { border-radius: 0; clip-path: polygon(50% 5%, 100% 95%, 0 95%); }
+  .fcount { color: var(--ink2); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* The places */
+  .fls > li { --arm: 28px; --y: 35px; --w: var(--c2); position: relative; padding: 6px 0 6px var(--arm); }
+  .fls > li.fmore { --y: 21px; }
+  .fb:not([data-open]) .fx { display: none; }
+  .fleaf {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "src date" "line line";
+    column-gap: 14px; padding: 0 10px 9px 0; border-radius: 10px; color: var(--ink); text-decoration: none;
+  }
+  /* the name sits on an underline in the topic's color, like a chat on the app's map; the branch runs into it */
+  .fsrc {
+    grid-area: src; justify-self: start; display: flex; align-items: center; gap: 9px; max-width: 100%; min-width: 0; height: var(--row);
+    padding: 0 9px 0 6px; border-bottom: 2px solid var(--c2); font-size: 15.5px;
+  }
+  .fsrc b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .fmk {
+    flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px 7px 7px 3px;
+    background: color-mix(in srgb, var(--c) 16%, var(--card)); color: color-mix(in srgb, var(--c) 52%, var(--ink));
+    font-size: 12px; font-weight: 700; line-height: 1;
+  }
+  .fmk svg { width: 13px; height: 13px; }
+  .farr { flex: none; color: var(--ink2); font-size: 13px; transition: transform .15s; }
+  .fdate { grid-area: date; display: flex; align-items: center; height: var(--row); color: var(--ink2); font-size: 13.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .fline { grid-area: line; padding: 7px 0 0 6px; color: var(--ink2); font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+  .fleaf:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (hover: hover) {
+    .fleaf:hover { background: color-mix(in srgb, var(--c) 7%, transparent); }
+    .fleaf:hover .farr { color: var(--ink); transform: translate(2px, -2px); }
+  }
+  .fmore button {
+    display: inline-flex; align-items: center; height: 30px; padding: 0 13px; border-radius: 999px; cursor: pointer;
+    border: 1px dashed color-mix(in srgb, var(--c) 60%, var(--card)); background: var(--card); color: var(--ink2);
+    font-family: inherit; font-size: 13.5px; font-weight: 600; line-height: 1;
+  }
+  .fmore button:hover { color: var(--ink); border-style: solid; }
+  .fmore button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Branches, drawn with borders (they stay visible in forced colors). Each item draws its own piece: the first
+     carries straight on from its parent and bends down to the rest, later ones bend in off the trunk. */
+  .fkinds > li::before, .fkinds > li::after, .fls > li::before, .fls > li::after {
+    content: ""; position: absolute; box-sizing: border-box; pointer-events: none; border: 0 solid var(--w);
+  }
+  @media not all and (max-width: 860px) {
+    :is(.fkinds, .fls) > li:first-child::after { left: 0; top: calc(var(--y) - 1px); width: var(--arm); border-top-width: 2px; }
+    :is(.fkinds, .fls) > li:first-child:not(:last-child)::before {
+      left: 0; top: calc(var(--y) - 1px); bottom: 0; width: calc(var(--r) + 2px);
+      border-top-width: 2px; border-right-width: 2px; border-top-right-radius: calc(var(--r) + 2px);
+    }
+    :is(.fkinds, .fls) > li:not(:first-child):not(:last-child)::before { left: var(--r); top: 0; bottom: 0; border-left-width: 2px; }
+    :is(.fkinds, .fls) > li:not(:first-child)::after {
+      left: var(--r); top: calc(var(--y) - var(--r) - 1px); width: calc(var(--arm) - var(--r)); height: calc(var(--r) + 2px);
+      border-left-width: 2px; border-bottom-width: 2px; border-bottom-left-radius: calc(var(--r) + 2px);
+    }
+    :is(.fkinds, .fls) > li:last-child:not(:first-child)::after { top: 0; height: calc(var(--y) + 1px); }
+  }
+
+  /* Official badges from those sites, as they give them, in one row under the map */
+  .fbadges { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px 16px; margin-top: 26px; }
+  .fbadges a { display: block; border-radius: 10px; }
+  .fbadges img { display: block; width: auto; height: 54px; }
+  .fbadges a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (prefers-contrast: more) { .fmap { --wire: var(--ink2); } .fb { --c2: var(--c); } .fcanvas { background: var(--card); } }
+  @media (prefers-reduced-motion: reduce) { .farr { transition: none; } }
+
+  /* Narrower screens: the date goes under the line, so names keep their room */
+  @media (max-width: 1000px) {
+    .fleaf { grid-template-columns: minmax(0, 1fr); grid-template-areas: "src" "line" "date"; padding-right: 6px; }
+    .fdate { height: auto; padding: 3px 0 0 6px; font-size: 13px; }
+  }
+  /* Tablets and phones (where the page's other grids stack too): the same map as an outline. KIKUmap on top, a trunk
+     down from it, every topic and place bending in off the trunk above it. */
+  @media (max-width: 860px) {
+    .fcanvas { margin-top: 32px; padding: 24px 22px 26px; border-radius: 20px; }
+    .fmap { display: block; --r: 8px; }
+    .froot { margin-top: 0; }
+    .froot::after, .fkind::after { content: none; }
+    .fkinds { margin-left: 12px; }               /* trunk under the flower: 1 + 11 + 9 = 21 = 12 + r + 1 */
+    .fkinds > li { display: block; padding: 12px 0 0 var(--arm); --arm: 26px; --y: 29px; }
+    .fkind { margin-top: 0; }
+    .fls { margin-left: 8px; }                   /* trunk under the topic's shape: 1 + 11 + 5 = 17 = 8 + r + 1 */
+    .fls > li { padding: 4px 0 4px var(--arm); --arm: 22px; --y: 33px; }
+    .fls > li.fmore { --y: 19px; }
+    :is(.fkinds, .fls) > li:not(:last-child)::before { left: var(--r); top: 0; bottom: 0; border-left-width: 2px; }
+    :is(.fkinds, .fls) > li::after {
+      left: var(--r); top: calc(var(--y) - var(--r) - 1px); width: calc(var(--arm) - var(--r)); height: calc(var(--r) + 2px);
+      border-left-width: 2px; border-bottom-width: 2px; border-bottom-left-radius: calc(var(--r) + 2px);
+    }
+    :is(.fkinds, .fls) > li:last-child::after { top: 0; height: calc(var(--y) + 1px); }
+  }
+  @media (max-width: 520px) { .fcanvas { padding: 20px 14px 22px; border-radius: 18px; } }
   .shot { border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
   .hero .shot { margin: 56px auto 0; max-width: 1000px; }
 
@@ -262,7 +389,7 @@
     .nav nav { display: none; }
     .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
     .feature.flip .text { order: 0; }
-    .perms, .steps, .mentions { grid-template-columns: 1fr; }
+    .perms, .steps { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 520px) {
@@ -447,29 +574,42 @@
   <section class="elsewhere" id="elsewhere">
     <div class="wrap">
       <h2><span lang="en">Featured elsewhere</span><span lang="zh">也出现在这些地方</span></h2>
-      <p class="sub"><span lang="en">Lists and rankings that include KIKUmap.</span><span lang="zh">收录了 KIKUmap 的榜单和列表。</span></p>
-      <ul class="mentions">
-        <li><a class="mention" href="https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer">
-          <span class="src">Trendshift <span class="kind"><span lang="en">Trending</span><span lang="zh">趋势榜</span></span></span>
-          <span class="what"><span lang="en">Reached #5 on Trendshift's daily trending list for Swift.</span><span lang="zh">登上 Trendshift 的 Swift 每日趋势榜第 5 名。</span></span>
-          <span class="when"><span lang="en">Nov 2, 2026</span><span lang="zh">2026年11月2日</span> <span aria-hidden="true">↗</span></span>
-        </a></li>
-        <li><a class="mention" href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer">
-          <span class="src">Viral Agent <span class="kind"><span lang="en">Directory</span><span lang="zh">工具目录</span></span></span>
-          <span class="what"><span lang="en">A page on what KIKUmap does, who it's for, and how to set it up.</span><span lang="zh">专门一页介绍 KIKUmap：能做什么、适合谁、怎么安装。</span></span>
-          <span class="when"><span lang="en">Nov 2026</span><span lang="zh">2026年11月</span> <span aria-hidden="true">↗</span></span>
-        </a></li>
-        <li><a class="mention" href="https://github.com/jqueryscript/awesome-claude-code" target="_blank" rel="noopener noreferrer">
-          <span class="src">awesome-claude-code <span class="kind"><span lang="en">Curated list</span><span lang="zh">精选列表</span></span></span>
-          <span class="what"><span lang="en">Listed in jqueryscript's GitHub list of Claude Code tools.</span><span lang="zh">收录进 jqueryscript 在 GitHub 上整理的 Claude Code 工具列表。</span></span>
-          <span class="when"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span> <span aria-hidden="true">↗</span></span>
-        </a></li>
-        <li><a class="mention" href="https://www.scriptbyai.com/codex-resource-list/" target="_blank" rel="noopener noreferrer">
-          <span class="src">ScriptByAI <span class="kind"><span lang="en">Curated list</span><span lang="zh">精选列表</span></span></span>
-          <span class="what"><span lang="en">Listed among the session and monitoring tools in its Codex resource list.</span><span lang="zh">收录进它的 Codex 资源列表，归在会话和监控工具里。</span></span>
-          <span class="when"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span> <span aria-hidden="true">↗</span></span>
-        </a></li>
-      </ul>
+      <p class="sub"><span lang="en">Lists, rankings and directories that include KIKUmap.</span><span lang="zh">收录了 KIKUmap 的榜单、目录和列表。</span></p>
+      <!-- The map below is rebuilt from featured.json by the script. This copy is what visitors without JavaScript and
+           link checkers see; keep the newest few here (no "more" buttons), in the same order the script uses. -->
+      <div class="fcanvas" id="fcanvas">
+        <div class="fmap" id="fmap">
+          <div class="froot" aria-hidden="true"><span class="fpill"><svg class="kiku"><use href="#kiku"/></svg>KIKUmap</span></div>
+          <ul class="fkinds" role="list">
+            <li class="fb" data-tone="y" data-shape="ci">
+              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Trending charts</span><span lang="zh">趋势榜</span><span class="fcount" aria-hidden="true">1</span></span></h3>
+              <ul class="fls" role="list">
+                <li><a class="fleaf" href="https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true">T</span><b>Trendshift</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">Reached #5 on Trendshift's daily trending list for Swift.</span><span lang="zh">登上 Trendshift 的 Swift 每日趋势榜第 5 名。</span></span><time class="fdate" datetime="2026-11-02"><span lang="en">Nov 2, 2026</span><span lang="zh">2026年11月2日</span></time></a></li>
+              </ul>
+            </li>
+            <li class="fb" data-tone="b" data-shape="sq">
+              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Directories</span><span lang="zh">工具目录</span><span class="fcount" aria-hidden="true">1</span></span></h3>
+              <ul class="fls" role="list">
+                <li><a class="fleaf" href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true">V</span><b>Viral Agent</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">A page on what KIKUmap does, who it's for, and how to set it up.</span><span lang="zh">专门一页介绍 KIKUmap：能做什么、适合谁、怎么安装。</span></span><time class="fdate" datetime="2026-11"><span lang="en">Nov 2026</span><span lang="zh">2026年11月</span></time></a></li>
+              </ul>
+            </li>
+            <li class="fb" data-tone="r" data-shape="di">
+              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Curated lists</span><span lang="zh">精选列表</span><span class="fcount" aria-hidden="true">2</span></span></h3>
+              <ul class="fls" role="list">
+                <li><a class="fleaf" href="https://www.scriptbyai.com/codex-resource-list/" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true">S</span><b>ScriptByAI</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">Listed among the session and monitoring tools in its Codex resource list.</span><span lang="zh">收录进它的 Codex 资源列表，归在会话和监控工具里。</span></span><time class="fdate" datetime="2026-11-04"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span></time></a></li>
+                <li><a class="fleaf" href="https://github.com/jqueryscript/awesome-claude-code" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true"><svg><use href="#github"></use></svg></span><b>awesome-claude-code</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">Listed in jqueryscript's GitHub list of Claude Code tools.</span><span lang="zh">收录进 jqueryscript 在 GitHub 上整理的 Claude Code 工具列表。</span></span><time class="fdate" datetime="2026-11-04"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span></time></a></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <!-- Official badges, as each site gives them (only the alt text is reworded). Keep them in the HTML: Viral Agent's
+           weekly check reads raw HTML without running scripts and keeps the listing "Verified" only while it finds a
+           link to viralagent.si. -->
+      <p class="fbadges">
+        <a href="https://trendshift.io/repositories/325644?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-325644" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/325644/daily?language=Swift" alt="Trendshift: #5 Swift repository of the day" width="250" height="55" loading="lazy"></a>
+        <a href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer"><picture><source media="(prefers-color-scheme: dark)" srcset="https://viralagent.si/badge/kikumap/featured-dark.svg"><img src="https://viralagent.si/badge/kikumap/featured-light.svg" alt="KIKUmap is featured on Viral Agent" width="255" height="54" loading="lazy"></picture></a>
+      </p>
     </div>
   </section>
 
@@ -767,6 +907,156 @@
 
   var nav = document.getElementById("nav");
   addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
+
+  // Featured elsewhere: other sites that list, rank or write about KIKUmap, picked by hand from the daily review queue
+  // and published to mentions.json on the repo's x-posts branch (kept off main, like tweets.json). Drawn as a small map:
+  // KIKUmap, a topic per kind, then the places, newest first. Until the list loads, or if it can't, the copy written
+  // into the HTML stays (it's also what visitors without JavaScript and link checkers see). Built as plain text, never
+  // as HTML; only https links; nothing is loaded from the listed sites.
+  (function () {
+    var canvas = document.getElementById("fcanvas"), map = document.getElementById("fmap");
+    if (!canvas || !map) return;
+    // Topics in the order they're drawn; "kind" in the JSON is one of these keys (or a word in ALIAS). Any other kind
+    // gets a topic of its own after these, labeled with the kind as written.
+    var KINDS = {
+      trending: { en: "Trending charts", zh: "趋势榜" },
+      directory: { en: "Directories", zh: "工具目录" },
+      list: { en: "Curated lists", zh: "精选列表" },
+      article: { en: "Articles", zh: "文章" },
+      video: { en: "Videos", zh: "视频" },
+      newsletter: { en: "Newsletters", zh: "周刊和简报" },
+      forum: { en: "Discussions", zh: "社区讨论" },
+      podcast: { en: "Podcasts", zh: "播客" },
+      launch: { en: "Launch sites", zh: "发布平台" },
+      other: { en: "Elsewhere", zh: "其他" }
+    };
+    var ORDER = Object.keys(KINDS);
+    var ALIAS = { ranking: "trending", chart: "trending", leaderboard: "trending", catalog: "directory",
+      "curated list": "list", "awesome list": "list", "resource list": "list", blog: "article", "blog post": "article",
+      review: "article", digest: "newsletter", thread: "forum", discussion: "forum" };
+    var MARKS = { "github.com": "#github", "x.com": "#xlogo", "twitter.com": "#xlogo" };  // marks already on this page
+    var TONES = ["y", "b", "r"], SHAPES = ["ci", "sq", "di", "tr"], SVG = "http://www.w3.org/2000/svg";
+
+    function el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    }
+    // one element per language; the page's CSS shows the one that's on, so the language button needs nothing here
+    function both(tag, en, zh) { var a = el(tag, "", en), b = el(tag, "", zh); a.lang = "en"; b.lang = "zh"; return [a, b]; }
+    function str(v, max) { return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : ""; }
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function kindOf(v) {
+      var k = str(v, 24).toLowerCase().replace(/[\s_-]+/g, " ").replace(/ies$/, "y").replace(/s$/, "");
+      return KINDS[k] ? k : ALIAS[k] || k;
+    }
+    // "Nov 4, 2026" / "2026年11月4日", or "Nov 2026" / "2026年11月" when only the month is known; read as a calendar
+    // date (UTC), so it's the same day everywhere
+    function day(it, zh) {
+      var o = { timeZone: "UTC", year: "numeric", month: "short" };
+      if (it.d) o.day = "numeric";
+      return new Date(Date.UTC(it.y, it.m - 1, it.d || 1)).toLocaleDateString(zh ? "zh-CN" : "en-US", o);
+    }
+    function clean(e) {
+      if (!e || typeof e !== "object") return null;
+      var u;
+      try { u = new URL(e.url); } catch (x) { return null; }
+      if (u.protocol !== "https:" || u.username || u.password) return null;
+      var it = { href: u.href, host: u.hostname.replace(/^www\./, ""), source: str(e.source, 60), en: str(e.line_en, 240),
+                 zh: str(e.line_zh, 240), kind: kindOf(e.kind), raw: str(e.kind, 24), y: 0, m: 0, d: 0 };
+      if (!it.source || !(it.en || it.zh)) return null;
+      it.en = it.en || it.zh; it.zh = it.zh || it.en;
+      var m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(str(e.date, 10));
+      if (m) {
+        var t = new Date(Date.UTC(+m[1], +m[2] - 1, m[3] ? +m[3] : 1));
+        if (t.getUTCMonth() === +m[2] - 1 && (!m[3] || t.getUTCDate() === +m[3])) { it.y = +m[1]; it.m = +m[2]; it.d = m[3] ? +m[3] : 0; }
+      }
+      return it;
+    }
+
+    function leaf(it, extra) {
+      var li = el("li", extra ? "fx" : ""), a = el("a", "fleaf");
+      a.href = it.href; a.target = "_blank"; a.rel = "noopener noreferrer";
+      var src = el("span", "fsrc"), mk = el("span", "fmk"), arr = el("span", "farr", "↗");
+      mk.setAttribute("aria-hidden", "true"); arr.setAttribute("aria-hidden", "true");
+      if (MARKS[it.host]) {
+        var svg = document.createElementNS(SVG, "svg"), use = document.createElementNS(SVG, "use");
+        use.setAttribute("href", MARKS[it.host]); svg.append(use); mk.append(svg);
+      } else {
+        // the first letter or character of the name, past any punctuation: "T", "少"
+        mk.textContent = (Array.from(it.source.replace(/^[\s!-\/:-@\[-`{-~]+/, ""))[0] || "·").toUpperCase();
+      }
+      src.append(mk, el("b", "", it.source), arr);
+      var line = el("span", "fline");
+      line.append.apply(line, both("span", it.en, it.zh));
+      a.append(src, line);
+      if (it.y) {
+        var t = el("time", "fdate");
+        t.dateTime = it.y + "-" + pad(it.m) + (it.d ? "-" + pad(it.d) : "");
+        t.append.apply(t, both("span", day(it, false), day(it, true)));
+        a.append(t);
+      }
+      li.append(a);
+      return li;
+    }
+
+    function branch(g, i, show) {
+      var li = el("li", "fb");
+      li.dataset.tone = TONES[i % TONES.length]; li.dataset.shape = SHAPES[i % SHAPES.length];
+      var h = el("h3", "fkind"), pill = el("span", "fpill"), shape = el("i", "fshape"), n = el("span", "fcount", String(g.items.length));
+      shape.setAttribute("aria-hidden", "true"); n.setAttribute("aria-hidden", "true");
+      pill.append(shape); pill.append.apply(pill, both("span", g.en, g.zh)); pill.append(n); h.append(pill);
+      var ul = el("ul", "fls"), fold = g.items.length > show + 1;  // never "1 more": that one is simply shown
+      ul.setAttribute("role", "list");
+      g.items.forEach(function (it, k) { ul.append(leaf(it, fold && k >= show)); });
+      if (fold) {
+        var rest = g.items.length - show, more = el("li", "fmore"), b = el("button");
+        b.type = "button";
+        var label = function () {
+          var open = li.hasAttribute("data-open");
+          b.textContent = "";
+          b.append.apply(b, both("span", open ? "Show fewer" : rest + " more", open ? "收起" : "还有 " + rest + " 个"));
+          b.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+        b.addEventListener("click", function () { li.toggleAttribute("data-open"); label(); });
+        label(); more.append(b); ul.append(more);
+      }
+      li.append(h, ul);
+      return li;
+    }
+
+    function render(j) {
+      var seen = {}, list = (Array.isArray(j) ? j : j && Array.isArray(j.mentions) ? j.mentions : []).map(clean)
+        .filter(function (it) { return it && !seen[it.href] && (seen[it.href] = true); });
+      // newest first; a month-only date counts as the start of its month; undated last; ties keep the file's order
+      list.sort(function (a, b) { return (b.y * 1e4 + b.m * 100 + b.d) - (a.y * 1e4 + a.m * 100 + a.d); });
+      var groups = [], by = {};
+      list.forEach(function (it) {
+        var g = by[it.kind];
+        if (!g) {
+          var K = KINDS[it.kind];
+          g = by[it.kind] = { order: K ? ORDER.indexOf(it.kind) : ORDER.length + groups.length,
+                              en: K ? K.en : it.raw || "Elsewhere", zh: K ? K.zh : it.raw || "其他", items: [] };
+          groups.push(g);
+        }
+        g.items.push(it);
+      });
+      groups.sort(function (a, b) { return a.order - b.order; });
+      // up to 8 places, all show; past that each topic shows its newest 3, 2 or 1 (more topics, fewer each, so the map
+      // stays about the same height) and the rest open from "N more"
+      var show = list.length <= 8 ? 8 : groups.length <= 3 ? 3 : groups.length <= 5 ? 2 : 1, ul = el("ul", "fkinds");
+      ul.setAttribute("role", "list");
+      groups.forEach(function (g, i) { ul.append(branch(g, i, show)); });
+      map.querySelector(".fkinds").replaceWith(ul);
+      canvas.hidden = !list.length;
+    }
+
+    fetch("https://raw.githubusercontent.com/tang1693/KIKUmap/x-posts/mentions.json", { cache: "no-cache" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) render(j); })
+      .catch(function () {});
+  })();
 </script>
 </body>
 </html>
