@@ -130,8 +130,10 @@
   .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
   .btn.primary:hover { background: var(--accent-hover); }
   .meta { margin-top: 16px; font-size: 14px; color: var(--ink2); }
-  .ph { margin-top: 20px; }
-  .ph a { display: inline-block; }
+  .ph { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px 16px; margin-top: 20px; }
+  .ph a { display: block; border-radius: 10px; }
+  .ph img { display: block; width: auto; height: 54px; }
+  .ph a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .ph-when { margin-top: 10px; font-size: 14px; color: var(--ink2); }
   .btn .stars { margin-left: 3px; padding-left: 12px; border-left: 1px solid var(--line); font-weight: 600; }
   /* GitHub stars, beside the GitHub links (filled in by the script; nothing shows if GitHub can't be asked) */
@@ -181,7 +183,6 @@
     .xtrack [aria-hidden="true"] { display: none; }
     .xpost { transition: none; }
   }
-  .ph img { display: inline-block; width: 250px; height: 54px; }
   @property --awa { syntax: "<angle>"; inherits: true; initial-value: 0deg; }   /* where the light falls on the metal */
   @property --awp { syntax: "<percentage>"; inherits: true; initial-value: 95%; }   /* where the shine is on the words (95%: just off them, to the left) */
   .awsec {
@@ -394,7 +395,7 @@
   /* Other sites that list, rank or write about KIKUmap (each opened and checked by hand), drawn as a small map in the
      app's own style: KIKUmap, then one topic per kind (the app's topic shapes, the icon's yellow, blue and red), then
      the places, underlined like chats on the map, newest first. Nothing moves, unlike the X posts above. Plain links:
-     nothing is loaded from those sites, only the official badges in the row under the map. */
+     nothing is loaded from those sites, only the official badges at the top of the page. */
   .elsewhere { padding-top: 40px; --fy: #E3A008; --fb: #187DFE; --fr: #FE453A; }
   @media (prefers-color-scheme: dark) { .elsewhere { --fy: #FEC503; --fb: #4D9BFF; --fr: #FF6B61; } }
   .fcanvas {
@@ -496,11 +497,6 @@
     :is(.fkinds, .fls) > li:last-child:not(:first-child)::after { top: 0; height: calc(var(--y) + 1px); }
   }
 
-  /* Official badges from those sites, as they give them, in one row under the map */
-  .fbadges { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px 16px; margin-top: 26px; }
-  .fbadges a { display: block; border-radius: 10px; }
-  .fbadges img { display: block; width: auto; height: 54px; }
-  .fbadges a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   @media (prefers-contrast: more) { .fmap { --wire: var(--ink2); } .fb { --c2: var(--c); } .fcanvas { background: var(--card); } }
   @media (prefers-reduced-motion: reduce) { .farr { transition: none; } }
@@ -664,7 +660,12 @@
         <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span><span lang="ja">GitHub で見る</span><span class="stars" data-stars hidden></span></a>
       </div>
       <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.1.0</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.1.0 版</span><span lang="ja">macOS 13 以降 · Apple シリコンと Intel に対応 · バージョン 1.1.0</span></p>
-      <p class="ph"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
+      <!-- Official badges, as each site gives them (only the alt text is reworded): Product Hunt, Trendshift, Viral Agent.
+           Keep them in the HTML: Viral Agent's weekly check reads raw HTML without running scripts and keeps the listing
+           "Verified" only while it finds a link to viralagent.si. -->
+      <p class="ph"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a>
+        <a href="https://trendshift.io/repositories/325644?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-325644" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/325644/daily?language=Swift" alt="Trendshift: Swift repository of the day" width="250" height="55"></a>
+        <a href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer"><picture><source media="(prefers-color-scheme: dark)" srcset="https://viralagent.si/badge/kikumap/featured-dark.svg"><img src="https://viralagent.si/badge/kikumap/featured-light.svg" alt="KIKUmap is featured on Viral Agent" width="255" height="54"></picture></a></p>
       <p class="ph-when" id="ph-when" hidden></p>
       <figure class="shot"><img src="demo/drag.gif" width="1600" height="1000" alt="Dragging the Work topic across the map: the other topics slide apart to make room, and it lands where the gap was"></figure>
     </div>
@@ -846,13 +847,6 @@
           </ul>
         </div>
       </div>
-      <!-- Official badges, as each site gives them (only the alt text is reworded). Keep them in the HTML: Viral Agent's
-           weekly check reads raw HTML without running scripts and keeps the listing "Verified" only while it finds a
-           link to viralagent.si. -->
-      <p class="fbadges">
-        <a href="https://trendshift.io/repositories/325644?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-325644" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/325644/daily?language=Swift" alt="Trendshift: #5 Swift repository of the day" width="250" height="55" loading="lazy"></a>
-        <a href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer"><picture><source media="(prefers-color-scheme: dark)" srcset="https://viralagent.si/badge/kikumap/featured-dark.svg"><img src="https://viralagent.si/badge/kikumap/featured-light.svg" alt="KIKUmap is featured on Viral Agent" width="255" height="54" loading="lazy"></picture></a>
-      </p>
     </div>
   </section>
 
