@@ -348,6 +348,8 @@
   .awnote { max-width: 620px; color: var(--ink2); font-size: 13px; line-height: 1.5; text-align: center; text-wrap: balance; }
 
   @media (max-width: 640px) {
+    .awhead { gap: 10px; letter-spacing: .22em; }
+    .awhead > span { flex: none; padding-left: .22em; }
     .awtrack { gap: 28px; }
     @keyframes awdrift { to { transform: translateX(calc(-50% - 14px)); } }
     .awtrack > li, .awall > li { width: 232px; flex-basis: 232px; }
