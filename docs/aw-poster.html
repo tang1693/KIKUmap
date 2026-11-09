@@ -168,7 +168,7 @@
   }
   .ph img { display: inline-block; width: 250px; height: 54px; }
   @property --awa { syntax: "<angle>"; inherits: true; initial-value: 0deg; }   /* where the light falls on the metal */
-  @property --awp { syntax: "<percentage>"; inherits: true; initial-value: 35%; }   /* where the shine sits on the words */
+  @property --awp { syntax: "<percentage>"; inherits: true; initial-value: 95%; }   /* where the shine is on the words (95%: just off them, to the left) */
   .awsec {
     padding: 8px 0 12px; overflow-x: clip;
     /* condensed capitals, as on a film poster, from fonts the visitor already has (nothing downloaded): Avenir Next
@@ -227,8 +227,8 @@
   .awlb.r { right: 0; transform: scaleX(-1); }
   /* words set in the metal: a band of shine across the letters, at --awp (it repeats every 150%, so a sweep loops) */
   .awmetal {
-    background: linear-gradient(104deg, var(--m2) 0%, var(--m3) 18%, var(--m2) 32%, var(--m3) 42%, var(--m4) 50%, var(--m3) 58%, var(--m2) 68%,
-      var(--m3) 82%, var(--m2) 100%) var(--awp) 0 / 300% 100% repeat-x;
+    background: linear-gradient(104deg, var(--m3) 0%, var(--m4) 14%, var(--m3) 28%, var(--m2) 38%, var(--m4) 46%,
+      color-mix(in srgb, var(--m4) 45%, #fff) 50%, var(--m4) 54%, var(--m2) 62%, var(--m3) 72%, var(--m4) 86%, var(--m3) 100%) var(--awp) 0 / 300% 100% repeat-x;
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
 
@@ -296,7 +296,7 @@
   @media (hover: hover) and (prefers-reduced-motion: no-preference) { .award:hover { transform: translateY(-3px); } .award:hover .awx { transform: translate(2px, -2px); } }
   /* the glint, when the wall comes on screen and every so often after (the script adds .glint to the section): the light
      goes once round every branch and a shine crosses every rank, one laurel after another */
-  @keyframes awglint { from { --awa: 0deg; --awp: 35%; } to { --awa: 225deg; --awp: -115%; } }
+  @keyframes awglint { from { --awa: 0deg; --awp: 95%; } to { --awa: 225deg; --awp: -55%; } }
 
   /* the array behind the reel: small wreaths with their rank */
   .awmini { position: relative; display: block; width: 74px; height: 92px; }
