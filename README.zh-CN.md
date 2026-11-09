@@ -3,7 +3,7 @@
   <img src="docs/banner-zh-light.png" width="100%" alt="KIKUmap：给 Claude 和 ChatGPT 对话的思维导图">
 </picture>
 
-<p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
+<p align="center"><a href="README.md">English</a> · <b>简体中文</b> · <a href="README.ja.md">日本語</a></p>
 
 <p align="center">住在 Mac 菜单栏里的思维导图，管理 Claude 和 ChatGPT 的对话。<br>哪个在跑、哪个做完了、哪个在等你，一眼就知道。</p>
 

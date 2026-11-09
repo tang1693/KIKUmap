@@ -3,7 +3,7 @@
   <img src="docs/banner-en-light.png" width="100%" alt="KIKUmap: a mind map for your Claude and ChatGPT chats">
 </picture>
 
-<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></p>
 
 <p align="center">A mind map for your Claude and ChatGPT chats, in the Mac menu bar.<br>See what's running, what's done and what needs you.</p>
 

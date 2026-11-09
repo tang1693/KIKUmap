@@ -17,13 +17,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script>
-  // Language: ?lang=zh|en, then the visitor's last choice, then the browser's language.
+  // Language: ?lang=en|zh|ja, then the visitor's last choice, then the browser's language.
   (function () {
-    var l = new URLSearchParams(location.search).get("lang");
-    if (l !== "en" && l !== "zh") { try { l = localStorage.getItem("lang"); } catch (e) {} }
-    if (l !== "en" && l !== "zh") l = /^zh/i.test(navigator.language) ? "zh" : "en";
+    var ok = { en: 1, zh: 1, ja: 1 }, l = new URLSearchParams(location.search).get("lang");
+    if (!ok[l]) { try { l = localStorage.getItem("lang"); } catch (e) {} }
+    if (!ok[l]) l = /^zh/i.test(navigator.language) ? "zh" : /^ja/i.test(navigator.language) ? "ja" : "en";
     document.documentElement.dataset.lang = l;
-    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+    document.documentElement.lang = l === "zh" ? "zh-CN" : l;
   })();
 </script>
 <style>
@@ -41,7 +41,11 @@
       --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 16px 48px -16px rgba(0, 0, 0, .7);
     }
   }
-  :root[data-lang="en"] [lang="zh"], :root[data-lang="zh"] [lang="en"] { display: none !important; }
+  :root[data-lang="en"] [lang="zh"], :root[data-lang="en"] [lang="ja"], :root[data-lang="zh"] [lang="en"], :root[data-lang="zh"] [lang="ja"],
+  :root[data-lang="ja"] [lang="zh"] { display: none !important; }
+  /* Japanese: wherever there's no Japanese yet (names and dates from the lists, posts), the English shows */
+  :root[data-lang="ja"] [lang="en"]:has(+ [lang="zh"] + [lang="ja"]) { display: none !important; }
+  :root[data-lang="ja"] :is(h1, h2, h3, .lead, .sub) { word-break: auto-phrase; }   /* Japanese headings break between phrases, not inside words */
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; scroll-padding-top: 72px; -webkit-text-size-adjust: 100%; }
@@ -89,6 +93,18 @@
   }
   .chip:hover { border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
   .chip svg { width: 16px; height: 16px; }
+  /* the language menu, as a chip: the system's own menu opens from it */
+  .langsel { position: relative; padding: 0; }
+  .langsel select {
+    appearance: none; -webkit-appearance: none; height: 100%; padding: 0 30px 0 13px; border: 0; border-radius: inherit; cursor: pointer;
+    background: transparent; color: inherit; font: inherit;
+  }
+  .langsel::after {
+    content: ""; position: absolute; right: 13px; top: 50%; width: 5px; height: 5px; margin-top: -4px; pointer-events: none;
+    border: solid currentColor; border-width: 0 1.5px 1.5px 0; opacity: .6; transform: rotate(45deg);
+  }
+  .langsel:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .langsel select:focus { outline: none; }
 
   /* Hero */
   .hero { padding: 72px 0 40px; text-align: center; position: relative; overflow: hidden; }
@@ -245,7 +261,7 @@
   }
   .awhead::after { background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--aui) 55%, transparent)); }
   .awhead > span { padding-left: .34em; }
-  :root[data-lang="zh"] .awhead { letter-spacing: .2em; }
+  :root[data-lang="zh"] .awhead, :root[data-lang="ja"] .awhead { letter-spacing: .2em; }
   .awhead svg { display: none; }
 
   /* a thin rule in the metal, under the rank */
@@ -269,16 +285,16 @@
     font-family: var(--aw-cond); font-size: 10.5px; font-weight: 600; line-height: 1.3; letter-spacing: .3em; text-transform: uppercase; color: var(--mi);
   }
   .awr { font-family: var(--aw-cond); font-size: 44px; font-weight: 600; line-height: .95; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
-  .awr > :lang(zh) { font-size: 32px; letter-spacing: .04em; }
+  .awr > :lang(zh), .awr > :lang(ja) { font-size: 32px; letter-spacing: .04em; }
   .award .awrule { width: 56px; }
   .awl {
     font-family: var(--aw-cond); font-size: 14px; font-weight: 600; line-height: 1.28; letter-spacing: .09em; text-transform: uppercase;
     overflow-wrap: anywhere; text-wrap: balance;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
   }
-  .awl > :lang(zh) { letter-spacing: .04em; font-size: 14.5px; }
+  .awl > :lang(zh), .awl > :lang(ja) { letter-spacing: .04em; font-size: 14.5px; }
   .awd { font-family: var(--aw-cond); font-size: 10.5px; font-weight: 500; line-height: 1.35; letter-spacing: .18em; text-transform: uppercase; color: var(--ink2); text-wrap: balance; }
-  .awd > :lang(zh) { letter-spacing: .06em; font-size: 11.5px; }
+  .awd > :lang(zh), .awd > :lang(ja) { letter-spacing: .06em; font-size: 11.5px; }
   .awd > span > span { display: inline-block; }   /* "of 25", the dates and "as of" each stay whole */
   .awx { position: absolute; top: 12px; right: 14px; font-style: normal; font-size: 12px; line-height: 1; color: var(--mi); opacity: 0; transition: opacity .2s, transform .2s; }
   .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; --awp: 50%; }
@@ -346,7 +362,7 @@
     display: none; align-items: center; gap: 10px; height: 38px; padding: 0 18px 0 20px; border: 1px solid color-mix(in srgb, var(--aui) 45%, var(--line)); border-radius: 999px;
     cursor: pointer; background: transparent; color: var(--ink); font-family: var(--aw-cond); font-size: 12.5px; font-weight: 600; line-height: 1; letter-spacing: .2em; text-transform: uppercase;
   }
-  .awmore > :lang(zh) { letter-spacing: .1em; font-size: 13px; }
+  .awmore > :lang(zh), .awmore > :lang(ja) { letter-spacing: .1em; font-size: 13px; }
   .awmore::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; opacity: .6; transform: translateY(-2px) rotate(45deg); }
   .awsec[data-js] .awmore { display: inline-flex; }
   .awsec[data-js][data-open] .awmore::after { transform: translateY(1px) rotate(225deg); }
@@ -393,7 +409,7 @@
     --kw: 196px;   /* the topics' column */
     display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start;
   }
-  :root[data-lang="zh"] .fmap { --kw: 150px; }
+  :root[data-lang="zh"] .fmap, :root[data-lang="ja"] .fmap { --kw: 150px; }
   .fmap ul { list-style: none; }
 
   /* Nodes: KIKUmap (ink) and the topics (tinted, with a shape and a count), like topics on the app's map */
@@ -623,13 +639,13 @@
   <div class="wrap">
     <a class="brand" href="#top"><svg class="kiku spin"><use href="#kiku"/></svg>KIKUmap</a>
     <nav>
-      <a href="#features"><span lang="en">Features</span><span lang="zh">功能</span></a>
-      <a href="#privacy"><span lang="en">Privacy</span><span lang="zh">隐私</span></a>
-      <a href="#install"><span lang="en">Install</span><span lang="zh">安装</span></a>
-      <a href="#faq"><span lang="en">FAQ</span><span lang="zh">常见问题</span></a>
+      <a href="#features"><span lang="en">Features</span><span lang="zh">功能</span><span lang="ja">機能</span></a>
+      <a href="#privacy"><span lang="en">Privacy</span><span lang="zh">隐私</span><span lang="ja">プライバシー</span></a>
+      <a href="#install"><span lang="en">Install</span><span lang="zh">安装</span><span lang="ja">インストール</span></a>
+      <a href="#faq"><span lang="en">FAQ</span><span lang="zh">常见问题</span><span lang="ja">よくある質問</span></a>
     </nav>
     <div class="nav-end">
-      <button class="chip" id="lang" type="button" aria-label="Switch language / 切换语言"><span lang="en">中文</span><span lang="zh">EN</span></button>
+      <label class="chip langsel"><select id="lang" aria-label="Language / 语言 / 言語"><option value="en">English</option><option value="zh">中文</option><option value="ja">日本語</option></select></label>
       <a class="chip gh" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span>GitHub</span><span class="stars" data-stars hidden></span></a>
     </div>
   </div>
@@ -639,15 +655,15 @@
   <section class="hero" id="top">
     <div class="wrap">
       <img class="app-icon" src="icon.png" alt="">
-      <p class="pill"><span lang="en">Native macOS · 5 MB · Free and open source</span><span lang="zh">原生 macOS · 5 MB · 免费开源</span></p>
-      <h1><span lang="en">A mind map for your Claude and ChatGPT chats.</span><span lang="zh">给 Claude 和 ChatGPT 对话的思维导图。</span></h1>
+      <p class="pill"><span lang="en">Native macOS · 5 MB · Free and open source</span><span lang="zh">原生 macOS · 5 MB · 免费开源</span><span lang="ja">ネイティブ macOS · 5 MB · 無料・オープンソース</span></p>
+      <h1><span lang="en">A mind map for your Claude and ChatGPT chats.</span><span lang="zh">给 Claude 和 ChatGPT 对话的思维导图。</span><span lang="ja">Claude と ChatGPT のチャットを、マインドマップに。</span></h1>
       <p class="lead" lang="en">In the Mac menu bar: see what's running, what's done and what needs you.</p>
-      <p class="lead" lang="zh">住在 Mac 菜单栏里：哪个在跑、哪个做完了、哪个在等你，一眼就知道。</p>
+      <p class="lead" lang="zh">住在 Mac 菜单栏里：哪个在跑、哪个做完了、哪个在等你，一眼就知道。</p><p class="lead" lang="ja">Mac のメニューバーで、実行中のもの、完了したもの、あなたを待っているものがひと目でわかります。</p>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
-        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span><span class="stars" data-stars hidden></span></a>
+        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span><span lang="ja">macOS 版をダウンロード</span></a>
+        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span><span lang="ja">GitHub で見る</span><span class="stars" data-stars hidden></span></a>
       </div>
-      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.1.0</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.1.0 版</span></p>
+      <p class="meta"><span lang="en">macOS 13 or later · Apple silicon and Intel · version 1.1.0</span><span lang="zh">macOS 13 及以上 · Apple 芯片和 Intel 都支持 · 1.1.0 版</span><span lang="ja">macOS 13 以降 · Apple シリコンと Intel に対応 · バージョン 1.1.0</span></p>
       <p class="ph"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
       <p class="ph-when" id="ph-when" hidden></p>
       <figure class="shot"><img src="demo/drag.gif" width="1600" height="1000" alt="Dragging the Work topic across the map: the other topics slide apart to make room, and it lands where the gap was"></figure>
@@ -660,7 +676,7 @@
            below are what visitors without JavaScript and link checkers see; keep them in step with the
            file (generated by running the script). With the script, the laurels drift past in a reel. -->
       <div class="awards" id="awards">
-        <h2 class="awhead" id="awhead"><span lang="en">Top 10 on the charts</span><span lang="zh">进入前 10 的榜单</span></h2>
+        <h2 class="awhead" id="awhead"><span lang="en">Top 10 on the charts</span><span lang="zh">进入前 10 的榜单</span><span lang="ja">ランキングでトップ 10 入り</span></h2>
       </div>
     </div>
     <div class="awstage" id="awstage" hidden>
@@ -671,8 +687,8 @@
       <div class="awards">
         <ul class="awall" id="awall" role="list"><li style="--i: 0"><a class="award" href="https://web.archive.org/web/20261109001308/https://gittrend.io/tags/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#menu-bar-app — trending GitHub repositories</span><span lang="zh">#menu-bar-app 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 1"><a class="award" href="https://web.archive.org/web/20261109001202/https://gittrend.io/tags/swift" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#swift — trending GitHub repositories</span><span lang="zh">#swift 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 2"><a class="award" href="https://web.archive.org/web/20261109001333/https://gittrend.io/tags/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#mind-map — trending GitHub repositories</span><span lang="zh">#mind-map 标签趋势榜</span></span><span class="awd"><span lang="en"><span>of 35</span> · <span>As of Nov 9, 2026</span></span><span lang="zh"><span>共 35 个</span> · <span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 3"><a class="award" href="https://web.archive.org/web/20261109001232/https://gittrend.io/tags/gpt" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#gpt — trending GitHub repositories</span><span lang="zh">#gpt 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 4"><a class="award" href="https://web.archive.org/web/20261108231030/https://gitstars.io/topic/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">mind-map repositories</span><span lang="zh">mind-map 话题仓库榜</span></span><span class="awd"><span lang="en"><span>of 17</span> · <span>As of Nov 8, 2026</span></span><span lang="zh"><span>共 17 个</span> · <span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 5"><a class="award" href="https://web.archive.org/web/20261108231117/https://gitstars.io/topic/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">menu-bar-app repositories</span><span lang="zh">menu-bar-app 话题仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 8, 2026</span></span><span lang="zh"><span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 6"><a class="award" href="https://web.archive.org/web/20261109001449/https://gittrend.io/languages/swift" target="_blank" rel="noopener noreferrer" data-tier="silver"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 2</span><span lang="zh">第 2 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Swift Repositories</span><span lang="zh">Swift 热门仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 7, 2026</span></span><span lang="zh"><span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 7"><a class="award" href="https://web.archive.org/web/20261109001540/https://gittrend.io/trending/data-visualization" target="_blank" rel="noopener noreferrer" data-tier="bronze"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 3</span><span lang="zh">第 3 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Data Visualization Repositories</span><span lang="zh">数据可视化热门仓库榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 8"><a class="award" href="https://web.archive.org/web/20261109020358/https://upstar.dev/t/swift/week/2026-11-02" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Upstar</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Swift on GitHub, weekly</span><span lang="zh">GitHub Swift 每周飙升榜</span></span><span class="awd"><span lang="en"><span>of 237</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 237 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 9"><a class="award" href="https://web.archive.org/web/20261108231244/https://trendshift.io/weekly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Weekly trending repositories, Swift</span><span lang="zh">Swift 每周趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 10"><a class="award" href="https://web.archive.org/web/20261108231413/https://gitdiscover.org/daily/2026-11-07" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitDiscover</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Daily Picks</span><span lang="zh">每日精选</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 11"><a class="award" href="https://web.archive.org/web/20261108231213/https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Top 25 in Swift, daily</span><span lang="zh">Swift 每日趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>Nov 2, 2026</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月2日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 12"><a class="award" href="https://web.archive.org/web/20261108231310/https://trendshift.io/monthly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 6</span><span lang="zh">第 6 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Monthly trending repositories, Swift</span><span lang="zh">Swift 每月趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>November 2026</span> · <span>as of Nov 8</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月</span> · <span>截至 11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 13"><a class="award" href="https://web.archive.org/web/20261109001606/https://gittrend.io/trending/self-hosted" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 6</span><span lang="zh">第 6 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Self-Hosted GitHub Repos Gaining Traction</span><span lang="zh">自托管项目上升榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 14"><a class="award" href="https://web.archive.org/web/20261108231144/https://gitstars.io/topic/mac" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 7</span><span lang="zh">第 7 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">mac repositories</span><span lang="zh">mac 话题仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 8, 2026</span></span><span lang="zh"><span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 15"><a class="award" href="https://web.archive.org/web/20261109001417/https://gittrend.io/tags/claude" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 8</span><span lang="zh">第 8 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#claude — trending GitHub repositories</span><span lang="zh">#claude 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 16"><a class="award" href="https://web.archive.org/web/20261109020419/https://upstar.dev/t/macos/week/2026-11-02" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Upstar</span><span class="awr awmetal"><span lang="en">No. 9</span><span lang="zh">第 9 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending macOS on GitHub, weekly</span><span lang="zh">GitHub macOS 每周飙升榜</span></span><span class="awd"><span lang="en"><span>of 326</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 326 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 17"><a class="award" href="https://web.archive.org/web/20261109001631/https://gittrend.io/trending/ai-workflow" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 10</span><span lang="zh">第 10 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Top AI Workflow Projects Trending on GitHub</span><span lang="zh">AI 工作流项目趋势榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li></ul>
         <div class="awfoot">
-            <button class="awmore" id="awmore" type="button" aria-controls="awall" aria-expanded="false"><span lang="en">See all 18</span><span lang="zh">查看全部 18 个</span></button>
-            <p class="awnote"><span lang="en">Ranks as each site showed them; each one opens the list or an archived copy. Lists marked “as of” still change.</span><span lang="zh">名次按各网站当时的显示；点开是该榜单或它的存档。标“截至”的榜单还在变动。</span></p>
+            <button class="awmore" id="awmore" type="button" aria-controls="awall" aria-expanded="false"><span lang="en">See all 18</span><span lang="zh">查看全部 18 个</span><span lang="ja">18 件すべて見る</span></button>
+            <p class="awnote"><span lang="en">Ranks as each site showed them; each one opens the list or an archived copy. Lists marked “as of” still change.</span><span lang="zh">名次按各网站当时的显示；点开是该榜单或它的存档。标“截至”的榜单还在变动。</span><span lang="ja">順位は各サイトの表示どおりです。クリックするとそのリスト、またはアーカイブを開きます。「時点」と付いたリストは今も変動します。</span></p>
           </div>
       </div>
     </div>
@@ -680,13 +696,13 @@
 
   <section class="tour" id="tour">
     <div class="wrap">
-      <h2><span lang="en">The tour</span><span lang="zh">看一遍就懂</span></h2>
+      <h2><span lang="en">The tour</span><span lang="zh">看一遍就懂</span><span lang="ja">ツアー</span></h2>
       <p class="sub" lang="en">Every feature in about a minute.</p>
-      <p class="sub" lang="zh">一分多钟看完所有功能。</p>
+      <p class="sub" lang="zh">一分多钟看完所有功能。</p><p class="sub" lang="ja">すべての機能を約 1 分で。</p>
       <div class="player shot">
         <video class="tour-video" lang="en" src="demo/kikumap-intro.mp4" poster="demo/intro-poster.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="The KIKUmap tour"></video>
         <video class="tour-video" lang="zh" src="demo/kikumap-intro-zh.mp4" poster="demo/intro-poster-zh.jpg" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="KIKUmap 介绍视频"></video>
-        <button class="sound" id="sound" type="button"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 4V5L7 9H3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.8 5.8a9 9 0 0 1 0 12.4"/></svg><span lang="en">Play with sound</span><span lang="zh">打开声音播放</span></button>
+        <button class="sound" id="sound" type="button"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 4V5L7 9H3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.8 5.8a9 9 0 0 1 0 12.4"/></svg><span lang="en">Play with sound</span><span lang="zh">打开声音播放</span><span lang="ja">音声付きで再生</span></button>
       </div>
     </div>
   </section>
@@ -696,9 +712,9 @@
       <div class="feature">
         <div class="text">
           <p class="eyebrow">01</p>
-          <h3><span lang="en">Status in the menu bar</span><span lang="zh">菜单栏看状态</span></h3>
+          <h3><span lang="en">Status in the menu bar</span><span lang="zh">菜单栏看状态</span><span lang="ja">メニューバーで状態を確認</span></h3>
           <p lang="en">A ring counts running chats. A red badge counts finished, unread ones, with <b>!</b> when one is waiting for you (to approve or answer, or it stopped on an error). An optional sound or voice says which chat is done.</p>
-          <p lang="zh">圆环里是在跑的对话数；红色角标是做完还没看的，带 <b>!</b> 表示有对话在等你（要你确认或回答，或者出错停下了）。可以开提示音，或用语音说出是哪个对话做完了。</p>
+          <p lang="zh">圆环里是在跑的对话数；红色角标是做完还没看的，带 <b>!</b> 表示有对话在等你（要你确认或回答，或者出错停下了）。可以开提示音，或用语音说出是哪个对话做完了。</p><p lang="ja">リングは実行中のチャット数を表示します。赤いバッジは完了して未読のチャット数で、あなたを待っているチャット（承認や回答が必要、またはエラーで停止）があると <b>!</b> が付きます。どのチャットが完了したかを、サウンドや音声で知らせることもできます（オプション）。</p>
         </div>
         <figure class="shot"><img src="demo/menubar.gif" width="1600" height="1000" loading="lazy" alt="The menu-bar icon counting running chats in a turning ring, then a red unread badge, then an exclamation mark when a chat is waiting for you"></figure>
       </div>
@@ -706,9 +722,9 @@
       <div class="feature flip">
         <div class="text">
           <p class="eyebrow">02</p>
-          <h3><span lang="en">Chats as a map</span><span lang="zh">对话变成导图</span></h3>
+          <h3><span lang="en">Chats as a map</span><span lang="zh">对话变成导图</span><span lang="ja">チャットをマップに</span></h3>
           <p lang="en">Chats pinned in Claude and in the ChatGPT app, plus Claude Code sessions, line up in the left column. Drag them onto your own topics. Each chat is tagged <b>Claude</b> or <b>GPT</b>.</p>
-          <p lang="zh">Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话都列在左栏，拖到自己的主题下就行。每个对话都标着 <b>Claude</b> 或 <b>GPT</b>。</p>
+          <p lang="zh">Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话都列在左栏，拖到自己的主题下就行。每个对话都标着 <b>Claude</b> 或 <b>GPT</b>。</p><p lang="ja">Claude と ChatGPT アプリでピン留めしたチャット、そして Claude Code のセッションが左の列に並びます。自分のトピックへドラッグするだけ。各チャットには <b>Claude</b> または <b>GPT</b> のタグが付きます。</p>
         </div>
         <figure class="shot"><img src="demo/group.gif" width="1600" height="1000" loading="lazy" alt="Selecting three chats and dragging them onto Side projects together"></figure>
       </div>
@@ -716,9 +732,9 @@
       <div class="feature">
         <div class="text">
           <p class="eyebrow">03</p>
-          <h3><span lang="en">Colors and shapes</span><span lang="zh">颜色和形状</span></h3>
+          <h3><span lang="en">Colors and shapes</span><span lang="zh">颜色和形状</span><span lang="ja">カラーとシェイプ</span></h3>
           <p lang="en">Right-click a topic for a branch color and a shape. Colors carry into the timeline and the menu. Settings → Colors has eight color sets for the whole window, or pick your own.</p>
-          <p lang="zh">右键主题，换分支颜色和形状。颜色也会用在时间轴和菜单里。设置 → 配色里有 8 套整个窗口的配色，也可以自己挑。</p>
+          <p lang="zh">右键主题，换分支颜色和形状。颜色也会用在时间轴和菜单里。设置 → 配色里有 8 套整个窗口的配色，也可以自己挑。</p><p lang="ja">トピックを右クリックすると、ブランチの色と形を選べます。色はタイムラインやメニューにも反映されます。Settings → Colors にはウインドウ全体に使える 8 つのカラーセットがあり、自分で選ぶこともできます。</p>
         </div>
         <figure class="shot"><img src="demo/shapes.gif" width="1600" height="1000" loading="lazy" alt="Right-clicking the Launch topic and stepping through shapes, then branch colors"></figure>
       </div>
@@ -726,9 +742,9 @@
       <div class="feature flip">
         <div class="text">
           <p class="eyebrow">04</p>
-          <h3><span lang="en">Tags</span><span lang="zh">标签</span></h3>
+          <h3><span lang="en">Tags</span><span lang="zh">标签</span><span lang="ja">タグ</span></h3>
           <p lang="en">Drag a tag onto a chat. Click a tag to highlight every chat that has it. Drag the tags' top edge to resize them, or tuck them away.</p>
-          <p lang="zh">把标签拖到对话上。点一下标签，高亮所有带它的对话。拖动标签区的上边可以调高度，也可以整个收起。</p>
+          <p lang="zh">把标签拖到对话上。点一下标签，高亮所有带它的对话。拖动标签区的上边可以调高度，也可以整个收起。</p><p lang="ja">タグをチャットにドラッグ。タグをクリックすると、そのタグが付いたチャットがすべてハイライトされます。タグ欄の上端をドラッグしてサイズを変えたり、しまったりできます。</p>
         </div>
         <figure class="shot"><img src="demo/tags.gif" width="1600" height="1000" loading="lazy" alt="Clicking the In progress tag highlights the chats that have it; then the tag is dragged onto a chat"></figure>
       </div>
@@ -736,8 +752,8 @@
       <div class="feature">
         <div class="text">
           <p class="eyebrow">05</p>
-          <h3><span lang="en">Keyboard-first</span><span lang="zh">键盘就能搞定</span></h3>
-          <p><kbd>⇥</kbd> <span lang="en">subtopic</span><span lang="zh">子主题</span> · <kbd>⏎</kbd> <span lang="en">sibling</span><span lang="zh">同级</span> · <kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd> <span lang="en">move</span><span lang="zh">移动</span> · <kbd>⌘</kbd><kbd>Z</kbd> <span lang="en">undo</span><span lang="zh">撤销</span> · <kbd>⌘</kbd><kbd>F</kbd> <span lang="en">search</span><span lang="zh">搜索</span> · <kbd>space</kbd> <span lang="en">open</span><span lang="zh">打开</span></p>
+          <h3><span lang="en">Keyboard-first</span><span lang="zh">键盘就能搞定</span><span lang="ja">キーボード中心</span></h3>
+          <p><kbd>⇥</kbd> <span lang="en">subtopic</span><span lang="zh">子主题</span><span lang="ja">サブトピック</span> · <kbd>⏎</kbd> <span lang="en">sibling</span><span lang="zh">同级</span><span lang="ja">同階層</span> · <kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd> <span lang="en">move</span><span lang="zh">移动</span><span lang="ja">移動</span> · <kbd>⌘</kbd><kbd>Z</kbd> <span lang="en">undo</span><span lang="zh">撤销</span><span lang="ja">取り消す</span> · <kbd>⌘</kbd><kbd>F</kbd> <span lang="en">search</span><span lang="zh">搜索</span><span lang="ja">検索</span> · <kbd>space</kbd> <span lang="en">open</span><span lang="zh">打开</span><span lang="ja">開く</span></p>
         </div>
         <figure class="shot"><img src="demo/keys.gif" width="1600" height="1000" loading="lazy" alt="Tab adds a subtopic, Return adds a sibling, Option-Up moves it, Command-Z undoes"></figure>
       </div>
@@ -745,9 +761,9 @@
       <div class="feature flip">
         <div class="text">
           <p class="eyebrow">06</p>
-          <h3><span lang="en">Timeline</span><span lang="zh">时间轴</span></h3>
+          <h3><span lang="en">Timeline</span><span lang="zh">时间轴</span><span lang="ja">タイムライン</span></h3>
           <p lang="en">When each chat ran, and the scheduled tasks coming up, with countdowns.</p>
-          <p lang="zh">每个对话什么时候在跑，接下来有哪些定时任务，带倒计时。</p>
+          <p lang="zh">每个对话什么时候在跑，接下来有哪些定时任务，带倒计时。</p><p lang="ja">各チャットがいつ実行されたか、そしてこれからのスケジュールタスクをカウントダウン付きで表示します。</p>
         </div>
         <figure class="shot"><img src="demo/timeline.gif" width="1600" height="1000" loading="lazy" alt="The timeline: past runs with their times, and scheduled tasks with countdowns"></figure>
       </div>
@@ -755,9 +771,9 @@
       <div class="feature">
         <div class="text">
           <p class="eyebrow">07</p>
-          <h3><span lang="en">Export and import</span><span lang="zh">导出和导入</span></h3>
+          <h3><span lang="en">Export and import</span><span lang="zh">导出和导入</span><span lang="ja">書き出しと読み込み</span></h3>
           <p lang="en">Each Claude chat as files: a summary, prompts, the conversation and artifacts. Import them into another Claude account.</p>
-          <p lang="zh">每个 Claude 对话导出成文件：总结、提示词、完整对话和产出物。也能导入到另一个 Claude 账号。</p>
+          <p lang="zh">每个 Claude 对话导出成文件：总结、提示词、完整对话和产出物。也能导入到另一个 Claude 账号。</p><p lang="ja">Claude のチャットをファイルとして書き出せます。要約、プロンプト、会話、アーティファクトを含み、別の Claude アカウントに読み込めます。</p>
         </div>
         <figure class="shot"><img src="demo/export.gif" width="1600" height="1000" loading="lazy" alt="The export window and the folder of Markdown files and artifacts it writes"></figure>
       </div>
@@ -765,9 +781,9 @@
       <div class="feature flip">
         <div class="text">
           <p class="eyebrow">08</p>
-          <h3><span lang="en">Desktop widget</span><span lang="zh">桌面小组件</span></h3>
+          <h3><span lang="en">Desktop widget</span><span lang="zh">桌面小组件</span><span lang="ja">デスクトップウィジェット</span></h3>
           <p lang="en">Time worked in the last 24 hours and the last 7 days, plus Claude and ChatGPT usage with plan names. Three sizes, macOS 14 or later.</p>
-          <p lang="zh">最近 24 小时和最近 7 天的工作时长，以及 Claude、ChatGPT 的用量和套餐名。三种尺寸，需要 macOS 14 及以上。</p>
+          <p lang="zh">最近 24 小时和最近 7 天的工作时长，以及 Claude、ChatGPT 的用量和套餐名。三种尺寸，需要 macOS 14 及以上。</p><p lang="ja">過去 24 時間と過去 7 日間の作業時間に加え、Claude と ChatGPT の使用量をプラン名とともに表示します。3 つのサイズ、macOS 14 以降。</p>
         </div>
         <figure class="shot"><img lang="en" src="demo/widget.png" width="1600" height="1000" loading="lazy" alt="KIKUmap widgets in three sizes: time worked in the last 24 hours, usage, and in the large one the busiest chats and the last 7 days"><img lang="zh" src="demo/widget-zh.png" width="1600" height="1000" loading="lazy" alt="三种尺寸的 KIKUmap 小组件：最近 24 小时的工作时长、用量；大号还有用时最多的对话和最近 7 天"></figure>
       </div>
@@ -775,22 +791,22 @@
       <div class="feature">
         <div class="text">
           <p class="eyebrow">09</p>
-          <h3><span lang="en">Statistics</span><span lang="zh">统计</span></h3>
+          <h3><span lang="en">Statistics</span><span lang="zh">统计</span><span lang="ja">統計</span></h3>
           <p lang="en">Time per chat and session over 7, 14, 30 or 90 days. <kbd>⌘</kbd><kbd>Y</kbd></p>
-          <p lang="zh">每个对话和会话的用时，可以看 7、14、30 或 90 天。<kbd>⌘</kbd><kbd>Y</kbd></p>
+          <p lang="zh">每个对话和会话的用时，可以看 7、14、30 或 90 天。<kbd>⌘</kbd><kbd>Y</kbd></p><p lang="ja">チャットとセッションごとの時間を 7・14・30・90 日単位で表示。<kbd>⌘</kbd><kbd>Y</kbd></p>
         </div>
         <figure class="shot"><img src="demo/stats.png" width="1600" height="1000" loading="lazy" alt="Statistics: time per chat and session in bars over seven days"></figure>
       </div>
 
-      <h2 style="margin-top:56px"><span lang="en">And more</span><span lang="zh">还有更多</span></h2>
+      <h2 style="margin-top:56px"><span lang="en">And more</span><span lang="zh">还有更多</span><span lang="ja">その他の機能</span></h2>
       <div class="also">
-        <div class="tile"><img src="demo/unread.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮起</b></div></div>
-        <div class="tile"><img src="demo/search.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Search topics, chats and tags</b><b lang="zh">搜索主题、对话和标签</b></div></div>
-        <div class="tile"><img src="demo/today.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Today, in the menu</b><b lang="zh">菜单里看今天</b></div></div>
-        <div class="tile"><img src="demo/usage.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Usage, in the menu</b><b lang="zh">菜单里看用量</b></div></div>
-        <div class="tile"><img src="demo/pdf.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">The map as a PDF</b><b lang="zh">导图导出 PDF</b></div></div>
-        <div class="tile"><img src="demo/backups.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Daily backups</b><b lang="zh">每日备份</b></div></div>
-        <div class="tile"><img src="demo/theme.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Light or dark</b><b lang="zh">浅色、深色</b></div></div>
+        <div class="tile"><img src="demo/unread.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Finished chats light up</b><b lang="zh">做完的对话会亮起</b><b lang="ja">完了したチャットが光る</b></div></div>
+        <div class="tile"><img src="demo/search.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Search topics, chats and tags</b><b lang="zh">搜索主题、对话和标签</b><b lang="ja">トピック、チャット、タグを検索</b></div></div>
+        <div class="tile"><img src="demo/today.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Today, in the menu</b><b lang="zh">菜单里看今天</b><b lang="ja">今日の記録をメニューで</b></div></div>
+        <div class="tile"><img src="demo/usage.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Usage, in the menu</b><b lang="zh">菜单里看用量</b><b lang="ja">使用量をメニューで</b></div></div>
+        <div class="tile"><img src="demo/pdf.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">The map as a PDF</b><b lang="zh">导图导出 PDF</b><b lang="ja">マップを PDF に</b></div></div>
+        <div class="tile"><img src="demo/backups.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Daily backups</b><b lang="zh">每日备份</b><b lang="ja">毎日のバックアップ</b></div></div>
+        <div class="tile"><img src="demo/theme.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b lang="en">Light or dark</b><b lang="zh">浅色、深色</b><b lang="ja">ライトとダーク</b></div></div>
         <div class="tile"><img src="demo/language.gif" width="1600" height="1000" loading="lazy" alt=""><div class="t"><b>English · 中文</b></div></div>
       </div>
     </div>
@@ -798,16 +814,16 @@
 
   <section class="xsec" id="x" hidden>
     <div class="wrap">
-      <h2><span lang="en">What people say on X</span><span lang="zh">大家在 X 上怎么说</span></h2>
-      <p class="sub"><span lang="en">A few posts about KIKUmap.</span><span lang="zh">X 上关于 KIKUmap 的一些帖子。</span></p>
+      <h2><span lang="en">What people say on X</span><span lang="zh">大家在 X 上怎么说</span><span lang="ja">X での声</span></h2>
+      <p class="sub"><span lang="en">A few posts about KIKUmap.</span><span lang="zh">X 上关于 KIKUmap 的一些帖子。</span><span lang="ja">KIKUmap についての投稿をいくつかご紹介します。</span></p>
     </div>
     <div class="xrows" id="xrows"></div>
   </section>
 
   <section class="elsewhere" id="elsewhere">
     <div class="wrap">
-      <h2><span lang="en">Featured elsewhere</span><span lang="zh">也出现在这些地方</span></h2>
-      <p class="sub"><span lang="en">Where else KIKUmap has been listed, ranked or written about.</span><span lang="zh">其他网站对 KIKUmap 的收录、排名和介绍。</span></p>
+      <h2><span lang="en">Featured elsewhere</span><span lang="zh">也出现在这些地方</span><span lang="ja">ほかのサイトでの紹介</span></h2>
+      <p class="sub"><span lang="en">Where else KIKUmap has been listed, ranked or written about.</span><span lang="zh">其他网站对 KIKUmap 的收录、排名和介绍。</span><span lang="ja">KIKUmap が掲載・ランクイン・紹介されたほかのサイトです。</span></p>
       <!-- The map below is rebuilt from featured.json by the script. This copy is what visitors without JavaScript and
            link checkers see; keep the newest few here (no "more" buttons), in the same order the script uses. -->
       <div class="fcanvas" id="fcanvas">
@@ -815,13 +831,13 @@
           <div class="froot" aria-hidden="true"><span class="fpill"><svg class="kiku"><use href="#kiku"/></svg>KIKUmap</span></div>
           <ul class="fkinds" role="list">
             <li class="fb" data-tone="b" data-shape="sq">
-              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Directories</span><span lang="zh">工具目录</span><span class="fcount" aria-hidden="true">1</span></span></h3>
+              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Directories</span><span lang="zh">工具目录</span><span lang="ja">ディレクトリ</span><span class="fcount" aria-hidden="true">1</span></span></h3>
               <ul class="fls" role="list">
                 <li><a class="fleaf" href="https://viralagent.si/agents/kikumap/" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true">V</span><b>Viral Agent</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">A page on what KIKUmap does, who it's for, and how to set it up.</span><span lang="zh">专门一页介绍 KIKUmap：能做什么、适合谁、怎么安装。</span></span><time class="fdate" datetime="2026-11"><span lang="en">Nov 2026</span><span lang="zh">2026年11月</span></time></a></li>
               </ul>
             </li>
             <li class="fb" data-tone="r" data-shape="di">
-              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Curated lists</span><span lang="zh">精选列表</span><span class="fcount" aria-hidden="true">2</span></span></h3>
+              <h3 class="fkind"><span class="fpill"><i class="fshape" aria-hidden="true"></i><span lang="en">Curated lists</span><span lang="zh">精选列表</span><span lang="ja">キュレーションリスト</span><span class="fcount" aria-hidden="true">2</span></span></h3>
               <ul class="fls" role="list">
                 <li><a class="fleaf" href="https://www.scriptbyai.com/codex-resource-list/" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true">S</span><b>ScriptByAI</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">Listed among the session and monitoring tools in its Codex resource list.</span><span lang="zh">收录进它的 Codex 资源列表，归在会话和监控工具里。</span></span><time class="fdate" datetime="2026-11-04"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span></time></a></li>
                 <li><a class="fleaf" href="https://github.com/jqueryscript/awesome-claude-code" target="_blank" rel="noopener noreferrer"><span class="fsrc"><span class="fmk" aria-hidden="true"><svg><use href="#github"></use></svg></span><b>awesome-claude-code</b><span class="farr" aria-hidden="true">↗</span></span><span class="fline"><span lang="en">Listed in jqueryscript's GitHub list of Claude Code tools.</span><span lang="zh">收录进 jqueryscript 在 GitHub 上整理的 Claude Code 工具列表。</span></span><time class="fdate" datetime="2026-11-04"><span lang="en">Nov 4, 2026</span><span lang="zh">2026年11月4日</span></time></a></li>
@@ -842,45 +858,45 @@
 
   <section class="native" id="native">
     <div class="wrap">
-      <h2><span lang="en">Native and light</span><span lang="zh">原生、轻量</span></h2>
+      <h2><span lang="en">Native and light</span><span lang="zh">原生、轻量</span><span lang="ja">ネイティブで軽量</span></h2>
       <div class="stats">
-        <div class="stat"><b>5 MB</b><span lang="en">Download, for Apple silicon and Intel.</span><span lang="zh">安装包大小，Apple 芯片和 Intel 通用。</span></div>
-        <div class="stat"><b>Swift</b><span lang="en">AppKit. No Electron, no web view.</span><span lang="zh">AppKit 原生开发。没有 Electron，没有网页套壳。</span></div>
-        <div class="stat"><b>0</b><span lang="en">Third-party dependencies.</span><span lang="zh">第三方依赖。</span></div>
-        <div class="stat"><b lang="en">Idle</b><b lang="zh">安静</b><span lang="en">Stops drawing when its window is hidden.</span><span lang="zh">窗口隐藏后就停止绘制。</span></div>
+        <div class="stat"><b>5 MB</b><span lang="en">Download, for Apple silicon and Intel.</span><span lang="zh">安装包大小，Apple 芯片和 Intel 通用。</span><span lang="ja">ダウンロードサイズ。Apple シリコンと Intel に対応。</span></div>
+        <div class="stat"><b>Swift</b><span lang="en">AppKit. No Electron, no web view.</span><span lang="zh">AppKit 原生开发。没有 Electron，没有网页套壳。</span><span lang="ja">AppKit 製。Electron も Web ビューも使っていません。</span></div>
+        <div class="stat"><b>0</b><span lang="en">Third-party dependencies.</span><span lang="zh">第三方依赖。</span><span lang="ja">サードパーティ製の依存関係。</span></div>
+        <div class="stat"><b lang="en">Idle</b><b lang="zh">安静</b><b lang="ja">アイドル時</b><span lang="en">Stops drawing when its window is hidden.</span><span lang="zh">窗口隐藏后就停止绘制。</span><span lang="ja">ウインドウが隠れているときは描画を停止します。</span></div>
       </div>
     </div>
   </section>
 
   <section class="privacy" id="privacy">
     <div class="wrap">
-      <h2><span lang="en">Stays on your Mac</span><span lang="zh">数据留在本机</span></h2>
+      <h2><span lang="en">Stays on your Mac</span><span lang="zh">数据留在本机</span><span lang="ja">データは Mac の中だけに</span></h2>
       <p class="sub" lang="en">No account, no tracking. Every permission is explained before macOS asks.</p>
-      <p class="sub" lang="zh">不用注册，没有追踪。每个权限都会先说明用途，再由 macOS 弹窗请求。</p>
+      <p class="sub" lang="zh">不用注册，没有追踪。每个权限都会先说明用途，再由 macOS 弹窗请求。</p><p class="sub" lang="ja">アカウント不要、トラッキングなし。macOS が許可を求める前に、それぞれの権限について説明します。</p>
       <div class="perms">
         <div class="perm">
-          <b lang="en">Claude's chats</b><b lang="zh">Claude 的对话</b>
+          <b lang="en">Claude's chats</b><b lang="zh">Claude 的对话</b><b lang="ja">Claude のチャット</b>
           <p lang="en">Read from the Claude app's sidebar (and ChatGPT's, for its ordinary chats). The one required permission.</p>
-          <p lang="zh">从 Claude App 的侧栏读取（ChatGPT 的普通对话也从它的左栏读）。这是唯一必需的权限。</p>
-          <span class="tag"><span lang="en">Accessibility</span><span lang="zh">辅助功能</span></span>
+          <p lang="zh">从 Claude App 的侧栏读取（ChatGPT 的普通对话也从它的左栏读）。这是唯一必需的权限。</p><p lang="ja">Claude アプリのサイドバーから読み取ります（ChatGPT の通常のチャットは ChatGPT のサイドバーから）。唯一の必須の権限です。</p>
+          <span class="tag"><span lang="en">Accessibility</span><span lang="zh">辅助功能</span><span lang="ja">アクセシビリティ</span></span>
         </div>
         <div class="perm">
-          <b lang="en">Claude Code and ChatGPT</b><b lang="zh">Claude Code 和 ChatGPT</b>
+          <b lang="en">Claude Code and ChatGPT</b><b lang="zh">Claude Code 和 ChatGPT</b><b lang="ja">Claude Code と ChatGPT</b>
           <p lang="en">Claude Code hooks, and the ChatGPT app's files in <code>~/.codex</code>, read-only.</p>
-          <p lang="zh">Claude Code 的 hooks，以及 ChatGPT App 在 <code>~/.codex</code> 里的文件，只读。</p>
-          <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span></span>
+          <p lang="zh">Claude Code 的 hooks，以及 ChatGPT App 在 <code>~/.codex</code> 里的文件，只读。</p><p lang="ja">Claude Code のフックと、<code>~/.codex</code> 内の ChatGPT アプリのファイルを読み取り専用で利用します。</p>
+          <span class="tag"><span lang="en">No permission needed</span><span lang="zh">不需要权限</span><span lang="ja">権限は不要</span></span>
         </div>
         <div class="perm">
-          <b lang="en">Approvals and questions with Claude's window closed</b><b lang="zh">窗口关着也知道在等你确认</b>
+          <b lang="en">Approvals and questions with Claude's window closed</b><b lang="zh">窗口关着也知道在等你确认</b><b lang="ja">Claude のウインドウを閉じていても、承認や質問がわかる</b>
           <p lang="en">Optional. Read from Claude's notifications.</p>
-          <p lang="zh">可选。从 Claude 的通知里读取。</p>
-          <span class="tag"><span lang="en">Full Disk Access</span><span lang="zh">完全磁盘访问</span></span>
+          <p lang="zh">可选。从 Claude 的通知里读取。</p><p lang="ja">オプション。Claude の通知から読み取ります。</p>
+          <span class="tag"><span lang="en">Full Disk Access</span><span lang="zh">完全磁盘访问</span><span lang="ja">フルディスクアクセス</span></span>
         </div>
         <div class="perm">
-          <b lang="en">Usage (optional)</b><b lang="zh">用量（可选）</b>
+          <b lang="en">Usage (optional)</b><b lang="zh">用量（可选）</b><b lang="ja">使用量（オプション）</b>
           <p lang="en">Off by default. Asks Anthropic and OpenAI for usage with the sign-ins Claude Code and Codex already keep; never saved. Neither company has said apps may do this, so it could be blocked.</p>
-          <p lang="zh">默认关闭。借用 Claude Code 和 Codex 已有的登录，向 Anthropic 和 OpenAI 查用量，不保存。两家都没说明允许应用这样做，以后可能被限制。</p>
-          <span class="tag"><span lang="en">Keychain</span><span lang="zh">钥匙串</span></span>
+          <p lang="zh">默认关闭。借用 Claude Code 和 Codex 已有的登录，向 Anthropic 和 OpenAI 查用量，不保存。两家都没说明允许应用这样做，以后可能被限制。</p><p lang="ja">デフォルトではオフです。Claude Code と Codex がすでに保持しているサインイン情報を使って Anthropic と OpenAI に使用量を問い合わせます。情報は保存されません。どちらの会社もアプリがこうした利用をしてよいとは明言していないため、今後ブロックされる可能性があります。</p>
+          <span class="tag"><span lang="en">Keychain</span><span lang="zh">钥匙串</span><span lang="ja">キーチェーン</span></span>
         </div>
       </div>
     </div>
@@ -888,73 +904,73 @@
 
   <section id="install">
     <div class="wrap">
-      <h2><span lang="en">Install in a minute</span><span lang="zh">一分钟装好</span></h2>
+      <h2><span lang="en">Install in a minute</span><span lang="zh">一分钟装好</span><span lang="ja">1 分でインストール</span></h2>
       <ol class="steps">
         <li>
-          <b lang="en">Download and drag to Applications</b><b lang="zh">下载，拖进「应用程序」</b>
+          <b lang="en">Download and drag to Applications</b><b lang="zh">下载，拖进「应用程序」</b><b lang="ja">ダウンロードして「アプリケーション」へドラッグ</b>
           <p lang="en">macOS 13 or later.</p>
-          <p lang="zh">macOS 13 及以上。</p>
+          <p lang="zh">macOS 13 及以上。</p><p lang="ja">macOS 13 以降。</p>
         </li>
         <li>
-          <b lang="en">Allow the first launch</b><b lang="zh">允许第一次打开</b>
+          <b lang="en">Allow the first launch</b><b lang="zh">允许第一次打开</b><b lang="ja">初回起動を許可</b>
           <p lang="en">Click <b>Done</b>, then System Settings → Privacy &amp; Security → <b>Open Anyway</b>.</p>
-          <p lang="zh">点「完成」，再到 系统设置 → 隐私与安全性 → <b>仍要打开</b>。</p>
+          <p lang="zh">点「完成」，再到 系统设置 → 隐私与安全性 → <b>仍要打开</b>。</p><p lang="ja"><b>完了</b> をクリックし、システム設定 → プライバシーとセキュリティ → <b>このまま開く</b> を選びます。</p>
         </li>
         <li>
-          <b lang="en">Allow Accessibility</b><b lang="zh">允许辅助功能</b>
+          <b lang="en">Allow Accessibility</b><b lang="zh">允许辅助功能</b><b lang="ja">アクセシビリティを許可</b>
           <p lang="en">The intro asks for it. Everything else is optional.</p>
-          <p lang="zh">引导页会请求，其他权限都可选。</p>
+          <p lang="zh">引导页会请求，其他权限都可选。</p><p lang="ja">最初の案内画面で求められます。そのほかはすべてオプションです。</p>
         </li>
         <li>
-          <b lang="en">Pin chats to follow</b><b lang="zh">置顶要跟踪的对话</b>
+          <b lang="en">Pin chats to follow</b><b lang="zh">置顶要跟踪的对话</b><b lang="ja">追跡するチャットをピン留め</b>
           <p lang="en">In Claude or the ChatGPT app.</p>
-          <p lang="zh">在 Claude 或 ChatGPT App 里。</p>
+          <p lang="zh">在 Claude 或 ChatGPT App 里。</p><p lang="ja">Claude または ChatGPT アプリで。</p>
         </li>
       </ol>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
+        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span><span lang="ja">macOS 版をダウンロード</span></a>
       </div>
     </div>
   </section>
 
   <section id="faq" style="padding-top:24px">
     <div class="wrap">
-      <h2><span lang="en">Questions</span><span lang="zh">常见问题</span></h2>
+      <h2><span lang="en">Questions</span><span lang="zh">常见问题</span><span lang="ja">よくある質問</span></h2>
       <div class="faq">
         <details>
-          <summary><span lang="en">Is this made by Anthropic or OpenAI?</span><span lang="zh">这是 Anthropic 或 OpenAI 做的吗？</span></summary>
+          <summary><span lang="en">Is this made by Anthropic or OpenAI?</span><span lang="zh">这是 Anthropic 或 OpenAI 做的吗？</span><span lang="ja">Anthropic や OpenAI が作ったアプリですか？</span></summary>
           <p lang="en">No. KIKUmap is an independent open-source project. It reads the Claude app's window through Accessibility, so a Claude or ChatGPT update can break parts of it until KIKUmap catches up.</p>
-          <p lang="zh">不是。KIKUmap 是独立的开源项目。它通过「辅助功能」读 Claude App 的窗口，所以 Claude 或 ChatGPT 改版后，部分功能可能要等 KIKUmap 更新才能恢复。</p>
+          <p lang="zh">不是。KIKUmap 是独立的开源项目。它通过「辅助功能」读 Claude App 的窗口，所以 Claude 或 ChatGPT 改版后，部分功能可能要等 KIKUmap 更新才能恢复。</p><p lang="ja">いいえ。KIKUmap は独立したオープンソースプロジェクトです。アクセシビリティ機能で Claude アプリのウインドウを読み取っているため、Claude や ChatGPT のアップデートによって、KIKUmap が対応するまで一部の機能が動かなくなることがあります。</p>
         </details>
         <details>
-          <summary><span lang="en">What does it work with?</span><span lang="zh">支持哪些 App？</span></summary>
+          <summary><span lang="en">What does it work with?</span><span lang="zh">支持哪些 App？</span><span lang="ja">何に対応していますか？</span></summary>
           <p lang="en">The Claude desktop app, Claude Code (Terminal, VS Code, Cursor, the app's Code mode), the ChatGPT desktop app and Codex in VS Code or the terminal. Chats pinned in ChatGPT show running and unread. Codex chats are supported best (from the app's files, even with its window closed); other chats less well (from ChatGPT's window, while part of it can be seen). Not shown: anything running on another computer or in the cloud.</p>
-          <p lang="zh">Claude 桌面 App、Claude Code（终端、VS Code、Cursor、App 的 Code 模式）、ChatGPT 桌面 App，以及 VS Code 或终端里的 Codex。ChatGPT 里置顶的对话都能显示「在跑 / 未读」。Codex 对话支持得最好（读 App 的文件，窗口关着也准）；其他对话支持有限（读 ChatGPT 的窗口，窗口要露出一部分）。不显示：在别的电脑或云端运行的任何东西。</p>
+          <p lang="zh">Claude 桌面 App、Claude Code（终端、VS Code、Cursor、App 的 Code 模式）、ChatGPT 桌面 App，以及 VS Code 或终端里的 Codex。ChatGPT 里置顶的对话都能显示「在跑 / 未读」。Codex 对话支持得最好（读 App 的文件，窗口关着也准）；其他对话支持有限（读 ChatGPT 的窗口，窗口要露出一部分）。不显示：在别的电脑或云端运行的任何东西。</p><p lang="ja">Claude デスクトップアプリ、Claude Code（ターミナル、VS Code、Cursor、アプリの Code モード）、ChatGPT デスクトップアプリ、そして VS Code やターミナルの Codex に対応しています。ChatGPT でピン留めしたチャットは、実行中と未読を表示します。最もよく対応しているのは Codex のチャットです（アプリのファイルから読み取るため、ウインドウを閉じていても動作します）。それ以外のチャットは対応が限定的です（ChatGPT のウインドウの一部が見えている間、そこから読み取ります）。別のコンピュータやクラウドで実行中のものは表示されません。</p>
         </details>
         <details>
-          <summary><span lang="en">Claude's window is closed. What happens?</span><span lang="zh">Claude 的窗口关了会怎样？</span></summary>
+          <summary><span lang="en">Claude's window is closed. What happens?</span><span lang="zh">Claude 的窗口关了会怎样？</span><span lang="ja">Claude のウインドウを閉じるとどうなりますか？</span></summary>
           <p lang="en">⌘W only hides it. KIKUmap reads Claude's chats from the window, so it waits until the window is back on the current desktop; running chats show "running?" meanwhile, and once it's back one found done says "done after 14:00", since when it finished isn't known. Claude Code and Codex chats aren't affected; ChatGPT's other chats are read from ChatGPT's window the same way.</p>
-          <p lang="zh">⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面；在那之前，在跑的对话显示「在跑？」，窗口回来后发现已经做完的显示「14:00 后做完」，因为不知道它具体什么时候做完。Claude Code 和 Codex 对话不受影响；ChatGPT 的其他对话也是这样从 ChatGPT 的窗口里读的。</p>
+          <p lang="zh">⌘W 只是把窗口藏起来。KIKUmap 从窗口里读 Claude 的对话，所以要等窗口回到当前桌面；在那之前，在跑的对话显示「在跑？」，窗口回来后发现已经做完的显示「14:00 后做完」，因为不知道它具体什么时候做完。Claude Code 和 Codex 对话不受影响；ChatGPT 的其他对话也是这样从 ChatGPT 的窗口里读的。</p><p lang="ja">⌘W はウインドウを隠すだけです。KIKUmap は Claude のチャットをウインドウから読み取るため、ウインドウが現在のデスクトップに戻るまで待ちます。その間、実行中のチャットには "running?" と表示され、ウインドウが戻ったときに完了していたチャットには "done after 14:00" と表示されます。いつ完了したかがわからないためです。Claude Code と Codex のチャットには影響しません。ChatGPT のその他のチャットも、同じように ChatGPT のウインドウから読み取ります。</p>
         </details>
         <details>
-          <summary><span lang="en">A session finished while I watched it. Why is it still unread?</span><span lang="zh">会话做完时我正看着它，为什么还是未读？</span></summary>
+          <summary><span lang="en">A session finished while I watched it. Why is it still unread?</span><span lang="zh">会话做完时我正看着它，为什么还是未读？</span><span lang="ja">見ている間にセッションが完了したのに、未読のままなのはなぜですか？</span></summary>
           <p lang="en">KIKUmap marks a finished session read by itself only when the window in front can only be that session's: for Claude Code, its folder's window in VS Code or Cursor, or a terminal window whose title shows both its folder and <code>claude</code>; for Codex, its folder's window in VS Code. If another window or tab could be showing it too, such as another editor window on its folder or a folder above it, it stays unread. Codex sessions in a terminal stay unread too (KIKUmap can't tell which terminal runs them). Open it from KIKUmap, or select it and press ⇧⌘U, to mark it read.</p>
-          <p lang="zh">只有最前面的窗口只可能是这个会话的，KIKUmap 才会自己把做完的会话标为已读：Claude Code 是 VS Code 或 Cursor 里打开它文件夹的窗口，或者标题里同时有它的文件夹和 <code>claude</code> 的终端窗口；Codex 是 VS Code 里打开它文件夹的窗口。别的窗口或标签页也可能在显示它时，它保持未读，比如编辑器里另有窗口开着它的文件夹或上层文件夹。终端里的 Codex 会话也保持未读（KIKUmap 不知道它在哪个终端里跑）。在 KIKUmap 里打开它，或选中它按 ⇧⌘U，就标为已读。</p>
+          <p lang="zh">只有最前面的窗口只可能是这个会话的，KIKUmap 才会自己把做完的会话标为已读：Claude Code 是 VS Code 或 Cursor 里打开它文件夹的窗口，或者标题里同时有它的文件夹和 <code>claude</code> 的终端窗口；Codex 是 VS Code 里打开它文件夹的窗口。别的窗口或标签页也可能在显示它时，它保持未读，比如编辑器里另有窗口开着它的文件夹或上层文件夹。终端里的 Codex 会话也保持未读（KIKUmap 不知道它在哪个终端里跑）。在 KIKUmap 里打开它，或选中它按 ⇧⌘U，就标为已读。</p><p lang="ja">KIKUmap が完了したセッションを自動で既読にするのは、最前面のウインドウがそのセッションのものとしか考えられない場合だけです。Claude Code なら、VS Code や Cursor でそのフォルダを開いているウインドウ、またはタイトルにフォルダ名と <code>claude</code> の両方が表示されているターミナルウインドウ。Codex なら、VS Code でそのフォルダを開いているウインドウです。同じフォルダやその上位フォルダを開いた別のエディタウインドウなど、ほかのウインドウやタブにも表示されている可能性があれば、未読のままになります。ターミナルで実行中の Codex セッションも未読のままです（KIKUmap はどのターミナルで実行されているかを判別できません）。既読にするには、KIKUmap から開くか、選択して ⇧⌘U を押してください。</p>
         </details>
         <details>
-          <summary><span lang="en">Why "Open Anyway"?</span><span lang="zh">为什么要点「仍要打开」？</span></summary>
+          <summary><span lang="en">Why "Open Anyway"?</span><span lang="zh">为什么要点「仍要打开」？</span><span lang="ja">なぜ「このまま開く」が必要なのですか？</span></summary>
           <p lang="en">Notarizing needs a paid Apple developer account, and KIKUmap is free. It can also be built from source.</p>
-          <p lang="zh">公证需要付费的 Apple 开发者账号，而 KIKUmap 是免费的。也可以从源码自己编译。</p>
+          <p lang="zh">公证需要付费的 Apple 开发者账号，而 KIKUmap 是免费的。也可以从源码自己编译。</p><p lang="ja">公証には有料の Apple Developer アカウントが必要ですが、KIKUmap は無料だからです。ソースからビルドすることもできます。</p>
         </details>
         <details>
-          <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span></summary>
+          <summary><span lang="en">Is it free?</span><span lang="zh">要钱吗？</span><span lang="ja">無料ですか？</span></summary>
           <p lang="en">Yes, MIT-licensed, no account. <a href="https://ko-fi.com/vegligi">Buy me a coffee</a> if it helps.</p>
-          <p lang="zh">免费，MIT 协议，不用注册。觉得有用可以<a href="https://ko-fi.com/vegligi">请我喝杯咖啡</a>。</p>
+          <p lang="zh">免费，MIT 协议，不用注册。觉得有用可以<a href="https://ko-fi.com/vegligi">请我喝杯咖啡</a>。</p><p lang="ja">はい。MIT ライセンスで、アカウントも不要です。役に立ったら <a href="https://ko-fi.com/vegligi">コーヒーをおごってください</a>。</p>
         </details>
         <details>
-          <summary><span lang="en">What does the name mean?</span><span lang="zh">名字是什么意思？</span></summary>
+          <summary><span lang="en">What does the name mean?</span><span lang="zh">名字是什么意思？</span><span lang="ja">名前の由来は？</span></summary>
           <p lang="en"><i>Kiku</i> (菊) is Japanese for chrysanthemum: the little flower in the menu bar.</p>
-          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是菜单栏里那朵小花。</p>
+          <p lang="zh"><i>Kiku</i>（菊）是日语里的菊花，就是菜单栏里那朵小花。</p><p lang="ja"><i>Kiku</i>（菊）は日本語の「菊」。メニューバーにある小さな花です。</p>
         </details>
       </div>
     </div>
@@ -963,11 +979,11 @@
   <section class="closing">
     <div class="wrap">
       <img class="closing-icon" src="icon.png" alt="">
-      <h2><span lang="en">Give your chats a map.</span><span lang="zh">给你的对话一张导图。</span></h2>
+      <h2><span lang="en">Give your chats a map.</span><span lang="zh">给你的对话一张导图。</span><span lang="ja">あなたのチャットに、マップを。</span></h2>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span></a>
-        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">Star on GitHub</span><span lang="zh">去 GitHub 点个 Star</span><span class="stars" data-stars hidden></span></a>
-        <a class="btn" href="https://ko-fi.com/vegligi"><svg><use href="#cup"/></svg><span lang="en">Buy me a coffee</span><span lang="zh">请我喝杯咖啡</span></a>
+        <a class="btn primary" href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><svg><use href="#download"/></svg><span lang="en">Download for macOS</span><span lang="zh">下载 macOS 版</span><span lang="ja">macOS 版をダウンロード</span></a>
+        <a class="btn" href="https://github.com/tang1693/KIKUmap"><svg><use href="#github"/></svg><span lang="en">Star on GitHub</span><span lang="zh">去 GitHub 点个 Star</span><span lang="ja">GitHub でスターを付ける</span><span class="stars" data-stars hidden></span></a>
+        <a class="btn" href="https://ko-fi.com/vegligi"><svg><use href="#cup"/></svg><span lang="en">Buy me a coffee</span><span lang="zh">请我喝杯咖啡</span><span lang="ja">コーヒーをおごる</span></a>
       </div>
     </div>
   </section>
@@ -976,20 +992,23 @@
 <footer>
   <div class="wrap">
     <span lang="en">An independent open-source project, not affiliated with Anthropic or OpenAI.</span>
-    <span lang="zh">独立开源项目，与 Anthropic、OpenAI 无关。</span>
-    <span><a href="https://github.com/tang1693/KIKUmap/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/tang1693/KIKUmap">GitHub</a> · <a href="https://github.com/tang1693/KIKUmap/issues"><span lang="en">Report an issue</span><span lang="zh">反馈问题</span></a> · <a href="https://ko-fi.com/vegligi">Ko-fi</a></span>
+    <span lang="zh">独立开源项目，与 Anthropic、OpenAI 无关。</span><span lang="ja">独立したオープンソースプロジェクトであり、Anthropic および OpenAI とは関係ありません。</span>
+    <span><a href="https://github.com/tang1693/KIKUmap/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/tang1693/KIKUmap">GitHub</a> · <a href="https://github.com/tang1693/KIKUmap/issues"><span lang="en">Report an issue</span><span lang="zh">反馈问题</span><span lang="ja">問題を報告</span></a> · <a href="https://ko-fi.com/vegligi">Ko-fi</a></span>
   </div>
 </footer>
 
 <script>
   var root = document.documentElement;
-  var titles = { en: "KIKUmap — A mind map for your Claude and ChatGPT chats", zh: "KIKUmap · Claude 和 ChatGPT 对话导图" };
+  var titles = { en: "KIKUmap — A mind map for your Claude and ChatGPT chats", zh: "KIKUmap · Claude 和 ChatGPT 对话导图",
+                 ja: "KIKUmap — Claude と ChatGPT のチャットをマインドマップに" };
   document.title = titles[root.dataset.lang];
 
-  document.getElementById("lang").addEventListener("click", function () {
-    var l = root.dataset.lang === "zh" ? "en" : "zh";
+  var langMenu = document.getElementById("lang");
+  langMenu.value = root.dataset.lang;
+  langMenu.addEventListener("change", function () {
+    var l = titles[langMenu.value] ? langMenu.value : "en";
     root.dataset.lang = l;
-    root.lang = l === "zh" ? "zh-CN" : "en";
+    root.lang = l === "zh" ? "zh-CN" : l;
     document.title = titles[l];
     try { localStorage.setItem("lang", l); } catch (e) {}
   });
@@ -997,7 +1016,7 @@
   // The tour plays muted, with captions, while it's on screen; "Play with sound" starts it over with the voice.
   // Visitors who ask for reduced motion get the play button instead.
   var tours = [].slice.call(document.querySelectorAll(".tour-video")), sound = document.getElementById("sound");
-  function tour() { return tours.filter(function (v) { return v.lang === root.dataset.lang; })[0] || tours[0]; }
+  function tour() { return tours.filter(function (v) { return v.lang === (root.dataset.lang === "zh" ? "zh" : "en"); })[0] || tours[0]; }
   var tourOnScreen = false;
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (entries) {
@@ -1154,7 +1173,11 @@
       return e;
     }
     // one element per language; the page's CSS shows the one that's on, so the language button needs nothing here
-    function both(tag, en, zh) { var a = el(tag, "", en), b = el(tag, "", zh); a.lang = "en"; b.lang = "zh"; return [a, b]; }
+    function both(tag, en, zh, ja) {
+      var a = el(tag, "", en), b = el(tag, "", zh), c; a.lang = "en"; b.lang = "zh";
+      if (ja == null) return [a, b];
+      c = el(tag, "", ja); c.lang = "ja"; return [a, b, c];
+    }
     function str(v, max) { return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : ""; }
     function int(v) { return typeof v === "number" || (typeof v === "string" && /^\s*\d+\s*$/.test(v)) ? Number(v) : NaN; }
     // a real calendar day ("2026-11-08"), or a month ("2026-11") when month is set; never one from the future, except
@@ -1289,7 +1312,7 @@
     function label() {
       var open = sec.hasAttribute("data-open"), n = wall.children.length;
       more.textContent = "";
-      more.append.apply(more, both("span", open ? "Back to the reel" : "See all " + n, open ? "收起" : "查看全部 " + n + " 个"));
+      more.append.apply(more, both("span", open ? "Back to the reel" : "See all " + n, open ? "收起" : "查看全部 " + n + " 个", open ? "閉じる" : "すべて表示（" + n + "）"));
       more.setAttribute("aria-expanded", open ? "true" : "false");
     }
     more.addEventListener("click", function () {
@@ -1390,15 +1413,15 @@
     // Topics in the order they're drawn; "kind" in the JSON is one of these keys (or a word in ALIAS). Any other kind
     // gets a topic of its own after these, labeled with the kind as written.
     var KINDS = {
-      trending: { en: "Trending charts", zh: "趋势榜" },
-      directory: { en: "Directories", zh: "工具目录" },
-      list: { en: "Curated lists", zh: "精选列表" },
-      article: { en: "Articles", zh: "文章" },
-      video: { en: "Videos", zh: "视频" },
-      newsletter: { en: "Newsletters", zh: "周刊和简报" },
-      forum: { en: "Discussions", zh: "社区讨论" },
-      podcast: { en: "Podcasts", zh: "播客" },
-      launch: { en: "Launch sites", zh: "发布平台" },
+      trending: { en: "Trending charts", zh: "趋势榜", ja: "トレンド" },
+      directory: { en: "Directories", zh: "工具目录", ja: "ディレクトリ" },
+      list: { en: "Curated lists", zh: "精选列表", ja: "キュレーションリスト" },
+      article: { en: "Articles", zh: "文章", ja: "記事" },
+      video: { en: "Videos", zh: "视频", ja: "動画" },
+      newsletter: { en: "Newsletters", zh: "周刊和简报", ja: "ニュースレター" },
+      forum: { en: "Discussions", zh: "社区讨论", ja: "ディスカッション" },
+      podcast: { en: "Podcasts", zh: "播客", ja: "ポッドキャスト" },
+      launch: { en: "Launch sites", zh: "发布平台", ja: "ローンチサイト" },
       other: { en: "Elsewhere", zh: "其他" }
     };
     var ORDER = Object.keys(KINDS);
@@ -1415,7 +1438,11 @@
       return e;
     }
     // one element per language; the page's CSS shows the one that's on, so the language button needs nothing here
-    function both(tag, en, zh) { var a = el(tag, "", en), b = el(tag, "", zh); a.lang = "en"; b.lang = "zh"; return [a, b]; }
+    function both(tag, en, zh, ja) {
+      var a = el(tag, "", en), b = el(tag, "", zh), c; a.lang = "en"; b.lang = "zh";
+      if (ja == null) return [a, b];
+      c = el(tag, "", ja); c.lang = "ja"; return [a, b, c];
+    }
     function str(v, max) { return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : ""; }
     function pad(n) { return (n < 10 ? "0" : "") + n; }
     function kindOf(v) {
@@ -1477,7 +1504,7 @@
       li.dataset.tone = TONES[i % TONES.length]; li.dataset.shape = SHAPES[i % SHAPES.length];
       var h = el("h3", "fkind"), pill = el("span", "fpill"), shape = el("i", "fshape"), n = el("span", "fcount", String(g.items.length));
       shape.setAttribute("aria-hidden", "true"); n.setAttribute("aria-hidden", "true");
-      pill.append(shape); pill.append.apply(pill, both("span", g.en, g.zh)); pill.append(n); h.append(pill);
+      pill.append(shape); pill.append.apply(pill, both("span", g.en, g.zh, g.ja)); pill.append(n); h.append(pill);
       var ul = el("ul", "fls"), fold = g.items.length > show + 1;  // never "1 more": that one is simply shown
       ul.setAttribute("role", "list");
       g.items.forEach(function (it, k) { ul.append(leaf(it, fold && k >= show)); });
@@ -1487,7 +1514,7 @@
         var label = function () {
           var open = li.hasAttribute("data-open");
           b.textContent = "";
-          b.append.apply(b, both("span", open ? "Show fewer" : rest + " more", open ? "收起" : "还有 " + rest + " 个"));
+          b.append.apply(b, both("span", open ? "Show fewer" : rest + " more", open ? "收起" : "还有 " + rest + " 个", open ? "閉じる" : "ほか " + rest + " 件"));
           b.setAttribute("aria-expanded", open ? "true" : "false");
         };
         b.addEventListener("click", function () { li.toggleAttribute("data-open"); label(); });
