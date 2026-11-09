@@ -256,13 +256,13 @@
   /* one award: the branches, and between them the site, the rank, a rule, the list's own name, and when */
   .award {
     position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-    min-height: 236px; padding: 18px 50px; border-radius: 18px; color: var(--ink); text-decoration: none; text-align: center;
+    min-height: 236px; padding: 18px 54px; border-radius: 18px; color: var(--ink); text-decoration: none; text-align: center;
     background: radial-gradient(60% 52% at 50% 44%, color-mix(in srgb, var(--m3) var(--glow, 0%), transparent), transparent 75%);
     transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), background-color .3s;
   }
   .award[data-tier="gold"] { --glow: 16%; }
   @media (prefers-color-scheme: dark) { .award[data-tier="gold"] { --glow: 13%; } }
-  .award .awlb { width: 46px; top: 16px; bottom: 16px; }
+  .award .awlb { width: 50px; top: 14px; bottom: 14px; }
   .awt { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; width: 100%; }
   .aws {
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: .3em;
@@ -277,7 +277,7 @@
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
   }
   .awl > :lang(zh) { letter-spacing: .04em; font-size: 14.5px; }
-  .awd { font-family: var(--aw-cond); font-size: 10.5px; font-weight: 500; line-height: 1.35; letter-spacing: .18em; text-transform: uppercase; color: var(--ink2); }
+  .awd { font-family: var(--aw-cond); font-size: 10.5px; font-weight: 500; line-height: 1.35; letter-spacing: .18em; text-transform: uppercase; color: var(--ink2); text-wrap: balance; }
   .awd > :lang(zh) { letter-spacing: .06em; font-size: 11.5px; }
   .awx { position: absolute; top: 12px; right: 14px; font-style: normal; font-size: 12px; line-height: 1; color: var(--mi); opacity: 0; transition: opacity .2s, transform .2s; }
   .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; }
@@ -303,19 +303,19 @@
   }
   .awmosaic {
     list-style: none; position: absolute; left: 50%; top: 50%; width: 1900px; transform: translate(-50%, -50%) rotate(-4deg);
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; opacity: .22; filter: blur(.6px);
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; opacity: .15; filter: blur(1px);
   }
-  @media (prefers-color-scheme: dark) { .awmosaic { opacity: .26; } }
+  @media (prefers-color-scheme: dark) { .awmosaic { opacity: .17; } }
   .awrows {
     position: relative; display: grid; gap: 0;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
   }
   .awrow { overflow: hidden; }
-  .awtrack { list-style: none; display: flex; gap: 8px; width: max-content; padding: 4px 0 8px; animation: awdrift 80s linear infinite; }
+  .awtrack { list-style: none; display: flex; gap: 40px; width: max-content; padding: 4px 0 8px; animation: awdrift 80s linear infinite; }
   .awrow.rev .awtrack { animation-direction: reverse; }
   .awrow:hover .awtrack, .awrow:focus-within .awtrack { animation-play-state: paused; }
-  @keyframes awdrift { to { transform: translateX(calc(-50% - 4px)); } }
-  .awtrack > li { flex: none; display: flex; width: 244px; }
+  @keyframes awdrift { to { transform: translateX(calc(-50% - 20px)); } }
+  .awtrack > li { flex: none; display: flex; width: 264px; }
   @media (prefers-reduced-motion: no-preference) {
     .awstage.glint .award { animation: awglint 2.4s cubic-bezier(.45, .05, .3, 1); }
   }
@@ -328,8 +328,8 @@
   }
 
   /* "See all": the array as wreaths you can read and open, best first */
-  .awall { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; margin-top: 18px; }
-  .awall > li { display: flex; flex: 0 0 244px; }
+  .awall { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 40px; margin-top: 18px; }
+  .awall > li { display: flex; flex: 0 0 264px; }
   .awsec[data-js] .awall { display: none; }
   .awsec[data-js][data-open] .awall { display: flex; }
   .awsec[data-js][data-open] .awstage { display: none; }
@@ -353,12 +353,14 @@
   @media (max-width: 640px) {
     .awhero { padding: 10px 70px 8px; min-height: 140px; }
     .awhero .awlb { width: 58px; }
-    .awtrack > li, .awall > li { width: 210px; flex-basis: 210px; }
-    .award { min-height: 214px; padding: 16px 42px; }
-    .award .awlb { width: 40px; }
+    .awtrack { gap: 28px; }
+    @keyframes awdrift { to { transform: translateX(calc(-50% - 14px)); } }
+    .awtrack > li, .awall > li { width: 232px; flex-basis: 232px; }
+    .award { min-height: 220px; padding: 16px 48px; }
+    .award .awlb { width: 44px; }
     .awr { font-size: 38px; }
     .awl { font-size: 13px; }
-    .awmosaic { opacity: .18; }
+    .awmosaic { opacity: .12; }
   }
   @media (prefers-contrast: more) {
     .awlb { background: var(--mi); filter: none; }
