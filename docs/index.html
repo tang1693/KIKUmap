@@ -256,18 +256,13 @@
     position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
     min-height: 226px; padding: 16px 54px; border-radius: 18px; color: var(--ink); text-decoration: none; text-align: center;
     background: radial-gradient(60% 52% at 50% 44%, color-mix(in srgb, var(--m3) var(--glow, 0%), transparent), transparent 75%);
-    transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), --awp 1.2s cubic-bezier(.25, .8, .25, 1), background-color .3s;
+    transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), --awp 1.2s cubic-bezier(.25, .8, .25, 1);
   }
   .award[data-tier="gold"] { --glow: 16%; }
   @media (prefers-color-scheme: dark) { .award[data-tier="gold"] { --glow: 13%; } }
   .award .awlb { width: 50px; top: 14px; bottom: 14px; }
-  /* under the mouse the light follows the pointer (the script sets --awa, --awp, --lx and --ly), with a soft spot of it */
-  .award.awlit { transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa .2s ease-out, --awp .2s ease-out, background-color .3s; }
-  .award::before {
-    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
-    background: radial-gradient(150px circle at var(--lx, 50%) var(--ly, 40%), color-mix(in srgb, var(--m3) 16%, transparent), transparent 70%);
-  }
-  .award.awlit::before { opacity: 1; }
+  /* under the mouse the light on the metal follows the pointer (the script sets --awa and --awp) */
+  .award.awlit { transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa .2s ease-out, --awp .2s ease-out; }
   .awt { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; width: 100%; }
   .aws {
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: .3em;
@@ -289,7 +284,7 @@
   .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; --awp: 50%; }
   .award:focus-visible .awx { opacity: .9; }
   @media (hover: hover) {
-    .award:hover { --awa: 70deg; --awp: 50%; background-color: color-mix(in srgb, var(--m3) 6%, transparent); }
+    .award:hover { --awa: 70deg; --awp: 50%; }
     .award:hover .awx { opacity: .9; }
   }
   @media (hover: hover) and (prefers-reduced-motion: no-preference) { .award:hover { transform: translateY(-3px); } .award:hover .awx { transform: translate(2px, -2px); } }
@@ -1350,14 +1345,12 @@
         var r = a.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
         a.style.setProperty("--awa", Math.round(70 + (x - 0.5) * 160 + (y - 0.5) * 50) + "deg");
         a.style.setProperty("--awp", Math.round(50 - (x - 0.5) * 85) + "%");
-        a.style.setProperty("--lx", Math.round(x * 100) + "%");
-        a.style.setProperty("--ly", Math.round(y * 100) + "%");
         a.classList.toggle("awlit", true);
       });
       box.addEventListener("pointerout", function (ev) {
         var a = ev.target.closest ? ev.target.closest(".award") : null;
         if (!a || a.contains(ev.relatedTarget)) return;
-        ["--awa", "--awp", "--lx", "--ly"].forEach(function (p) { a.style.removeProperty(p); });
+        ["--awa", "--awp"].forEach(function (p) { a.style.removeProperty(p); });
         a.classList.toggle("awlit", false);
       });
     }
