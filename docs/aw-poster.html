@@ -170,8 +170,10 @@
   @property --awa { syntax: "<angle>"; inherits: true; initial-value: 0deg; }   /* where the light falls on the metal */
   .awsec {
     padding: 8px 0 12px; overflow-x: clip;
-    /* condensed capitals, as on a film poster: the Mac's own Avenir Next Condensed, nothing downloaded */
-    --aw-cond: "Avenir Next Condensed", "AvenirNextCondensed-DemiBold", "DIN Condensed", "Bahnschrift SemiCondensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    /* condensed capitals, as on a film poster, from fonts the visitor already has (nothing downloaded): Avenir Next
+       Condensed on Macs and iPhones, Bahnschrift's condensed width on Windows, Roboto Condensed on Android, then the
+       common narrow faces; any other sans still fits, as the layout leaves room for a wider one */
+    --aw-cond: "Avenir Next Condensed", "Bahnschrift", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Liberation Sans Narrow", "DejaVu Sans Condensed", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     /* the plaque: ivory from top to bottom, its laid lines, the light from above, the lit edge of an engraved line,
        the shadow it casts at rest and lifted, and the laurel's relief */
     --pl1: #FFFDF7; --pl2: #F3EBDA; --plg: rgba(120, 88, 36, .045); --pll: rgba(255, 255, 255, .9); --pll0: rgba(255, 255, 255, 0);
@@ -206,8 +208,8 @@
      #2 silver, #3 bronze, #4 to #10 steel. A count on top (worked out from the list), two rows drifting past (like the
      posts from X further down), and behind them the whole array, dim and out of focus; "See all" brings it forward. */
   .awards { max-width: 1040px; margin: 0 auto; }
-  .awsec .award, .awsec .awmini, .awhero { --m1: var(--fe1); --m2: var(--fe2); --m3: var(--fe3); --m4: var(--fe4); --mi: var(--fei); }
-  .awsec [data-tier="gold"], .awhero { --m1: var(--au1); --m2: var(--au2); --m3: var(--au3); --m4: var(--au4); --mi: var(--aui); }
+  .awsec .award, .awsec .awmini { --m1: var(--fe1); --m2: var(--fe2); --m3: var(--fe3); --m4: var(--fe4); --mi: var(--fei); }
+  .awsec [data-tier="gold"] { --m1: var(--au1); --m2: var(--au2); --m3: var(--au3); --m4: var(--au4); --mi: var(--aui); }
   .awsec [data-tier="silver"] { --m1: var(--ag1); --m2: var(--ag2); --m3: var(--ag3); --m4: var(--ag4); --mi: var(--agi); }
   .awsec [data-tier="bronze"] { --m1: var(--cu1); --m2: var(--cu2); --m3: var(--cu3); --m4: var(--cu4); --mi: var(--cui); }
 
@@ -227,6 +229,8 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
 
+  .awhead, .award, .awmini, .awmore { font-stretch: condensed; }   /* picks Bahnschrift's condensed width */
+
   /* the heading: small capitals between hairlines */
   .awhead {
     display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0;
@@ -242,15 +246,7 @@
   :root[data-lang="zh"] .awhead { letter-spacing: .2em; }
   .awhead svg { display: none; }
 
-  /* the count, as one large laurel: "6 × No. 1", a rule, "18 top-10 rankings · 5 sites" */
-  .awhero { position: relative; display: flex; justify-content: center; width: min(520px, 100%); margin: 16px auto 0; padding: 14px 92px 12px; min-height: 168px; }
-  .awhero[hidden] { display: none; }
-  .awhero .awlb { width: 76px; }
-  .awhin { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; text-align: center; }
-  .awbig { font-family: var(--aw-cond); font-size: clamp(46px, 7vw, 66px); font-weight: 600; line-height: .92; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
-  .awbig small { font-size: .5em; letter-spacing: .08em; margin: 0 .12em; vertical-align: .32em; }
-  .awsub { font-family: var(--aw-cond); font-size: 13.5px; font-weight: 600; line-height: 1.35; letter-spacing: .24em; text-transform: uppercase; color: var(--ink2); }
-  :root[data-lang="zh"] .awsub { letter-spacing: .12em; }
+  /* a thin rule in the metal, under the rank */
   .awrule { display: block; width: 72%; max-width: 240px; height: 1px; background: linear-gradient(90deg, transparent, var(--m3) 20%, var(--m4) 50%, var(--m3) 80%, transparent); }
 
   /* one award: the branches, and between them the site, the rank, a rule, the list's own name, and when */
@@ -269,12 +265,12 @@
     font-family: var(--aw-cond); font-size: 10.5px; font-weight: 600; line-height: 1.3; letter-spacing: .3em; text-transform: uppercase; color: var(--mi);
   }
   .awr { font-family: var(--aw-cond); font-size: 44px; font-weight: 600; line-height: .95; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
-  .awr > :lang(zh) { font-size: 34px; letter-spacing: .04em; }
+  .awr > :lang(zh) { font-size: 32px; letter-spacing: .04em; }
   .award .awrule { width: 56px; }
   .awl {
     font-family: var(--aw-cond); font-size: 14px; font-weight: 600; line-height: 1.28; letter-spacing: .09em; text-transform: uppercase;
     overflow-wrap: anywhere; text-wrap: balance;
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
   }
   .awl > :lang(zh) { letter-spacing: .04em; font-size: 14.5px; }
   .awd { font-family: var(--aw-cond); font-size: 10.5px; font-weight: 500; line-height: 1.35; letter-spacing: .18em; text-transform: uppercase; color: var(--ink2); text-wrap: balance; }
@@ -295,7 +291,7 @@
   .awmini b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--aw-cond); font-size: 30px; font-weight: 600; line-height: 1; }
 
   /* the reel */
-  .awstage { position: relative; margin-top: 18px; }
+  .awstage { position: relative; margin-top: 14px; }
   .awstage[hidden] { display: none; }
   .awback {
     position: absolute; inset: -40px 0 -30px; overflow: hidden; pointer-events: none;
@@ -351,8 +347,6 @@
   .awnote { max-width: 620px; color: var(--ink2); font-size: 13px; line-height: 1.5; text-align: center; text-wrap: balance; }
 
   @media (max-width: 640px) {
-    .awhero { padding: 10px 70px 8px; min-height: 140px; }
-    .awhero .awlb { width: 58px; }
     .awtrack { gap: 28px; }
     @keyframes awdrift { to { transform: translateX(calc(-50% - 14px)); } }
     .awtrack > li, .awall > li { width: 232px; flex-basis: 232px; }
@@ -653,12 +647,11 @@
 
   <section class="awsec" id="top10" aria-labelledby="awhead">
     <div class="wrap">
-      <!-- Top 10 on the charts: rebuilt by the script from the entries in mentions.json that carry an "award". The count
-           and the laurels below are what visitors without JavaScript and link checkers see; keep them in step with the
+      <!-- Top 10 on the charts: rebuilt by the script from the entries in mentions.json that carry an "award". The laurels
+           below are what visitors without JavaScript and link checkers see; keep them in step with the
            file (generated by running the script). With the script, the laurels drift past in a reel. -->
       <div class="awards" id="awards">
         <h2 class="awhead" id="awhead"><span lang="en">Top 10 on the charts</span><span lang="zh">进入前 10 的榜单</span></h2>
-        <div class="awhero" id="awhero"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><p class="awhin" id="awstat"><span class="awbig awmetal"><span lang="en">6<small>×</small>No. 1</span><span lang="zh">6<small>次</small>第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awsub"><span lang="en">18 top-10 rankings · 5 sites</span><span lang="zh">18 次进入前 10 · 5 个网站</span></span></p></div>
       </div>
     </div>
     <div class="awstage" id="awstage" hidden>
@@ -1141,7 +1134,7 @@
   // only its own official badge on this page.
   (function () {
     var wall = document.getElementById("awall"), more = document.getElementById("awmore");
-    if (!wall || !more || !document.getElementById("awhero")) return;
+    if (!wall || !more) return;
     var DAY = 864e5;
     var URL_ = "https://raw.githubusercontent.com/tang1693/KIKUmap/x-posts/mentions.json";
 
@@ -1277,7 +1270,7 @@
       return li;
     }
 
-    var sec = document.getElementById("top10"), hero = document.getElementById("awhero"), stat = document.getElementById("awstat"), stage = document.getElementById("awstage");
+    var sec = document.getElementById("top10"), stage = document.getElementById("awstage");
     var rows = document.getElementById("awrows"), mosaic = document.getElementById("awmosaic");
 
     function label() {
@@ -1291,31 +1284,6 @@
       label();
       if (!sec.hasAttribute("data-open") && sec.getBoundingClientRect().top < 0) sec.scrollIntoView({ block: "start" });
     });
-
-    // how many, as one large laurel: "6 × No. 1" over "18 top-10 rankings · 5 sites" (all counted from the awards shown)
-    function stats(list) {
-      var ones = 0, sites = {}, n = 0, t = list.length;
-      list.forEach(function (a) { if (a.rank === 1) ones++; sites[a.source.toLowerCase()] = true; });
-      for (var k in sites) n++;
-      while (stat.firstChild) stat.removeChild(stat.firstChild);
-      var big = el("span", "awbig awmetal"), sub = el("span", "awsub"), rule = el("i", "awrule");
-      var en = (t === 1 ? "1 top-10 ranking" : t + " top-10 rankings") + " · " + n + (n === 1 ? " site" : " sites");
-      var zh = t + " 次进入前 10 · " + n + " 个网站";
-      if (ones) {
-        var be = el("span"), bz = el("span");
-        be.lang = "en"; bz.lang = "zh";
-        be.append(String(ones), el("small", "", "×"), "No. 1"); bz.append(String(ones), el("small", "", "次"), "第 1 名");
-        big.append(be, bz);
-      } else {
-        big.append.apply(big, both("span", "Top 10", "前 10"));
-        en = (t === 1 ? "1 ranking" : t + " rankings") + " · " + n + (n === 1 ? " site" : " sites");
-        zh = t + " 次 · " + n + " 个网站";
-      }
-      sub.append.apply(sub, both("span", en, zh));
-      rule.setAttribute("aria-hidden", "true");
-      stat.append(big, rule, sub);
-      hero.removeAttribute("hidden");
-    }
 
     // two rows drifting opposite ways: the medals (#1–#3) and the rest; one row when there are few. Each row holds
     // enough laurels to be wider than the widest screen, then all of them once more for a seamless loop.
@@ -1349,7 +1317,6 @@
       });
       while (wall.firstChild) wall.removeChild(wall.firstChild);
       list.forEach(function (a, i) { var li = tile(a); li.setAttribute("style", "--i: " + i); wall.append(li); });
-      stats(list);
       reel(list);
       sec.setAttribute("data-js", "");
       label();
