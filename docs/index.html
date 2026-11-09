@@ -166,139 +166,220 @@
     .xpost { transition: none; }
   }
   .ph img { display: inline-block; width: 250px; height: 54px; }
-  /* Top 10 on the charts: the lists where KIKUmap made the top 10, as one set of medals in the page's own style. Every
-     award is the same tile: our laurel (one branch, drawn once, and its mirror image) with the rank inside, then the
-     site, the list's own name, and when. The metal follows the rank alone: #1 gold (the icon's yellow), #2 silver,
-     #3 bronze, #4 to #10 the page's ink, so a #7 never passes for gold. Still at rest; on hover the wreath opens a
-     little. The rest of "Featured elsewhere" (the map) follows below it. */
-  /* right under the hero, before the tour: the first thing below the download button */
-  .awsec { padding: 4px 0 8px; }
-  .awards {
-    max-width: 1040px; margin: 0 auto;
-    --gold: #D4A017; --gold-ink: #8A6400; --silver: #A3ABB4; --silver-ink: #55606B; --bronze: #C27A3F; --bronze-ink: #8A4A1C;
-    --plain: color-mix(in srgb, var(--ink) 34%, var(--card)); --plain-ink: var(--ink);
-    --glow1: 17%; --glow2: 17%; --glow3: 15%;   /* how much of the metal tints the top of a tile */
+  @property --awa { syntax: "<angle>"; inherits: true; initial-value: 0deg; }   /* where the light falls on the metal */
+  @property --awp { syntax: "<percentage>"; inherits: true; initial-value: 95%; }   /* where the shine is on the words (95%: just off them, to the left) */
+  .awsec {
+    padding: 8px 0 12px; overflow-x: clip;
+    /* condensed capitals, as on a film poster, from fonts the visitor already has (nothing downloaded): Avenir Next
+       Condensed on Macs and iPhones, Bahnschrift's condensed width on Windows, Roboto Condensed on Android, then the
+       common narrow faces; any other sans still fits, as the layout leaves room for a wider one */
+    --aw-cond: "Avenir Next Condensed", "Bahnschrift", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Liberation Sans Narrow", "DejaVu Sans Condensed", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    /* the plaque: ivory from top to bottom, its laid lines, the light from above, the lit edge of an engraved line,
+       the shadow it casts at rest and lifted, and the laurel's relief */
+    --pl1: #FFFDF7; --pl2: #F3EBDA; --plg: rgba(120, 88, 36, .045); --pll: rgba(255, 255, 255, .9); --pll0: rgba(255, 255, 255, 0);
+    --plc: rgba(255, 255, 255, .95);
+    --pls: 0 1px 1px rgba(70, 48, 18, .07), 0 4px 10px -4px rgba(70, 48, 18, .12), 0 20px 34px -22px rgba(70, 48, 18, .42);
+    --pls2: 0 1px 1px rgba(70, 48, 18, .08), 0 10px 18px -10px rgba(70, 48, 18, .2), 0 32px 50px -28px rgba(70, 48, 18, .5);
+    --emb: drop-shadow(0 1px .4px rgba(84, 56, 14, .34));
+    /* the metals, by their chemical symbols (bronze as copper, steel as iron), each from deep to glint, then the ink
+       for words set in that metal */
+    --au1: #6A4A09; --au2: #A47A1B; --au3: #D2A83E; --au4: #F1D684; --aui: #7A590B;
+    --ag1: #4E5862; --ag2: #8A949E; --ag3: #C3CBD2; --ag4: #F4F6F8; --agi: #4F5862;
+    --cu1: #5E3213; --cu2: #965B2D; --cu3: #C78A57; --cu4: #EEC6A0; --cui: #7D4420;
+    --fe1: #3E4246; --fe2: #595E63; --fe3: #767B80; --fe4: #9A9FA3; --fei: #565B60;
+    /* our laurel: one tall branch, drawn once (the right one is its mirror image), cut out of the metal */
+    --aw-branch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 200'%3E%3Cpath d='M54 196C4 150 6 52 40 6' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M45.6 187.2C37.7 190.8 27.6 187.6 22.3 181.3C30.0 178.2 40.4 180.3 45.6 187.2ZM41.1 181.6C36.0 176.1 36.0 167.0 40.1 161.0C44.7 166.5 45.7 175.5 41.1 181.6ZM35.4 172.9C27.4 175.1 18.3 170.5 14.3 163.7C22.1 161.9 31.6 165.5 35.4 172.9ZM31.8 166.5C27.7 160.6 29.1 152.0 33.8 146.9C37.5 152.8 37.1 161.5 31.8 166.5ZM27.3 156.9C19.5 157.9 11.6 152.4 8.7 145.3C16.3 144.7 24.8 149.4 27.3 156.9ZM24.7 150.0C21.5 143.8 23.9 135.9 29.1 131.7C31.8 137.8 30.3 146.0 24.7 150.0ZM21.4 139.7C13.8 139.8 7.0 133.6 5.2 126.6C12.5 126.8 20.0 132.2 21.4 139.7ZM19.6 132.4C17.3 126.2 20.4 119.0 25.9 115.6C27.8 121.7 25.5 129.2 19.6 132.4ZM17.5 121.6C10.3 121.0 4.5 114.4 3.7 107.5C10.6 108.5 17.0 114.4 17.5 121.6ZM16.5 114.2C14.9 108.0 18.6 101.5 24.2 98.9C25.4 104.9 22.4 111.8 16.5 114.2ZM15.6 103.2C8.8 101.9 4.0 95.1 3.9 88.5C10.4 90.1 15.8 96.2 15.6 103.2ZM15.4 95.6C14.4 89.6 18.5 83.9 24.0 82.0C24.7 87.8 21.2 94.0 15.4 95.6ZM15.5 84.6C9.2 82.8 5.3 76.0 5.9 69.8C11.9 71.8 16.5 78.1 15.5 84.6ZM16.0 77.2C15.6 71.4 20.0 66.4 25.4 65.2C25.5 70.7 21.7 76.2 16.0 77.2ZM17.3 66.5C11.4 64.2 8.5 57.5 9.6 51.6C15.1 54.1 18.8 60.4 17.3 66.5ZM18.5 59.2C18.6 53.8 23.2 49.5 28.4 48.9C28.0 54.1 23.9 58.9 18.5 59.2ZM20.7 49.0C15.4 46.4 13.3 39.9 15.0 34.5C19.9 37.3 22.8 43.5 20.7 49.0ZM22.6 42.2C23.2 37.1 27.9 33.6 32.9 33.6C32.1 38.5 27.8 42.5 22.6 42.2ZM25.8 32.7C21.1 29.8 19.8 23.5 22.1 18.7C26.4 21.7 28.4 27.8 25.8 32.7ZM28.3 26.5C29.4 21.8 34.2 19.0 38.8 19.7C37.5 24.2 33.1 27.5 28.3 26.5ZM32.5 18.0C28.4 14.7 28.0 8.8 30.7 4.6C34.4 7.9 35.6 13.8 32.5 18.0ZM35.6 12.5C37.2 8.2 41.9 6.3 46.1 7.6C44.4 11.6 39.9 14.1 35.6 12.5ZM40.0 6.0C39.1 0.1 43.4 -4.9 48.9 -6.1C49.5 -0.4 45.9 5.1 40.0 6.0Z'/%3E%3C/svg%3E");
   }
   @media (prefers-color-scheme: dark) {
-    .awards {
-      --gold: #FEC503; --gold-ink: #FFD65C; --silver: #B9C2CB; --silver-ink: #DCE2E8; --bronze: #D98E4F; --bronze-ink: #F2B27A;
-      --plain: color-mix(in srgb, var(--ink) 36%, var(--card));
-      --glow1: 12%; --glow2: 12%; --glow3: 11%;
+    .awsec {
+      --pl1: #2C2926; --pl2: #1F1D1B; --plg: rgba(255, 255, 255, .022); --pll: rgba(255, 238, 205, .07); --pll0: rgba(255, 238, 205, 0);
+      --plc: rgba(255, 255, 255, .055);
+      --pls: 0 1px 2px rgba(0, 0, 0, .5), 0 20px 36px -20px rgba(0, 0, 0, .95);
+      --pls2: 0 1px 2px rgba(0, 0, 0, .55), 0 30px 50px -24px rgba(0, 0, 0, 1);
+      --emb: drop-shadow(0 1.5px 1px rgba(0, 0, 0, .65));
+      --au1: #7A570E; --au2: #C29224; --au3: #F2C744; --au4: #FFF0B8; --aui: #EDC458;
+      --ag1: #5E6872; --ag2: #A2ACB5; --ag3: #D9DFE4; --ag4: #FFFFFF; --agi: #CBD3DA;
+      --cu1: #6A3A17; --cu2: #B0703B; --cu3: #DD9E68; --cu4: #FFDCBC; --cui: #DFA271;
+      --fe1: #41464B; --fe2: #61676D; --fe3: #838A90; --fe4: #A9AFB5; --fei: #A2A8AE;
     }
   }
-  /* the heading, between a pair of laurel branches */
+  /* Top 10 on the charts: the lists where KIKUmap made the top 10, each as a festival laurel: two tall branches of our
+     own drawing around the words, in condensed capitals as on a film poster. The metal follows the rank alone: #1 gold,
+     #2 silver, #3 bronze, #4 to #10 steel. A count on top (worked out from the list), two rows drifting past (like the
+     posts from X further down), and behind them the whole array, dim and out of focus; "See all" brings it forward. */
+  .awards { max-width: 1040px; margin: 0 auto; }
+  .awsec .award, .awsec .awmini { --m1: var(--fe1); --m2: var(--fe2); --m3: var(--fe3); --m4: var(--fe4); --mi: var(--fei); }
+  .awsec [data-tier="gold"] { --m1: var(--au1); --m2: var(--au2); --m3: var(--au3); --m4: var(--au4); --mi: var(--aui); }
+  .awsec [data-tier="silver"] { --m1: var(--ag1); --m2: var(--ag2); --m3: var(--ag3); --m4: var(--ag4); --mi: var(--agi); }
+  .awsec [data-tier="bronze"] { --m1: var(--cu1); --m2: var(--cu2); --m3: var(--cu3); --m4: var(--cu4); --mi: var(--cui); }
+
+  /* a branch of the laurel, cut out of the metal; the light on it turns with --awa */
+  .awlb {
+    position: absolute; top: 0; bottom: 0; width: 27%; pointer-events: none;
+    /* polished: bands of light around the middle of the branch, turning with --awa (a full turn at 225deg) */
+    background: conic-gradient(from calc(var(--awa) * 1.6 - 40deg) at 50% 45%, var(--m2), var(--m4) 28deg, var(--m3) 62deg, var(--m1) 118deg,
+      var(--m2) 168deg, var(--m4) 208deg, var(--m3) 246deg, var(--m1) 300deg, var(--m2));
+    -webkit-mask: var(--aw-branch) center / contain no-repeat; mask: var(--aw-branch) center / contain no-repeat;
+    filter: var(--emb);
+  }
+  .awlb.l { left: 0; }
+  .awlb.r { right: 0; transform: scaleX(-1); }
+  /* words set in the metal: a band of shine across the letters, at --awp (it repeats every 150%, so a sweep loops) */
+  .awmetal {
+    background: linear-gradient(104deg, var(--m3) 0%, var(--m4) 14%, var(--m3) 28%, var(--m2) 38%, var(--m4) 46%,
+      color-mix(in srgb, var(--m4) 45%, #fff) 50%, var(--m4) 54%, var(--m2) 62%, var(--m3) 72%, var(--m4) 86%, var(--m3) 100%) var(--awp) 0 / 300% 100% repeat-x;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .awhead, .award, .awmini, .awmore { font-stretch: condensed; }   /* picks Bahnschrift's condensed width */
+
+  /* the heading: small capitals between hairlines */
   .awhead {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    font-size: 14px; font-weight: 700; line-height: 1.3; letter-spacing: .1em; text-transform: uppercase; color: var(--ink2);
+    display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0;
+    font-family: var(--aw-cond); font-size: 13px; font-weight: 600; line-height: 1.3; letter-spacing: .34em;
+    text-transform: uppercase; color: var(--ink2);
   }
-  :root[data-lang="zh"] .awhead { letter-spacing: .06em; }
-  .awhead svg { flex: none; width: 19px; height: 37px; color: var(--gold); }
+  .awhead::before, .awhead::after {
+    content: ""; flex: 0 1000 140px; min-width: 14px; height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--aui) 55%, transparent));
+  }
+  .awhead::after { background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--aui) 55%, transparent)); }
+  .awhead > span { padding-left: .34em; }
+  :root[data-lang="zh"] .awhead { letter-spacing: .2em; }
+  .awhead svg { display: none; }
 
-  /* four to a row (a hair under a quarter, so rounding never pushes one down); a short last row sits in the middle */
-  .awall { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 18px; }
-  .awall > li { display: flex; flex: 0 1 calc((100% - 3 * 14px) / 4 - .1px); min-width: 0; }
+  /* a thin rule in the metal, under the rank */
+  .awrule { display: block; width: 72%; max-width: 240px; height: 1px; background: linear-gradient(90deg, transparent, var(--m3) 20%, var(--m4) 50%, var(--m3) 80%, transparent); }
+
+  /* one award: the branches, and between them the site, the rank, a rule, the list's own name, and when */
   .award {
-    --m: var(--plain); --mi: var(--plain-ink); --glow: 0%;
-    position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 20px 16px 18px; border: 1px solid var(--line); border-radius: 20px; color: var(--ink); text-decoration: none;
-    background: radial-gradient(85% 62% at 50% 0%, color-mix(in srgb, var(--m) var(--glow), transparent), transparent 72%) var(--card);
-    transition: transform .3s cubic-bezier(.2, .8, .2, 1), box-shadow .3s, border-color .3s;
+    position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+    min-height: 226px; padding: 16px 54px; border-radius: 18px; color: var(--ink); text-decoration: none; text-align: center;
+    background: radial-gradient(60% 52% at 50% 44%, color-mix(in srgb, var(--m3) var(--glow, 0%), transparent), transparent 75%);
+    transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), --awp 1.2s cubic-bezier(.25, .8, .25, 1), background-color .3s;
   }
-  .award[data-tier="gold"] { --m: var(--gold); --mi: var(--gold-ink); --glow: var(--glow1); }
-  .award[data-tier="silver"] { --m: var(--silver); --mi: var(--silver-ink); --glow: var(--glow2); }
-  .award[data-tier="bronze"] { --m: var(--bronze); --mi: var(--bronze-ink); --glow: var(--glow3); }
-  .awm { position: relative; flex: none; width: 76px; height: 76px; color: var(--m); }
-  .awm svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  .awb { transform-box: view-box; transform-origin: 32px 55px; transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
-  .awn {
-    position: absolute; inset: 0 0 4px; display: grid; place-items: center; color: var(--mi);
-    font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums lining-nums;
+  .award[data-tier="gold"] { --glow: 16%; }
+  @media (prefers-color-scheme: dark) { .award[data-tier="gold"] { --glow: 13%; } }
+  .award .awlb { width: 50px; top: 14px; bottom: 14px; }
+  /* under the mouse the light follows the pointer (the script sets --awa, --awp, --lx and --ly), with a soft spot of it */
+  .award.awlit { transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa .2s ease-out, --awp .2s ease-out, background-color .3s; }
+  .award::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
+    background: radial-gradient(150px circle at var(--lx, 50%) var(--ly, 40%), color-mix(in srgb, var(--m3) 16%, transparent), transparent 70%);
   }
-  .awn.two { font-size: 22px; letter-spacing: -.05em; }
-  .awt { flex: 1; display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; }
+  .award.awlit::before { opacity: 1; }
+  .awt { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; width: 100%; }
   .aws {
-    max-width: 100%; margin-top: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-size: 12px; font-weight: 700; line-height: 1.4; letter-spacing: .08em; text-transform: uppercase; color: var(--ink2);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: .3em;
+    font-family: var(--aw-cond); font-size: 10.5px; font-weight: 600; line-height: 1.3; letter-spacing: .3em; text-transform: uppercase; color: var(--mi);
   }
+  .awr { font-family: var(--aw-cond); font-size: 44px; font-weight: 600; line-height: .95; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
+  .awr > :lang(zh) { font-size: 32px; letter-spacing: .04em; }
+  .award .awrule { width: 56px; }
   .awl {
-    margin-top: 5px; font-size: 15.5px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; text-wrap: balance;
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+    font-family: var(--aw-cond); font-size: 14px; font-weight: 600; line-height: 1.28; letter-spacing: .09em; text-transform: uppercase;
+    overflow-wrap: anywhere; text-wrap: balance;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
   }
-  .awd { margin-top: auto; padding-top: 10px; color: var(--ink2); font-size: 13.5px; line-height: 1.45; font-variant-numeric: tabular-nums; }
-  .awd b { display: block; color: var(--ink); font-weight: 600; }
-  /* " · " between the rank and the date: read aloud everywhere, seen only where they share a line */
-  .awsep { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .awx { position: absolute; top: 13px; right: 15px; font-style: normal; font-size: 13px; line-height: 1; color: var(--ink2); opacity: .55; transition: transform .2s, opacity .2s; }
-  .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .awl > :lang(zh) { letter-spacing: .04em; font-size: 14.5px; }
+  .awd { font-family: var(--aw-cond); font-size: 10.5px; font-weight: 500; line-height: 1.35; letter-spacing: .18em; text-transform: uppercase; color: var(--ink2); text-wrap: balance; }
+  .awd > :lang(zh) { letter-spacing: .06em; font-size: 11.5px; }
+  .awd > span > span { display: inline-block; }   /* "of 25", the dates and "as of" each stay whole */
+  .awx { position: absolute; top: 12px; right: 14px; font-style: normal; font-size: 12px; line-height: 1; color: var(--mi); opacity: 0; transition: opacity .2s, transform .2s; }
+  .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; --awp: 50%; }
+  .award:focus-visible .awx { opacity: .9; }
   @media (hover: hover) {
-    .award:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--m) 45%, var(--card)); }
-    .award:hover .awx { opacity: 1; }
+    .award:hover { --awa: 70deg; --awp: 50%; background-color: color-mix(in srgb, var(--m3) 6%, transparent); }
+    .award:hover .awx { opacity: .9; }
   }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    .award:hover { transform: translateY(-3px); }
-    .award:hover .awb.l { transform: rotate(-8deg); }
-    .award:hover .awb.r { transform: rotate(8deg); }
-    .award:hover .awx { transform: translate(2px, -2px); }
-  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) { .award:hover { transform: translateY(-3px); } .award:hover .awx { transform: translate(2px, -2px); } }
+  /* the glint, when the wall comes on screen and every so often after (the script adds .glint to the section): the light
+     goes once round every branch and a shine crosses every rank, one laurel after another */
+  @keyframes awglint { from { --awa: 0deg; --awp: 95%; } to { --awa: 225deg; --awp: -55%; } }
 
-  /* Eight show (four on phones) once the script runs; the rest open from "Show all N", fading in */
-  .awall[data-fold]:not([data-open]) > li:nth-child(n+9) { display: none; }
-  @keyframes awin { from { opacity: 0; transform: translateY(10px); } }
+  /* the array behind the reel: small wreaths with their rank */
+  .awmini { position: relative; display: block; width: 74px; height: 92px; }
+  .awmini .awlb { width: 22px; }
+  .awmini b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--aw-cond); font-size: 30px; font-weight: 600; line-height: 1; }
+
+  /* the reel */
+  .awstage { position: relative; margin-top: 14px; }
+  .awstage[hidden] { display: none; }
+  .awback {
+    position: absolute; inset: -40px 0 -30px; overflow: hidden; pointer-events: none;
+    -webkit-mask-image: radial-gradient(58% 72% at 50% 50%, #000 24%, transparent 82%); mask-image: radial-gradient(58% 72% at 50% 50%, #000 24%, transparent 82%);
+  }
+  .awmosaic {
+    list-style: none; position: absolute; left: 50%; top: 50%; width: 1900px; transform: translate(-50%, -50%) rotate(-4deg);
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; opacity: .15; filter: blur(1px);
+  }
+  @media (prefers-color-scheme: dark) { .awmosaic { opacity: .17; } }
+  .awrows {
+    position: relative; display: grid; gap: 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  }
+  .awrow { overflow: hidden; }
+  .awtrack { list-style: none; display: flex; gap: 40px; width: max-content; padding: 4px 0 8px; animation: awdrift 80s linear infinite; }
+  .awrow.rev .awtrack { animation-direction: reverse; }
+  .awrow:hover .awtrack, .awrow:focus-within .awtrack { animation-play-state: paused; }
+  @keyframes awdrift { to { transform: translateX(calc(-50% - 20px)); } }
+  .awtrack > li { flex: none; display: flex; width: 264px; }
   @media (prefers-reduced-motion: no-preference) {
-    .awall[data-open] > li:nth-child(n+9) > .award { animation: awin .5s cubic-bezier(.2, .8, .2, 1); }
+    .awsec.glint .award:not(:hover):not(:focus-visible) { animation: awglint 1.9s cubic-bezier(.5, .05, .25, 1); animation-delay: calc(var(--i, 0) * 70ms); }
+    .awsec.glint .awrow.rev .award { animation-delay: calc(var(--i, 0) * 70ms + 140ms); }
   }
-  .awfoot { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 20px; }
+  @media (prefers-reduced-motion: reduce) {
+    .awrows { -webkit-mask-image: none; mask-image: none; }
+    .awrow { overflow-x: auto; }
+    .awtrack { animation: none; padding-inline: 24px; }
+    .awtrack > [aria-hidden="true"] { display: none; }
+    .award { transition: none; }
+  }
+
+  /* "See all": the array as wreaths you can read and open, best first */
+  .awall { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 40px; margin-top: 18px; }
+  .awall > li { display: flex; flex: 0 0 264px; }
+  .awsec[data-js] .awall { display: none; }
+  .awsec[data-js][data-open] .awall { display: flex; }
+  .awsec[data-js][data-open] .awstage { display: none; }
+  @keyframes awrise { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .awsec[data-open] .awall > li { animation: awrise .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+  }
+  .awfoot { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 18px; }
   .awmore {
-    display: none; align-items: center; height: 34px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
-    background: var(--card); color: var(--ink); font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1;
+    display: none; align-items: center; gap: 10px; height: 38px; padding: 0 18px 0 20px; border: 1px solid color-mix(in srgb, var(--aui) 45%, var(--line)); border-radius: 999px;
+    cursor: pointer; background: transparent; color: var(--ink); font-family: var(--aw-cond); font-size: 12.5px; font-weight: 600; line-height: 1; letter-spacing: .2em; text-transform: uppercase;
   }
-  .awall.m8 ~ .awfoot .awmore { display: inline-flex; }
-  .awmore:hover { border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+  .awmore > :lang(zh) { letter-spacing: .1em; font-size: 13px; }
+  .awmore::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; opacity: .6; transform: translateY(-2px) rotate(45deg); }
+  .awsec[data-js] .awmore { display: inline-flex; }
+  .awsec[data-js][data-open] .awmore::after { transform: translateY(1px) rotate(225deg); }
+  .awmore:hover { border-color: var(--aui); }
   .awmore:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .awnote { max-width: 600px; color: var(--ink2); font-size: 13.5px; line-height: 1.5; text-align: center; text-wrap: balance; }
+  .awnote { max-width: 620px; color: var(--ink2); font-size: 13px; line-height: 1.5; text-align: center; text-wrap: balance; }
 
-  @media (prefers-reduced-motion: reduce) { .award, .awb, .awx { transition: none; } }
-
-  @media (max-width: 1000px) {
-    .awall { gap: 12px; }
-    .awall > li { flex-basis: calc((100% - 3 * 12px) / 4 - .1px); }
-    .award { padding: 18px 12px 16px; }
-  }
-  /* Tablets: two columns of wide tiles, the medal on the left */
-  @media (max-width: 860px) {
-    .awall > li { flex-basis: calc((100% - 12px) / 2 - .1px); }
-    .award {
-      flex-direction: row; align-items: center; gap: 14px; padding: 14px 30px 14px 12px; border-radius: 18px; text-align: left;
-      background: radial-gradient(110px 100% at 42px 50%, color-mix(in srgb, var(--m) var(--glow), transparent), transparent 75%) var(--card);
-    }
-    .awm { width: 60px; height: 60px; }
-    .awn { inset: 0 0 3px; font-size: 21px; }
-    .awn.two { font-size: 17px; }
-    .awt { align-items: flex-start; width: auto; }
-    .aws { margin-top: 0; }
-    .awl { margin-top: 2px; font-size: 15px; }
-    .awd { margin-top: 0; padding-top: 3px; font-size: 13px; }
-    .awd b { display: inline; }
-    .awsep { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
-    .awx { top: 12px; right: 13px; }
-  }
-  /* Phones: one column, the best four first */
   @media (max-width: 640px) {
-    .awall { gap: 10px; }
-    .awall > li { flex-basis: 100%; }
-    .awall[data-fold]:not([data-open]) > li:nth-child(n+5) { display: none; }
-    .awall.m4 ~ .awfoot .awmore { display: inline-flex; }
+    .awhead { gap: 10px; letter-spacing: .22em; }
+    .awhead > span { flex: none; padding-left: .22em; }
+    .awtrack { gap: 28px; }
+    @keyframes awdrift { to { transform: translateX(calc(-50% - 14px)); } }
+    .awtrack > li, .awall > li { width: 232px; flex-basis: 232px; }
+    .award { min-height: 220px; padding: 16px 48px; }
+    .award .awlb { width: 44px; }
+    .awr { font-size: 38px; }
+    .awl { font-size: 13px; }
+    .awmosaic { opacity: .12; }
   }
-  @media (max-width: 640px) and (prefers-reduced-motion: no-preference) {
-    .awall[data-open] > li:nth-child(n+5) > .award { animation: awin .5s cubic-bezier(.2, .8, .2, 1); }
-  }
-  /* More contrast: no tints, firmer edges */
   @media (prefers-contrast: more) {
-    .awards { --plain: var(--ink2); }
-    .award { background: var(--card); border-color: var(--ink2); }
-    .awx { opacity: 1; }
+    .awlb { background: var(--mi); filter: none; }
+    .awmetal { background: none; color: var(--mi); }
+    .award { background: none; }
   }
-
+  @media (forced-colors: active) {
+    .awlb { forced-color-adjust: none; background: CanvasText; }
+    .awmetal { background: none; color: CanvasText; }
+  }
   /* Other sites that list, rank or write about KIKUmap (each opened and checked by hand), drawn as a small map in the
      app's own style: KIKUmap, then one topic per kind (the app's topic shapes, the icon's yellow, blue and red), then
      the places, underlined like chats on the map, newest first. Nothing moves, unlike the X posts above. Plain links:
@@ -538,7 +619,6 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="kiku" viewBox="-32 -32 64 64"><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(0)" fill="#FEC503"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(60)" fill="#187DFE"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(120)" fill="#FE453A"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(180)" fill="#FEC503"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(240)" fill="#187DFE"/><ellipse cx="0" cy="-19" rx="8.6" ry="12.6" transform="rotate(300)" fill="#FE453A"/></symbol>
   <symbol id="github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol>
-  <symbol id="laurel" viewBox="0 0 64 64"><path d="M43.4 54.5A25 25 0 0 1 22.5 9.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M27.9 54C24.1 50.9 18.8 51.6 16.4 55.6C20.6 57.8 26 57.7 27.9 54ZM20.8 49.9C18.2 46 13.3 44.9 9.8 47.8C13 51.1 17.9 52.7 20.8 49.9ZM15.3 43.8C14.2 39.4 10.2 37 6.2 38.5C8 42.4 11.8 45.3 15.3 43.8ZM12.1 36.1C12.5 31.9 9.6 28.5 5.6 28.6C6 32.7 8.6 36.5 12.1 36.1ZM11.6 27.9C13.3 24.3 11.8 20.3 8.1 19.2C7.2 22.9 8.4 27.1 11.6 27.9ZM13.8 19.9C16.4 17.2 16.2 13.3 13.4 11.2C11.5 14.2 11.2 18.2 13.8 19.9ZM18.2 13.4C21.2 11.8 22.3 8.2 20.3 5.5C17.8 7.7 16.3 11.2 18.2 13.4ZM24.2 52.3C25.2 49.4 22.5 46.8 19.3 45.8C18.3 49.1 20.6 51.9 24.2 52.3ZM17.8 47.1C19.6 44.9 18 41.6 15.4 39.8C13.5 42.4 14.7 45.7 17.8 47.1ZM13.4 40.1C15.7 38.6 15.2 35.3 13.5 32.8C11 34.6 11.1 37.9 13.4 40.1ZM11.6 32C14 31.4 14.7 28.3 13.8 25.6C11.1 26.4 10.1 29.3 11.6 32ZM12.4 23.8C14.8 24.1 16.3 21.5 16.4 18.8C13.7 18.7 12 21 12.4 23.8ZM15.7 16.7C17.7 17.6 19.8 15.8 20.7 13.4C18.3 12.5 16.1 14.1 15.7 16.7ZM22.5 9.8C26 10.3 29 7.5 29.6 3.9C25.9 3.8 22.6 6.2 22.5 9.8Z" fill="currentColor"/></symbol>
   <symbol id="xlogo" viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></symbol>
   <symbol id="cup" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3v2m4-2v2"/></symbol>
   <symbol id="download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></symbol>
@@ -581,34 +661,25 @@
 
   <section class="awsec" id="top10" aria-labelledby="awhead">
     <div class="wrap">
-      <!-- Top 10 on the charts: rebuilt by the script from the entries in mentions.json that carry an "award". This copy is
-           what visitors without JavaScript and link checkers see; keep it in step with the file. -->
-        <div class="awards" id="awards">
-          <h2 class="awhead" id="awhead"><svg viewBox="4 2 30 58" aria-hidden="true"><use href="#laurel"/></svg><span lang="en">Top 10 on the charts</span><span lang="zh">进入前 10 的榜单</span><svg viewBox="30 2 30 58" aria-hidden="true"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"/></svg></h2>
-          <ul class="awall" id="awall" role="list">
-            <li><a class="award" href="https://web.archive.org/web/20261109001308/https://gittrend.io/tags/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">#menu-bar-app — trending GitHub repositories</span><span lang="zh">#menu-bar-app 标签趋势榜</span></span><span class="awd"><span lang="en"><b>#1</b><span class="awsep"> · </span>As of Nov 9, 2026</span><span lang="zh"><b>第 1 名</b><span class="awsep"> · </span>截至 2026年11月9日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231030/https://gitstars.io/topic/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">gitstars.io</span><span class="awl"><span lang="en">mind-map repositories</span><span lang="zh">mind-map 话题仓库榜</span></span><span class="awd"><span lang="en"><b>#1 of 17</b><span class="awsep"> · </span>As of Nov 8, 2026</span><span lang="zh"><b>第 1 名（共 17 个）</b><span class="awsep"> · </span>截至 2026年11月8日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231244/https://trendshift.io/weekly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">5</b></span><span class="awt"><span class="aws">Trendshift</span><span class="awl"><span lang="en">Weekly trending repositories, Swift</span><span lang="zh">Swift 每周趋势榜</span></span><span class="awd"><span lang="en"><b>#5 of 25</b><span class="awsep"> · </span>Nov 2–8, 2026</span><span lang="zh"><b>第 5 名（共 25 个）</b><span class="awsep"> · </span>2026年11月2日至8日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231413/https://gitdiscover.org/daily/2026-11-07" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">5</b></span><span class="awt"><span class="aws">GitDiscover</span><span class="awl"><span lang="en">Daily Picks</span><span lang="zh">每日精选</span></span><span class="awd"><span lang="en"><b>#5 of 10</b><span class="awsep"> · </span>Nov 7, 2026</span><span lang="zh"><b>第 5 名（共 10 个）</b><span class="awsep"> · </span>2026年11月7日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231438/https://upstar.dev/t/swift/week/2026-10-26" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">8</b></span><span class="awt"><span class="aws">Upstar</span><span class="awl"><span lang="en">Trending Swift on GitHub, weekly</span><span lang="zh">GitHub Swift 每周飙升榜</span></span><span class="awd"><span lang="en"><b>#8 of 277</b><span class="awsep"> · </span>Oct 26 – Nov 1, 2026</span><span lang="zh"><b>第 8 名（共 277 个）</b><span class="awsep"> · </span>2026年10月26日至11月1日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001202/https://gittrend.io/tags/swift" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">#swift — trending GitHub repositories</span><span lang="zh">#swift 标签趋势榜</span></span><span class="awd"><span lang="en"><b>#1</b><span class="awsep"> · </span>As of Nov 9, 2026</span><span lang="zh"><b>第 1 名</b><span class="awsep"> · </span>截至 2026年11月9日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001333/https://gittrend.io/tags/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">#mind-map — trending GitHub repositories</span><span lang="zh">#mind-map 标签趋势榜</span></span><span class="awd"><span lang="en"><b>#1 of 35</b><span class="awsep"> · </span>As of Nov 9, 2026</span><span lang="zh"><b>第 1 名（共 35 个）</b><span class="awsep"> · </span>截至 2026年11月9日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001232/https://gittrend.io/tags/gpt" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">#gpt — trending GitHub repositories</span><span lang="zh">#gpt 标签趋势榜</span></span><span class="awd"><span lang="en"><b>#1</b><span class="awsep"> · </span>As of Nov 9, 2026</span><span lang="zh"><b>第 1 名</b><span class="awsep"> · </span>截至 2026年11月9日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231117/https://gitstars.io/topic/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">1</b></span><span class="awt"><span class="aws">gitstars.io</span><span class="awl"><span lang="en">menu-bar-app repositories</span><span lang="zh">menu-bar-app 话题仓库榜</span></span><span class="awd"><span lang="en"><b>#1</b><span class="awsep"> · </span>As of Nov 8, 2026</span><span lang="zh"><b>第 1 名</b><span class="awsep"> · </span>截至 2026年11月8日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001449/https://gittrend.io/languages/swift" target="_blank" rel="noopener noreferrer" data-tier="silver"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">2</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">Trending Swift Repositories</span><span lang="zh">Swift 热门仓库榜</span></span><span class="awd"><span lang="en"><b>#2</b><span class="awsep"> · </span>As of Nov 7, 2026</span><span lang="zh"><b>第 2 名</b><span class="awsep"> · </span>截至 2026年11月7日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001540/https://gittrend.io/trending/data-visualization" target="_blank" rel="noopener noreferrer" data-tier="bronze"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">3</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">Trending Data Visualization Repositories</span><span lang="zh">数据可视化热门仓库榜</span></span><span class="awd"><span lang="en"><b>#3 of 10</b><span class="awsep"> · </span>As of Nov 7, 2026</span><span lang="zh"><b>第 3 名（共 10 个）</b><span class="awsep"> · </span>截至 2026年11月7日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231213/https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">5</b></span><span class="awt"><span class="aws">Trendshift</span><span class="awl"><span lang="en">Top 25 in Swift, daily</span><span lang="zh">Swift 每日趋势榜</span></span><span class="awd"><span lang="en"><b>#5 of 25</b><span class="awsep"> · </span>Nov 2, 2026</span><span lang="zh"><b>第 5 名（共 25 个）</b><span class="awsep"> · </span>2026年11月2日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231310/https://trendshift.io/monthly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">6</b></span><span class="awt"><span class="aws">Trendshift</span><span class="awl"><span lang="en">Monthly trending repositories, Swift</span><span lang="zh">Swift 每月趋势榜</span></span><span class="awd"><span lang="en"><b>#6 of 25</b><span class="awsep"> · </span>November 2026 · as of Nov 8</span><span lang="zh"><b>第 6 名（共 25 个）</b><span class="awsep"> · </span>2026年11月 · 截至 11月8日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001606/https://gittrend.io/trending/self-hosted" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">6</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">Self-Hosted GitHub Repos Gaining Traction</span><span lang="zh">自托管项目上升榜</span></span><span class="awd"><span lang="en"><b>#6 of 10</b><span class="awsep"> · </span>As of Nov 7, 2026</span><span lang="zh"><b>第 6 名（共 10 个）</b><span class="awsep"> · </span>截至 2026年11月7日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261108231144/https://gitstars.io/topic/mac" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">7</b></span><span class="awt"><span class="aws">gitstars.io</span><span class="awl"><span lang="en">mac repositories</span><span lang="zh">mac 话题仓库榜</span></span><span class="awd"><span lang="en"><b>#7</b><span class="awsep"> · </span>As of Nov 8, 2026</span><span lang="zh"><b>第 7 名</b><span class="awsep"> · </span>截至 2026年11月8日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001417/https://gittrend.io/tags/claude" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn">8</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">#claude — trending GitHub repositories</span><span lang="zh">#claude 标签趋势榜</span></span><span class="awd"><span lang="en"><b>#8</b><span class="awsep"> · </span>As of Nov 9, 2026</span><span lang="zh"><b>第 8 名</b><span class="awsep"> · </span>截至 2026年11月9日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-            <li><a class="award" href="https://web.archive.org/web/20261109001631/https://gittrend.io/trending/ai-workflow" target="_blank" rel="noopener noreferrer" data-tier="top10"><span class="awm" aria-hidden="true"><svg viewBox="0 0 64 64"><g class="awb l"><use href="#laurel"></use></g><g class="awb r"><use href="#laurel" transform="matrix(-1 0 0 1 64 0)"></use></g></svg><b class="awn two">10</b></span><span class="awt"><span class="aws">GitTrend</span><span class="awl"><span lang="en">Top AI Workflow Projects Trending on GitHub</span><span lang="zh">AI 工作流项目趋势榜</span></span><span class="awd"><span lang="en"><b>#10 of 10</b><span class="awsep"> · </span>As of Nov 7, 2026</span><span lang="zh"><b>第 10 名（共 10 个）</b><span class="awsep"> · </span>截至 2026年11月7日</span></span></span><i class="awx" aria-hidden="true">↗</i></a></li>
-          </ul>
-          <div class="awfoot">
-            <button class="awmore" id="awmore" type="button" aria-controls="awall" aria-expanded="false"><span lang="en">Show all 17</span><span lang="zh">查看全部 17 个</span></button>
+      <!-- Top 10 on the charts: rebuilt by the script from the entries in mentions.json that carry an "award". The laurels
+           below are what visitors without JavaScript and link checkers see; keep them in step with the
+           file (generated by running the script). With the script, the laurels drift past in a reel. -->
+      <div class="awards" id="awards">
+        <h2 class="awhead" id="awhead"><span lang="en">Top 10 on the charts</span><span lang="zh">进入前 10 的榜单</span></h2>
+      </div>
+    </div>
+    <div class="awstage" id="awstage" hidden>
+      <div class="awback" aria-hidden="true"><ul class="awmosaic" id="awmosaic"></ul></div>
+      <div class="awrows" id="awrows"></div>
+    </div>
+    <div class="wrap">
+      <div class="awards">
+        <ul class="awall" id="awall" role="list"><li style="--i: 0"><a class="award" href="https://web.archive.org/web/20261109001308/https://gittrend.io/tags/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#menu-bar-app — trending GitHub repositories</span><span lang="zh">#menu-bar-app 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 1"><a class="award" href="https://web.archive.org/web/20261109001202/https://gittrend.io/tags/swift" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#swift — trending GitHub repositories</span><span lang="zh">#swift 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 2"><a class="award" href="https://web.archive.org/web/20261109001333/https://gittrend.io/tags/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#mind-map — trending GitHub repositories</span><span lang="zh">#mind-map 标签趋势榜</span></span><span class="awd"><span lang="en"><span>of 35</span> · <span>As of Nov 9, 2026</span></span><span lang="zh"><span>共 35 个</span> · <span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 3"><a class="award" href="https://web.archive.org/web/20261109001232/https://gittrend.io/tags/gpt" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#gpt — trending GitHub repositories</span><span lang="zh">#gpt 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 4"><a class="award" href="https://web.archive.org/web/20261108231030/https://gitstars.io/topic/mind-map" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">mind-map repositories</span><span lang="zh">mind-map 话题仓库榜</span></span><span class="awd"><span lang="en"><span>of 17</span> · <span>As of Nov 8, 2026</span></span><span lang="zh"><span>共 17 个</span> · <span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 5"><a class="award" href="https://web.archive.org/web/20261108231117/https://gitstars.io/topic/menu-bar-app" target="_blank" rel="noopener noreferrer" data-tier="gold"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 1</span><span lang="zh">第 1 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">menu-bar-app repositories</span><span lang="zh">menu-bar-app 话题仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 8, 2026</span></span><span lang="zh"><span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 6"><a class="award" href="https://web.archive.org/web/20261109001449/https://gittrend.io/languages/swift" target="_blank" rel="noopener noreferrer" data-tier="silver"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 2</span><span lang="zh">第 2 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Swift Repositories</span><span lang="zh">Swift 热门仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 7, 2026</span></span><span lang="zh"><span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 7"><a class="award" href="https://web.archive.org/web/20261109001540/https://gittrend.io/trending/data-visualization" target="_blank" rel="noopener noreferrer" data-tier="bronze"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 3</span><span lang="zh">第 3 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Data Visualization Repositories</span><span lang="zh">数据可视化热门仓库榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 8"><a class="award" href="https://web.archive.org/web/20261109020358/https://upstar.dev/t/swift/week/2026-11-02" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Upstar</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending Swift on GitHub, weekly</span><span lang="zh">GitHub Swift 每周飙升榜</span></span><span class="awd"><span lang="en"><span>of 237</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 237 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 9"><a class="award" href="https://web.archive.org/web/20261108231244/https://trendshift.io/weekly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Weekly trending repositories, Swift</span><span lang="zh">Swift 每周趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 10"><a class="award" href="https://web.archive.org/web/20261108231413/https://gitdiscover.org/daily/2026-11-07" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitDiscover</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Daily Picks</span><span lang="zh">每日精选</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 11"><a class="award" href="https://web.archive.org/web/20261108231213/https://trendshift.io/repositories/325644" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 5</span><span lang="zh">第 5 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Top 25 in Swift, daily</span><span lang="zh">Swift 每日趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>Nov 2, 2026</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月2日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 12"><a class="award" href="https://web.archive.org/web/20261108231310/https://trendshift.io/monthly?language=Swift" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Trendshift</span><span class="awr awmetal"><span lang="en">No. 6</span><span lang="zh">第 6 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Monthly trending repositories, Swift</span><span lang="zh">Swift 每月趋势榜</span></span><span class="awd"><span lang="en"><span>of 25</span> · <span>November 2026</span> · <span>as of Nov 8</span></span><span lang="zh"><span>共 25 个</span> · <span>2026年11月</span> · <span>截至 11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 13"><a class="award" href="https://web.archive.org/web/20261109001606/https://gittrend.io/trending/self-hosted" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 6</span><span lang="zh">第 6 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Self-Hosted GitHub Repos Gaining Traction</span><span lang="zh">自托管项目上升榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 14"><a class="award" href="https://web.archive.org/web/20261108231144/https://gitstars.io/topic/mac" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">gitstars.io</span><span class="awr awmetal"><span lang="en">No. 7</span><span lang="zh">第 7 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">mac repositories</span><span lang="zh">mac 话题仓库榜</span></span><span class="awd"><span lang="en"><span>As of Nov 8, 2026</span></span><span lang="zh"><span>截至 2026年11月8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 15"><a class="award" href="https://web.archive.org/web/20261109001417/https://gittrend.io/tags/claude" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 8</span><span lang="zh">第 8 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">#claude — trending GitHub repositories</span><span lang="zh">#claude 标签趋势榜</span></span><span class="awd"><span lang="en"><span>As of Nov 9, 2026</span></span><span lang="zh"><span>截至 2026年11月9日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 16"><a class="award" href="https://web.archive.org/web/20261109020419/https://upstar.dev/t/macos/week/2026-11-02" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">Upstar</span><span class="awr awmetal"><span lang="en">No. 9</span><span lang="zh">第 9 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Trending macOS on GitHub, weekly</span><span lang="zh">GitHub macOS 每周飙升榜</span></span><span class="awd"><span lang="en"><span>of 326</span> · <span>Nov 2–8, 2026</span></span><span lang="zh"><span>共 326 个</span> · <span>2026年11月2日至8日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li><li style="--i: 17"><a class="award" href="https://web.archive.org/web/20261109001631/https://gittrend.io/trending/ai-workflow" target="_blank" rel="noopener noreferrer" data-tier="steel"><i class="awlb l" aria-hidden="true"></i><i class="awlb r" aria-hidden="true"></i><span class="awt"><span class="aws">GitTrend</span><span class="awr awmetal"><span lang="en">No. 10</span><span lang="zh">第 10 名</span></span><i class="awrule" aria-hidden="true"></i><span class="awl"><span lang="en">Top AI Workflow Projects Trending on GitHub</span><span lang="zh">AI 工作流项目趋势榜</span></span><span class="awd"><span lang="en"><span>of 10</span> · <span>As of Nov 7, 2026</span></span><span lang="zh"><span>共 10 个</span> · <span>截至 2026年11月7日</span></span></span></span><i class="awx" aria-hidden="true">↗</i></a></li></ul>
+        <div class="awfoot">
+            <button class="awmore" id="awmore" type="button" aria-controls="awall" aria-expanded="false"><span lang="en">See all 18</span><span lang="zh">查看全部 18 个</span></button>
             <p class="awnote"><span lang="en">Ranks as each site showed them; each one opens the list or an archived copy. Lists marked “as of” still change.</span><span lang="zh">名次按各网站当时的显示；点开是该榜单或它的存档。标“截至”的榜单还在变动。</span></p>
           </div>
-        </div>
+      </div>
     </div>
   </section>
 
@@ -1069,8 +1140,8 @@
   var nav = document.getElementById("nav");
   addEventListener("scroll", function () { nav.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
 
-  // Top 10 on the charts: lists where KIKUmap made the top 10, from the entries in mentions.json that carry an "award"
-  // (added in the daily review, like the rest of that file). One tile per list, with its best rank. Each site's best
+  // Top 10 on the charts, as a reel of festival laurels: lists where KIKUmap made the top 10, from the entries in mentions.json
+  // that carry an "award" (added in the daily review, like the rest of that file). One laurel per list, with its best rank. Each site's best
   // comes first, then the rest by rank; ties go to finished lists, then archived ones, then the newer. Until the
   // file loads, or if it can't or has no awards, the copy written into the HTML stays. Built as plain text, never as
   // HTML; only https links; nothing is loaded from the ranking sites. Product Hunt is left out on purpose: it shows
@@ -1078,7 +1149,7 @@
   (function () {
     var wall = document.getElementById("awall"), more = document.getElementById("awmore");
     if (!wall || !more) return;
-    var SVG = "http://www.w3.org/2000/svg", DAY = 864e5;
+    var DAY = 864e5;
     var URL_ = "https://raw.githubusercontent.com/tang1693/KIKUmap/x-posts/mentions.json";
 
     function el(tag, cls, text) {
@@ -1163,79 +1234,156 @@
       var t = s && a.asof.y === a.per.to.y ? day(a.asof, zh, { month: "short", day: "numeric" }) : full(a.asof, zh);
       return s ? s + (zh ? " · 截至 " : " · as of ") + t : (zh ? "截至 " : "As of ") + t;
     }
-    function place(a, zh) {
-      var n = a.of ? a.of.toLocaleString(zh ? "zh-CN" : "en-US") : "";
-      return zh ? "第 " + a.rank + " 名" + (n ? "（共 " + n + " 个）" : "") : "#" + a.rank + (n ? " of " + n : "");
+
+    function tier(a) { return a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : a.rank === 3 ? "bronze" : "steel"; }
+    // the two branches of the laurel, drawn by the CSS (the right one is the left one mirrored)
+    function branches(box) {
+      var l = el("i", "awlb l"), r = el("i", "awlb r");
+      l.setAttribute("aria-hidden", "true"); r.setAttribute("aria-hidden", "true");
+      box.append(l, r);
+    }
+    // "of 25 · Nov 2–8, 2026 · as of Nov 9" / "共 25 个 · 2026年11月2日至8日 · 截至 11月9日": each piece kept whole on a line
+    function under(a, zh) {
+      var s = el("span"), n = a.of ? a.of.toLocaleString(zh ? "zh-CN" : "en-US") : "", w = when(a, zh).split(" · "), parts = [];
+      s.lang = zh ? "zh" : "en";
+      if (n) parts.push(zh ? "共 " + n + " 个" : "of " + n);
+      parts = parts.concat(w.filter(Boolean));
+      parts.forEach(function (p, i) { if (i) s.append(" · "); s.append(el("span", "", p)); });
+      return s;
     }
 
+    // One award, as a festival laurel: between the branches the site, the rank in large condensed capitals set in
+    // the metal of the rank (gold, silver, bronze, then steel), a rule, the list's own name, and when
     function tile(a) {
       var li = el("li"), link = el("a", "award");
       link.href = a.href; link.target = "_blank"; link.rel = "noopener noreferrer";
-      link.setAttribute("data-tier", a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : a.rank === 3 ? "bronze" : "top10");
-      // the medal: our laurel, one branch and its mirror image, with the rank inside
-      var medal = el("span", "awm"), svg = document.createElementNS(SVG, "svg");
-      medal.setAttribute("aria-hidden", "true"); svg.setAttribute("viewBox", "0 0 64 64");
-      ["l", "r"].forEach(function (side) {
-        var g = document.createElementNS(SVG, "g"), use = document.createElementNS(SVG, "use");
-        g.setAttribute("class", "awb " + side); use.setAttribute("href", "#laurel");
-        if (side === "r") use.setAttribute("transform", "matrix(-1 0 0 1 64 0)");
-        g.append(use); svg.append(g);
-      });
-      medal.append(svg, el("b", a.rank > 9 ? "awn two" : "awn", String(a.rank)));
-      // then the site, the list's own name, and the rank with when
-      var text = el("span", "awt"), name = el("span", "awl"), meta = el("span", "awd"), go = el("i", "awx", "↗");
+      link.setAttribute("data-tier", tier(a));
+      branches(link);
+      var text = el("span", "awt"), rank = el("span", "awr awmetal"), name = el("span", "awl"), meta = el("span", "awd");
+      var rule = el("i", "awrule"), go = el("i", "awx", "↗");
+      rank.append.apply(rank, both("span", "No. " + a.rank, "第 " + a.rank + " 名"));
       name.append.apply(name, both("span", a.en, a.zh));
-      [false, true].forEach(function (zh) {
-        var s = el("span"); s.lang = zh ? "zh" : "en";
-        s.append(el("b", "", place(a, zh)), el("span", "awsep", " · "), when(a, zh));
-        meta.append(s);
-      });
-      go.setAttribute("aria-hidden", "true");
-      text.append(el("span", "aws", a.source), name, meta);
-      link.append(medal, text, go);
+      meta.append(under(a, false), under(a, true));
+      rule.setAttribute("aria-hidden", "true"); go.setAttribute("aria-hidden", "true");
+      text.append(el("span", "aws", a.source), rank, rule, name, meta);
+      link.append(text, go);
       li.append(link);
       return li;
     }
 
-    // Eight show (four on phones), the rest open from "Show all N"; the HTML copy folds the same way once this runs
+    // A small laurel for the array behind the reel: the branches and the rank (it's decoration; the ones in front say it all)
+    function mini(a) {
+      var li = el("li"), m = el("span", "awmini");
+      m.setAttribute("data-tier", tier(a));
+      branches(m);
+      m.append(el("b", "awmetal", String(a.rank)));
+      li.append(m);
+      return li;
+    }
+    // a copy of an award in a row, there only so the row can loop: hidden from screen readers and the keyboard
+    function copy(a) {
+      var li = tile(a), link = li.firstChild;
+      li.setAttribute("aria-hidden", "true");
+      link.setAttribute("tabindex", "-1");
+      return li;
+    }
+
+    var sec = document.getElementById("top10"), stage = document.getElementById("awstage");
+    var rows = document.getElementById("awrows"), mosaic = document.getElementById("awmosaic");
+
     function label() {
-      var open = wall.hasAttribute("data-open"), n = wall.children.length;
+      var open = sec.hasAttribute("data-open"), n = wall.children.length;
       more.textContent = "";
-      more.append.apply(more, both("span", open ? "Show fewer" : "Show all " + n, open ? "收起" : "查看全部 " + n + " 个"));
+      more.append.apply(more, both("span", open ? "Back to the reel" : "See all " + n, open ? "收起" : "查看全部 " + n + " 个"));
       more.setAttribute("aria-expanded", open ? "true" : "false");
-      wall.classList.toggle("m4", n > 4);
-      wall.classList.toggle("m8", n > 8);
     }
     more.addEventListener("click", function () {
-      wall.toggleAttribute("data-open");
+      if (sec.hasAttribute("data-open")) sec.removeAttribute("data-open"); else sec.setAttribute("data-open", "");
       label();
-      if (!wall.hasAttribute("data-open") && more.getBoundingClientRect().top < 0) more.scrollIntoView({ block: "center" });
+      if (!sec.hasAttribute("data-open") && sec.getBoundingClientRect().top < 0) sec.scrollIntoView({ block: "start" });
     });
-    wall.setAttribute("data-fold", "");
-    label();
+
+    // two rows drifting opposite ways: the medals (#1–#3) and the rest; one row when there are few. Each row holds
+    // enough laurels to be wider than the widest screen, then all of them once more for a seamless loop.
+    function reel(list) {
+      while (rows.firstChild) rows.removeChild(rows.firstChild);
+      var top = list.filter(function (a) { return a.rank <= 3; }), rest = list.filter(function (a) { return a.rank > 3; });
+      var parts = top.length >= 3 && rest.length >= 3 ? [top, rest] : [list];
+      parts.forEach(function (part, r) {
+        var set = part.slice(); while (set.length < 8) set = set.concat(part);
+        var row = el("div", "awrow" + (r ? " rev" : "")), track = el("ul", "awtrack");
+        set.forEach(function (a, i) { track.append(i < part.length ? tile(a) : copy(a)); });
+        set.forEach(function (a) { track.append(copy(a)); });
+        for (var c = track.firstChild, i = 0; c; c = c.nextSibling, i++) c.firstChild.setAttribute("style", "--i: " + (i % set.length));
+        track.setAttribute("style", "animation-duration: " + set.length * (r ? 8 : 7) + "s");
+        row.append(track); rows.append(row);
+      });
+      while (mosaic.firstChild) mosaic.removeChild(mosaic.firstChild);
+      for (var k = 0; k < 120; k++) mosaic.append(mini(list[k % list.length]));
+      stage.removeAttribute("hidden");
+    }
 
     function render(j) {
       var raw = Array.isArray(j) ? j : j && Array.isArray(j.mentions) ? j.mentions : [], all = [];
       raw.forEach(function (e, i) { var a = award(e); if (a) { a.i = i; all.push(a); } });
       if (!all.length) return;
       all.sort(function (x, y) { return x.rank - y.rank || x.state - y.state || y.when - x.when || x.i - y.i; });
-      var lists = {}, sites = {}, firsts = [], rest = [];
+      // one laurel per list, at its best rank (the same list on another day, week or month is already in), best first
+      var lists = {}, list = [];
       all.forEach(function (a) {
-        var k = "#" + (a.source + "\n" + a.en).toLowerCase(), s = "#" + a.source.toLowerCase();
-        if (lists[k]) return;   // the same list on another day, week or month: its best rank is already in
-        lists[k] = true;
-        (sites[s] ? rest : firsts).push(a);
-        sites[s] = true;
+        var k = "#" + (a.source + "\n" + a.en).toLowerCase();
+        if (!lists[k]) { lists[k] = true; list.push(a); }
       });
       while (wall.firstChild) wall.removeChild(wall.firstChild);
-      firsts.concat(rest).forEach(function (a) { wall.append(tile(a)); });
+      list.forEach(function (a, i) { var li = tile(a); li.setAttribute("style", "--i: " + i); wall.append(li); });
+      reel(list);
+      sec.setAttribute("data-js", "");
       label();
     }
 
-    // one request for both this and the map, whichever asks first
+    // Under the mouse the light follows the pointer: across a laurel it turns the light on the branches and moves the shine
+    // over the rank. Mouse only (a finger has no hover).
+    function follow(box) {
+      box.addEventListener("pointermove", function (ev) {
+        var a = ev.pointerType === "mouse" && ev.target.closest ? ev.target.closest(".award") : null;
+        if (!a) return;
+        var r = a.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
+        a.style.setProperty("--awa", Math.round(70 + (x - 0.5) * 160 + (y - 0.5) * 50) + "deg");
+        a.style.setProperty("--awp", Math.round(50 - (x - 0.5) * 85) + "%");
+        a.style.setProperty("--lx", Math.round(x * 100) + "%");
+        a.style.setProperty("--ly", Math.round(y * 100) + "%");
+        a.classList.toggle("awlit", true);
+      });
+      box.addEventListener("pointerout", function (ev) {
+        var a = ev.target.closest ? ev.target.closest(".award") : null;
+        if (!a || a.contains(ev.relatedTarget)) return;
+        ["--awa", "--awp", "--lx", "--ly"].forEach(function (p) { a.style.removeProperty(p); });
+        a.classList.toggle("awlit", false);
+      });
+    }
+    follow(rows); follow(wall);
+
+    // A glint the first time the wall is on screen, then again every 9 seconds while it stays on screen and the tab is
+    // open: the light goes round the metal, one laurel after another (the CSS, under .glint; none for reduced motion).
+    function glint() {
+      if (!("IntersectionObserver" in window) || !window.CSS || typeof window.CSS.registerProperty !== "function") return;
+      if (!sec.hasAttribute("data-js")) return;
+      var seen = false, timer = 0;
+      function shine() {
+        if (!seen || document.hidden) return;
+        sec.classList.toggle("glint", true);
+        setTimeout(function () { sec.classList.toggle("glint", false); }, 3600);
+      }
+      new IntersectionObserver(function (es) {
+        var now = es.some(function (e) { return e.isIntersecting; });
+        if (now && !seen) { seen = true; shine(); clearInterval(timer); timer = setInterval(shine, 9000); }
+        else if (!now) { seen = false; clearInterval(timer); }
+      }, { threshold: 0.3 }).observe(sec);
+    }
+
     var got = window.kikuMentions || (window.kikuMentions = fetch(URL_, { cache: "no-cache" })
       .then(function (r) { return r.ok ? r.json() : null; }));
-    got.then(function (j) { if (j) render(j); }).catch(function () {});
+    got.then(function (j) { if (j) render(j); }).catch(function () {}).then(glint);
   })();
 
   // Featured elsewhere: other sites that list, rank or write about KIKUmap, picked by hand from the daily review queue
