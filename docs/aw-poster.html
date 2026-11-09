@@ -168,6 +168,7 @@
   }
   .ph img { display: inline-block; width: 250px; height: 54px; }
   @property --awa { syntax: "<angle>"; inherits: true; initial-value: 0deg; }   /* where the light falls on the metal */
+  @property --awp { syntax: "<percentage>"; inherits: true; initial-value: 35%; }   /* where the shine sits on the words */
   .awsec {
     padding: 8px 0 12px; overflow-x: clip;
     /* condensed capitals, as on a film poster, from fonts the visitor already has (nothing downloaded): Avenir Next
@@ -216,16 +217,18 @@
   /* a branch of the laurel, cut out of the metal; the light on it turns with --awa */
   .awlb {
     position: absolute; top: 0; bottom: 0; width: 27%; pointer-events: none;
-    background:
-      linear-gradient(calc(180deg + var(--awa) / 2), var(--m4), var(--m3) 22%, var(--m2) 48%, var(--m3) 66%, var(--m1) 100%);
+    /* polished: bands of light around the middle of the branch, turning with --awa (a full turn at 225deg) */
+    background: conic-gradient(from calc(var(--awa) * 1.6 - 40deg) at 50% 45%, var(--m2), var(--m4) 28deg, var(--m3) 62deg, var(--m1) 118deg,
+      var(--m2) 168deg, var(--m4) 208deg, var(--m3) 246deg, var(--m1) 300deg, var(--m2));
     -webkit-mask: var(--aw-branch) center / contain no-repeat; mask: var(--aw-branch) center / contain no-repeat;
     filter: var(--emb);
   }
   .awlb.l { left: 0; }
   .awlb.r { right: 0; transform: scaleX(-1); }
-  /* words set in the metal: a fine gradient through the letters */
+  /* words set in the metal: a band of shine across the letters, at --awp (it repeats every 150%, so a sweep loops) */
   .awmetal {
-    background: linear-gradient(calc(175deg + var(--awa) / 3), var(--m4) 0%, var(--m3) 34%, var(--m2) 58%, var(--m3) 80%, var(--m1) 100%);
+    background: linear-gradient(104deg, var(--m2) 0%, var(--m3) 18%, var(--m2) 32%, var(--m3) 42%, var(--m4) 50%, var(--m3) 58%, var(--m2) 68%,
+      var(--m3) 82%, var(--m2) 100%) var(--awp) 0 / 300% 100% repeat-x;
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
 
@@ -254,11 +257,18 @@
     position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
     min-height: 226px; padding: 16px 54px; border-radius: 18px; color: var(--ink); text-decoration: none; text-align: center;
     background: radial-gradient(60% 52% at 50% 44%, color-mix(in srgb, var(--m3) var(--glow, 0%), transparent), transparent 75%);
-    transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), background-color .3s;
+    transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa 1.2s cubic-bezier(.25, .8, .25, 1), --awp 1.2s cubic-bezier(.25, .8, .25, 1), background-color .3s;
   }
   .award[data-tier="gold"] { --glow: 16%; }
   @media (prefers-color-scheme: dark) { .award[data-tier="gold"] { --glow: 13%; } }
   .award .awlb { width: 50px; top: 14px; bottom: 14px; }
+  /* under the mouse the light follows the pointer (the script sets --awa, --awp, --lx and --ly), with a soft spot of it */
+  .award.awlit { transition: transform .45s cubic-bezier(.2, .8, .2, 1), --awa .2s ease-out, --awp .2s ease-out, background-color .3s; }
+  .award::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
+    background: radial-gradient(150px circle at var(--lx, 50%) var(--ly, 40%), color-mix(in srgb, var(--m3) 16%, transparent), transparent 70%);
+  }
+  .award.awlit::before { opacity: 1; }
   .awt { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; width: 100%; }
   .aws {
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: .3em;
@@ -277,14 +287,16 @@
   .awd > :lang(zh) { letter-spacing: .06em; font-size: 11.5px; }
   .awd > span > span { display: inline-block; }   /* "of 25", the dates and "as of" each stay whole */
   .awx { position: absolute; top: 12px; right: 14px; font-style: normal; font-size: 12px; line-height: 1; color: var(--mi); opacity: 0; transition: opacity .2s, transform .2s; }
-  .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; }
+  .award:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; --awa: 70deg; --awp: 50%; }
   .award:focus-visible .awx { opacity: .9; }
   @media (hover: hover) {
-    .award:hover { --awa: 70deg; background-color: color-mix(in srgb, var(--m3) 7%, transparent); }
+    .award:hover { --awa: 70deg; --awp: 50%; background-color: color-mix(in srgb, var(--m3) 6%, transparent); }
     .award:hover .awx { opacity: .9; }
   }
   @media (hover: hover) and (prefers-reduced-motion: no-preference) { .award:hover { transform: translateY(-3px); } .award:hover .awx { transform: translate(2px, -2px); } }
-  @keyframes awglint { 0%, 100% { --awa: 0deg; } 45% { --awa: 110deg; } }
+  /* the glint, when the wall comes on screen and every so often after (the script adds .glint to the section): the light
+     goes once round every branch and a shine crosses every rank, one laurel after another */
+  @keyframes awglint { from { --awa: 0deg; --awp: 35%; } to { --awa: 225deg; --awp: -115%; } }
 
   /* the array behind the reel: small wreaths with their rank */
   .awmini { position: relative; display: block; width: 74px; height: 92px; }
@@ -314,7 +326,8 @@
   @keyframes awdrift { to { transform: translateX(calc(-50% - 20px)); } }
   .awtrack > li { flex: none; display: flex; width: 264px; }
   @media (prefers-reduced-motion: no-preference) {
-    .awstage.glint .award { animation: awglint 2.4s cubic-bezier(.45, .05, .3, 1); }
+    .awsec.glint .award:not(:hover):not(:focus-visible) { animation: awglint 1.9s cubic-bezier(.5, .05, .25, 1); animation-delay: calc(var(--i, 0) * 70ms); }
+    .awsec.glint .awrow.rev .award { animation-delay: calc(var(--i, 0) * 70ms + 140ms); }
   }
   @media (prefers-reduced-motion: reduce) {
     .awrows { -webkit-mask-image: none; mask-image: none; }
@@ -1303,6 +1316,7 @@
         var row = el("div", "awrow" + (r ? " rev" : "")), track = el("ul", "awtrack");
         set.forEach(function (a, i) { track.append(i < part.length ? tile(a) : copy(a)); });
         set.forEach(function (a) { track.append(copy(a)); });
+        for (var c = track.firstChild, i = 0; c; c = c.nextSibling, i++) c.firstChild.setAttribute("style", "--i: " + (i % set.length));
         track.setAttribute("style", "animation-duration: " + set.length * (r ? 8 : 7) + "s");
         row.append(track); rows.append(row);
       });
@@ -1329,16 +1343,44 @@
       label();
     }
 
-    // Once, the first time the reel is on screen, a glint: the light swings over the laurels (the CSS, under .glint).
+    // Under the mouse the light follows the pointer: across a laurel it turns the light on the branches and moves the shine
+    // over the rank. Mouse only (a finger has no hover).
+    function follow(box) {
+      box.addEventListener("pointermove", function (ev) {
+        var a = ev.pointerType === "mouse" && ev.target.closest ? ev.target.closest(".award") : null;
+        if (!a) return;
+        var r = a.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
+        a.style.setProperty("--awa", Math.round(70 + (x - 0.5) * 160 + (y - 0.5) * 50) + "deg");
+        a.style.setProperty("--awp", Math.round(50 - (x - 0.5) * 85) + "%");
+        a.style.setProperty("--lx", Math.round(x * 100) + "%");
+        a.style.setProperty("--ly", Math.round(y * 100) + "%");
+        a.classList.toggle("awlit", true);
+      });
+      box.addEventListener("pointerout", function (ev) {
+        var a = ev.target.closest ? ev.target.closest(".award") : null;
+        if (!a || a.contains(ev.relatedTarget)) return;
+        ["--awa", "--awp", "--lx", "--ly"].forEach(function (p) { a.style.removeProperty(p); });
+        a.classList.toggle("awlit", false);
+      });
+    }
+    follow(rows); follow(wall);
+
+    // A glint the first time the wall is on screen, then again every 9 seconds while it stays on screen and the tab is
+    // open: the light goes round the metal, one laurel after another (the CSS, under .glint; none for reduced motion).
     function glint() {
       if (!("IntersectionObserver" in window) || !window.CSS || typeof window.CSS.registerProperty !== "function") return;
-      var io = new IntersectionObserver(function (es) {
-        if (!es.some(function (e) { return e.isIntersecting; })) return;
-        io.disconnect();
-        stage.classList.toggle("glint", true);
-        setTimeout(function () { stage.classList.toggle("glint", false); }, 3200);
-      }, { threshold: 0.35 });
-      io.observe(stage);
+      if (!sec.hasAttribute("data-js")) return;
+      var seen = false, timer = 0;
+      function shine() {
+        if (!seen || document.hidden) return;
+        sec.classList.toggle("glint", true);
+        setTimeout(function () { sec.classList.toggle("glint", false); }, 3600);
+      }
+      new IntersectionObserver(function (es) {
+        var now = es.some(function (e) { return e.isIntersecting; });
+        if (now && !seen) { seen = true; shine(); clearInterval(timer); timer = setInterval(shine, 9000); }
+        else if (!now) { seen = false; clearInterval(timer); }
+      }, { threshold: 0.3 }).observe(sec);
     }
 
     var got = window.kikuMentions || (window.kikuMentions = fetch(URL_, { cache: "no-cache" })
