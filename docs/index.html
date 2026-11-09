@@ -1091,12 +1091,13 @@
     function both(tag, en, zh) { var a = el(tag, "", en), b = el(tag, "", zh); a.lang = "en"; b.lang = "zh"; return [a, b]; }
     function str(v, max) { return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : ""; }
     function int(v) { return typeof v === "number" || (typeof v === "string" && /^\s*\d+\s*$/.test(v)) ? Number(v) : NaN; }
-    // a real calendar day ("2026-11-08"), or a month ("2026-11") when month is set; never one from the future
-    function ymd(v, month) {
+    // a real calendar day ("2026-11-08"), or a month ("2026-11") when month is set; never one from the future, except
+    // the end of a stretch that's still running (a week's last day; then the award must say "as of")
+    function ymd(v, month, later) {
       var m = (month ? /^(\d{4})-(\d{2})$/ : /^(\d{4})-(\d{2})-(\d{2})$/).exec(typeof v === "string" ? v.trim() : "");
       if (!m) return null;
       var y = +m[1], mo = +m[2], d = month ? 1 : +m[3], t = Date.UTC(y, mo - 1, d), c = new Date(t);
-      if (c.getUTCFullYear() !== y || c.getUTCMonth() !== mo - 1 || c.getUTCDate() !== d || t > Date.now() + DAY) return null;
+      if (c.getUTCFullYear() !== y || c.getUTCMonth() !== mo - 1 || c.getUTCDate() !== d || (!later && t > Date.now() + DAY)) return null;
       return { y: y, m: mo, d: d, t: t };
     }
     // "2026-11-02" (a day), "2026-11-02/2026-11-08" (a stretch of days, such as a week) or "2026-11" (a month)
@@ -1104,7 +1105,7 @@
       var s = typeof v === "string" ? v.trim() : "", p = s.split("/"), a, b;
       if (!s) return { none: true };
       if (p.length === 2) {
-        a = ymd(p[0]); b = ymd(p[1]);
+        a = ymd(p[0]); b = ymd(p[1], false, true);
         return a && b && b.t >= a.t && b.t - a.t <= 92 * DAY ? { from: a, to: b } : null;
       }
       a = ymd(s);
@@ -1131,6 +1132,7 @@
         a.asof = ymd(w.as_of);
         if (!a.asof || (!a.per.none && a.asof.t < a.per.from.t)) return null;
       } else if (a.per.none) return null;                                // every award says when
+      if (!a.asof && !a.per.none && a.per.to.t > Date.now() + DAY) return null;   // a stretch still running says "as of"
       a.en = a.en || a.zh; a.zh = a.zh || a.en;
       a.when = a.asof ? a.asof.t : a.per.month ? Math.min(Date.UTC(a.per.to.y, a.per.to.m, 0), Date.now()) : a.per.to.t;
       // finished lists first, then running ones with a copy that keeps the rank (an archive), then the rest
