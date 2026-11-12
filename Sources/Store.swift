@@ -89,12 +89,12 @@ final class Store {
     /// you do here (read, unread again) is kept in `seen`, so it lasts across restarts.
     private var gptListed: Set<String>?
     /// Threads whose task went quiet before it finished: when the finish comes, it's announced.
-    private var gptQuiet = Set<String>()
+    private(set) var gptQuiet = Set<String>()
     /// Where a quiet task's counted time stopped (its seen time and the estimate after it): if it moves again or
     /// finishes, the time from there is counted too.
     private var gptQuietUntil: [String: Date] = [:]
     /// When each ChatGPT thread's task log was last written (a running one quiet for minutes isn't known to run).
-    private var gptActive: [String: Date] = [:]
+    private(set) var gptActive: [String: Date] = [:]
     /// The Codex tasks shown "running?" as of the last read (one turning so redraws the menu bar and the counts).
     private var gptUnsure = Set<String>()
     /// Ordinary ChatGPT chats whose row in ChatGPT's window has been read since KIKUmap started: whether they run is
@@ -132,6 +132,9 @@ final class Store {
     private var rowSeenAt: [String: Date] = [:]
     /// The chat open in Claude's window (from the sidebar's last read).
     var openChatID: (() -> String?)?
+    /// Claude's window is read but its chat list isn't shown (hidden, Pinned folded, no chats shown): a chat can start
+    /// there unseen, so "the only chat running" isn't known.
+    var claudeListHidden: (() -> Bool)?
     /// Claude has been in front at some point since the last read of its sidebar began (it was in front when that read
     /// came back, or it has left the front since), and when it last left the front. Told by the order things happen
     /// in, not by comparing times: once the clock is set back, a time from before stays ahead of everything after.
@@ -166,6 +169,8 @@ final class Store {
     /// Each Claude Code session's last hook event, and since when Claude Code could have sent any (the last wake).
     private var lastCodeEvent: [String: Date] = [:]
     private var awakeSince = Date.distantPast
+    /// A Claude Code session quiet this long while running isn't working (`expireCode` ends it).
+    static let codeQuiet: TimeInterval = 20 * 60
     /// Data files that couldn't be read at launch (kept in data/backups), and files that can't be saved right now.
     private(set) var unreadable: [String] = []
     private(set) var failed: [String: String] = [:]
@@ -955,7 +960,8 @@ final class Store {
         if turned.count > 1 { return .shown }
         if let o = openChatID?(), inClaude(o), running.contains(o) { return .chat(o) }
         let mine = running.filter(inClaude)
-        if mine.count == 1, let m = mine.first, outOfSight(m) { return .chat(m) }
+        // (not while Claude's window is read but its chat list isn't shown: a chat can have started there unseen)
+        if claudeListHidden?() != true, mine.count == 1, let m = mine.first, outOfSight(m) { return .chat(m) }
         return .unknown(mine.contains { !outOfSight($0) } ? .inSight : mine.isEmpty ? .noneRunning : .several)
     }
 
@@ -1545,6 +1551,15 @@ final class Store {
                 stop(at: end)
                 if endedQuietly(id, at: end) { changed = true; seenChanged = true }
             }
+            // quiet longer than `codeQuiet` while it ran: what `expireCode` (or a sleep KIKUmap heard of) would have ended.
+            // In a backlog read at launch (KIKUmap closed, the Mac perhaps asleep) the run ends at its last line and opens
+            // again here
+            if e.name != "UserPromptSubmit", running.contains(id), let p = prev, e.time.timeIntervalSince(p) > Store.codeQuiet {
+                stop(at: Clock.iso(p))
+                running.insert(id)
+                if let from = openRun(at: e.time) { runStart[id] = from }
+                timeChanged = true
+            }
             switch e.name {
             case "UserPromptSubmit":
                 // a turn left open (Esc, an error, a closed terminal) and now a new one: the wait in between isn't work
@@ -1608,7 +1623,7 @@ final class Store {
     @discardableResult
     func expireCode(now: Date = Date()) -> Bool {
         let stale = running.filter { id in
-            id.hasPrefix("cc-") && now.timeIntervalSince(max(lastCodeEvent[id] ?? .distantPast, awakeSince)) > 20 * 60
+            id.hasPrefix("cc-") && now.timeIntervalSince(max(lastCodeEvent[id] ?? .distantPast, awakeSince)) > Store.codeQuiet
         }
         guard !stale.isEmpty else { return false }
         for id in stale {
@@ -1810,6 +1825,8 @@ final class Store {
                 continue                                            // its dot as last seen stays: nothing new to go by
             }
             if gptChatsRead.insert(id).inserted { moved = true }
+            // the pointer on its row hides ChatGPT's marks: a row showing none says nothing this read (all kept as it was)
+            if r.hovered && !r.working && r.failed == nil && !r.unread { continue }
             let looking = watched && open.map(GPTSidebar.norm) == name
             if r.working {
                 // running again after a stretch out of sight: it ran through it (estimated, time asleep aside)

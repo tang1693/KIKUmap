@@ -17,6 +17,9 @@ struct GPTSidebarRow: Equatable {
     /// The red mark ChatGPT puts in the spinner's place when the reply fails: its words, as ChatGPT gives them to
     /// screen readers ("Task failed"); nil: none.
     var failed: String? = nil
+    /// The pointer rests on the row: ChatGPT shows its "…" button where the spinner, dot or failed mark go, so a row
+    /// showing none of them says nothing.
+    var hovered = false
 }
 
 /// Why ChatGPT's ordinary chats can't be read right now.
@@ -332,6 +335,7 @@ enum GPTSidebar {
         let shown = windowsOnScreen(pid: pid, separate: separate)
         let seen = inSight(windows.map { (number($0), frame($0)) }, shown)
         var hidden = false, behind = false
+        let pointer = CGEvent(source: nil)?.location          // top-left origin, as AX frames
         for (w, inView) in zip(windows, seen) {
             guard let panel = find(w, "app-shell-left-panel", budget: 600) else { continue }
             // covered whole, it shows what it showed then (ChatGPT doesn't update it), whatever another of its windows
@@ -346,6 +350,7 @@ enum GPTSidebar {
                     let name = norm(AXScan.str(row, "AXTitle"))
                     guard wanted.contains(name), rows[name] == nil else { continue }
                     rows[name] = GPTSidebar.row(row, read: { AXScan.attr($0, $1) }, kids: { AXScan.children($0) })
+                    if let p = pointer, let f = frame(row), f.contains(p) { rows[name]?.hovered = true }
                 }
                 if !rows.isEmpty { return .rows(rows, open: norm(AXScan.str(w, "AXTitle")), window: w) }
             }

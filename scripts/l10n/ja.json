@@ -1376,5 +1376,9 @@
  "weekly": "毎週",
  "yesterday": "昨日",
  "; the other attachments are the files made in it": "。ほかの添付ファイルはそのチャットで作られたファイルです",
- "Chat name": "チャット名"
+ "Chat name": "チャット名",
+ "after %@": "%@以降",
+ "skipped %@ sharing a name with another: open each once in Claude, then export again": "別のチャットと同じ名前の%@をスキップしました：Claude でそれぞれ一度開いてから、もう一度書き出してください",
+ "same name as another chat, address unknown: not written": "",
+ "same name as another chat, address unknown: skipped": ""
 }

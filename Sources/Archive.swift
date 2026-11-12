@@ -530,6 +530,10 @@ final class Archive {
         onChange?()
         // (a chat whose new folder another chat still has things in: nothing is written there this time)
         let blocked = Set(follow(list).map(\.id))
+        // a chat known by its title alone that another Claude chat shares: which sidebar row or zip entry it is can't be
+        // told, so nothing is written for it until its address is known
+        let twins = Set(Dictionary(grouping: store.chats.filter { !$0.outsideClaude }, by: \.title).filter { $0.value.count > 1 }.keys)
+        let ambiguous = Set(list.filter { !$0.outsideClaude && !Archive.isAddress($0.id) && twins.contains($0.title) }.map(\.id))
         // decided up front, on the main thread
         let skip = Set(list.filter { !force && (store.isRunning($0.id) || store.chat($0.id).map(store.isUnread) == true) }.map { $0.id })
         let counts = state.summaries.mapValues { $0.messages }
@@ -561,7 +565,8 @@ final class Archive {
                 let loaded = ClaudeExport.load(z)
                 if let all = loaded, all.claude {
                     r.zipRead = true
-                    let byName = Dictionary(all.chats.values.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+                    // (a name two chats in the zip share matches neither)
+                    let byName = Dictionary(grouping: all.chats.values, by: \.name).compactMapValues { $0.count == 1 ? $0[0] : nil }
                     // (those not written are tried again from this zip later)
                     var wrote: [Item] = [], missed: [Item] = []
                     let todo = list.filter { !$0.outsideClaude }
@@ -571,6 +576,11 @@ final class Archive {
                         if blocked.contains(it.id) {
                             r.blocked.insert(it.id); missed.append(it)
                             log("  \(it.id): " + tr("文件夹里还有另一个同名对话的东西，这次没写", "its folder still holds another chat's things (same name): not written this time"))
+                            continue
+                        }
+                        if ambiguous.contains(it.id) {
+                            r.ambiguous.insert(it.id); missed.append(it)
+                            log("  \(it.id): " + tr("和别的对话同名，地址还不知道：没写", "same name as another chat, address unknown: not written"))
                             continue
                         }
                         // by address; by name only for a chat known by its title alone (another may share it)
@@ -621,6 +631,7 @@ final class Archive {
                     if skip.contains(it.id) { r.skipped += 1; continue }
                     // its folder still holds another chat's things: a summary couldn't be saved there, so none is asked
                     if blocked.contains(it.id) { r.blocked.insert(it.id); log("  \(it.id): " + tr("文件夹里还有另一个同名对话的东西，这次跳过", "its folder still holds another chat's things (same name): skipped this time")); continue }
+                    if ambiguous.contains(it.id) { r.ambiguous.insert(it.id); log("  \(it.id): " + tr("和别的对话同名，地址还不知道：跳过", "same name as another chat, address unknown: skipped")); continue }
                     // nothing new since the last summary (the app saw no activity)
                     if !force, let when = done[it.id], let u = updated[it.id], !u.isEmpty, u <= when {
                         DispatchQueue.main.sync { MainActor.assumeIsolated { self?.bringSummary(it) } }
@@ -679,6 +690,8 @@ final class Archive {
         var filesFailed = 0
         /// Chats whose folder still holds another chat's things (counted once, files and summary alike).
         var blocked = Set<String>()
+        /// Chats known by title alone whose title another chat shares: skipped (which one is meant can't be told).
+        var ambiguous = Set<String>()
         var zipFailed = false, unreadable = false, summariesRan = false
         /// The zip is another app's export, not Claude's.
         var notClaude = false
@@ -833,6 +846,7 @@ final class Archive {
         if r.noClaude { parts.append(tr("总结没写：Claude App 没打开，或「辅助功能」关着", "summaries not written: the Claude app isn't open, or Accessibility is off")) }
         if r.skipped > 0 { parts.append(tr("\(r.skipped) 个跳过（没变化、未读或在跑）", "\(r.skipped) skipped (unchanged, unread or running)")) }
         if !r.blocked.isEmpty { parts.append(tr("\(r.blocked.count) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked.count) not written (their folder still holds another chat's things)")) }
+        if !r.ambiguous.isEmpty { parts.append(tr("\(r.ambiguous.count) 个和别的对话同名，跳过了：在 Claude 里各打开一次，再导出一次", "skipped \(n(r.ambiguous.count, "chat", "chats")) sharing a name with another: open each once in Claude, then export again")) }
         // (the last retry from this zip still left them: as they aren't tried on their own again, that's said too)
         if r.zipRead && (r.filesFailed > 0 || !r.blocked.isEmpty) && state.zipTries > Archive.zipRetries {
             parts.append(tr("这些不再单独重试；下次导出或有新的导出包时再试", "these aren't retried on their own any more: the next export, or a new export zip, tries them again"))
@@ -953,7 +967,7 @@ final class Archive {
         return true
     }
 
-    /// 索引.md / Index.md: every exported chat by topic, with what its folder holds; plus a copy of the map.
+    /// 索引.md / Index.md: every exported chat by topic, with what its folder holds.
     private func writeIndex(_ list: [Item]) {
         let root = Archive.folder
         let fm = FileManager.default
@@ -975,7 +989,7 @@ final class Archive {
             if arts > 0 { has.append(tr("\(arts) 个 artifact", arts == 1 ? "1 artifact" : "\(arts) artifacts")) }
             s += "- [\(store.name(it.id))](<\(rel)/>) · " + has.joined(separator: " · ") + "\n"
         }
-        // only files KIKUmap wrote are written over: someone's own Index.md or map.json in that folder stays
+        // only an index KIKUmap wrote is written over: someone's own Index.md in that folder stays
         let mark = "<!-- kikumap-index -->\n"
         func ours(_ url: URL, _ test: (Data) -> Bool) -> Bool {
             guard let d = fm.contents(atPath: url.path) else { return !fm.fileExists(atPath: url.path) }
@@ -988,10 +1002,6 @@ final class Archive {
         }
         let indexURL = ours(index, isIndex) ? index : root.appendingPathComponent(tr("KIKUmap 索引.md", "KIKUmap Index.md"))
         if ours(indexURL, isIndex) { try? (mark + s).write(to: indexURL, atomically: true, encoding: .utf8) }
-        let mapCopy = root.appendingPathComponent("map.json")
-        let isMap: (Data) -> Bool = { (try? JSONDecoder().decode(MapDoc.self, from: $0)) != nil }
-        let mapURL = ours(mapCopy, isMap) ? mapCopy : root.appendingPathComponent("kikumap-map.json")
-        if ours(mapURL, isMap), let d = fm.contents(atPath: store.map.url.path) { try? d.write(to: mapURL, options: .atomic) }
     }
 
     /// Written whole (atomic), the folder made again if it went missing; a failure is logged once and shown in the

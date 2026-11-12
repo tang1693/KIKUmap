@@ -4989,6 +4989,11 @@
   "where": "Archive.swift",
   "zh": "磁盘不接受这个名字"
  },
+ "after %@": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "%@ 后"
+ },
  "another chat is open now": {
   "ctx": "paired",
   "where": "Archive.swift",
@@ -5574,6 +5579,16 @@
   "where": "DemoScenes.swift",
   "zh": "在跑？"
  },
+ "same name as another chat, address unknown: not written": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "和别的对话同名，地址还不知道：没写"
+ },
+ "same name as another chat, address unknown: skipped": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "和别的对话同名，地址还不知道：跳过"
+ },
  "scroll": {
   "ctx": "paired",
   "where": "DemoScenes.swift",
@@ -5588,6 +5603,11 @@
   "ctx": "paired",
   "where": "Settings.swift",
   "zh": "登录过期了"
+ },
+ "skipped %@ sharing a name with another: open each once in Claude, then export again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个和别的对话同名，跳过了：在 Claude 里各打开一次，再导出一次"
  },
  "something else is in the way": {
   "ctx": "paired",

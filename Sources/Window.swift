@@ -789,6 +789,16 @@ final class SidebarView: NSView, NSDraggingSource {
         let nameX = r.minX + 12 + (c.isCode || c.isCodexSession ? 19 : 0) + tag.size.width + 5
         let name = store.name(c.id), full = store.timeLabel(c)
         var shorter = SidebarView.shorter(full)
+        // found done only a while after it was last seen: "after 14:00" where the whole doesn't fit (the time is never
+        // cut, and never shown bare: that would read as when it finished). A Codex task gone quiet: "quiet". Told by the
+        // chat, not by its words, so it holds in every language
+        if let d = c.doneAfter, d.at == c.updated_at, let a = Clock.parse(d.after) {
+            let t = UsageMonitor.stamp(a)
+            if full == tr("\(t) 后做完", "done after \(t)") { shorter = [tr("\(t) 后", "after \(t)")] }
+        }
+        if store.gptQuiet.contains(c.id), let a = store.gptActive[c.id], full == tr("\(UsageMonitor.stamp(a)) 起没动静", "quiet since \(UsageMonitor.stamp(a))") {
+            shorter = [tr("没动静", "quiet")]
+        }
         // stopped on an error, said in Claude's words (Claude Code's after "stopped:"): "stopped" where they don't fit
         if let n = c.last_note, n.hasPrefix(Store.stopMark) {
             let t = Store.stopText(n)
@@ -822,8 +832,8 @@ final class SidebarView: NSView, NSDraggingSource {
         case tr("可能在等你", "maybe waiting for you"): return [tr("等你？", "maybe waiting"), tr("等你？", "waiting?")]
         case tr("等你确认", "waiting for you"): return [tr("等你", "waiting")]
         default:
-            // a Codex task gone quiet: that it has, without since when
-            return status.hasPrefix("quiet since ") || status.hasSuffix(" 起没动静") ? [tr("没动静", "quiet")] : []
+            // (a Codex task gone quiet, and a chat found done later: see `rowLayout`)
+            return []
         }
     }
 

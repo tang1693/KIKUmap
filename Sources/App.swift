@@ -139,6 +139,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.accessOffForBoth = { [weak self] in self?.accessOffForBoth() ?? false }
         statusBar.gptWindowIssue = { [weak self] in GPTWatcher.enabled ? self?.gptChats.issue : nil }
         store.openChatID = { [weak self] in self?.sidebar.openChat }
+        store.claudeListHidden = { [weak self] in
+            guard let s = self?.sidebar, s.status == .ok else { return false }
+            switch s.syncIssue { case .sidebarHidden?, .pinsCollapsed?, .noChatsShown?: return true; default: return false }
+        }
         widget.claudeNote = { [weak self] in
             guard let self = self, let n = self.claudeNote() else { return nil }
             return (n, self.claudeNoteUnreadOnly())

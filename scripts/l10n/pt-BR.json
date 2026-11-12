@@ -1376,5 +1376,9 @@
  "weekly": "semanal",
  "yesterday": "ontem",
  "; the other attachments are the files made in it": "; os outros anexos são os arquivos criados nela",
- "Chat name": "Nome do chat"
+ "Chat name": "Nome do chat",
+ "after %@": "após %@",
+ "skipped %@ sharing a name with another: open each once in Claude, then export again": "%@ com o mesmo nome de outra foram ignoradas: abra cada uma uma vez no Claude e exporte de novo",
+ "same name as another chat, address unknown: not written": "",
+ "same name as another chat, address unknown: skipped": ""
 }

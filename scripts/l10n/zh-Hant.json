@@ -1376,5 +1376,9 @@
  "weekly": "每週",
  "yesterday": "昨天",
  "; the other attachments are the files made in it": "；其他附件是那個對話裡做出的檔案",
- "Chat name": "對話名"
+ "Chat name": "對話名",
+ "after %@": "%@ 後",
+ "skipped %@ sharing a name with another: open each once in Claude, then export again": "跳過了和別的對話同名的 %@：在 Claude 裡各打開一次，再匯出一次",
+ "same name as another chat, address unknown: not written": "",
+ "same name as another chat, address unknown: skipped": ""
 }
