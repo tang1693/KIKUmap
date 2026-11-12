@@ -218,7 +218,7 @@ final class MapModel {
             if let i = list.firstIndex(where: { $0.name == p.zh || $0.name == p.en }) {
                 if list[i].icon == nil { list[i].icon = p.icon }         // one already there gets its icon
             } else if p.since > done {
-                list.append(Tag(id: MapNode.newId() + p.group, name: tr(p.zh, p.en), color: p.color, group: p.group, icon: p.icon, preset: p.key))
+                list.append(Tag(id: MapNode.newId() + p.group, name: tr(p.zh, TrKey(p.en)), color: p.color, group: p.group, icon: p.icon, preset: p.key))
             }
         }
         // the starter tags in their order within each category; your own after them
@@ -238,7 +238,7 @@ final class MapModel {
         var list = doc.tags ?? []
         for i in list.indices where list[i].preset == nil {
             let t = list[i]
-            if let p = MapModel.presetTags.first(where: { tr($0.zh, $0.en) == t.name }), t.id.count > p.group.count, t.id.hasSuffix(p.group) {
+            if let p = MapModel.presetTags.first(where: { tr($0.zh, TrKey($0.en)) == t.name }), t.id.count > p.group.count, t.id.hasSuffix(p.group) {
                 list[i].preset = p.key
             }
         }
@@ -272,7 +272,7 @@ final class MapModel {
         var changed = false
         for i in list.indices {
             guard let key = list[i].preset, let p = presetTags.first(where: { $0.key == key }) else { continue }
-            let name = tr(p.zh, p.en)
+            let name = tr(p.zh, TrKey(p.en))
             if list[i].name != name { list[i].name = name; changed = true }
         }
         return changed
@@ -543,9 +543,24 @@ final class MapModel {
 
     var tags: [Tag] { doc.tags ?? [] }
 
+    /// The node's tags in the node's own order (the order they were added; dragging one along a node reorders them).
     func tags(of key: String) -> [Tag] {
-        let ids = doc.itemTags?[key] ?? []
-        return tags.filter { ids.contains($0.id) }
+        let all = tags
+        return (doc.itemTags?[key] ?? []).compactMap { id in all.first { $0.id == id } }
+    }
+
+    /// Moves a node's tag to `index` among its tags (drag it along the node).
+    /// `index` counts the tags as drawn (`tags(of:)`), so ids left over from deleted tags are dropped first.
+    func moveTag(_ key: String, _ tagId: String, to index: Int) {
+        let known = Set(tags.map(\.id))
+        guard var list = doc.itemTags?[key]?.filter(known.contains), let from = list.firstIndex(of: tagId) else { return }
+        let to = max(0, min(index, list.count - 1))
+        guard from != to else { return }
+        commit {
+            list.remove(at: from)
+            list.insert(tagId, at: to)
+            doc.itemTags?[key] = list
+        }
     }
 
     func hasTag(_ key: String, _ tagId: String) -> Bool { doc.itemTags?[key]?.contains(tagId) == true }

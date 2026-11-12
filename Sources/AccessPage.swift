@@ -146,6 +146,7 @@ final class AccessRowView: NSView {
         seeIt.attributedTitle = NSAttributedString(string: AccessPage.seeItTitle, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.linkColor])
         seeIt.setAccessibilityLabel(tr("看看「\(item.title)」有什么用", "See what \(item.title) does"))
         seeIt.toolTip = tr("在上面的画面里演示一遍", "Plays it once in the picture above")
+        seeIt.setContentCompressionResistancePriority(.required, for: .horizontal)     // never cut, in any language
         head.spacing = 10
         head.setCustomSpacing(item.marker == nil ? 2 : 3, after: title)
         head.alignment = .firstBaseline

@@ -3,17 +3,18 @@
   <img src="docs/banner-en-light.png" width="100%" alt="KIKUmap: a mind map for your Claude and ChatGPT chats">
 </picture>
 
-<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></p>
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a></p>
 
 <p align="center">A mind map for your Claude and ChatGPT chats, in the Mac menu bar.<br>See what's running, what's done and what needs you.</p>
 
-<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-en.svg" height="56" alt="Download KIKUmap for macOS"></a></p>
+<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-en.svg" height="56" alt="Download KIKUmap for macOS"></a>&nbsp;&nbsp;<a href="https://tang1693.github.io/KIKUmap/"><img src="docs/website-en.svg" height="56" alt="Visit the KIKUmap website"></a></p>
 
 <p align="center"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
 
 <p align="center">
   <a href="https://github.com/tang1693/KIKUmap/releases/latest"><img src="https://img.shields.io/github/v/release/tang1693/KIKUmap?include_prereleases&label=version&color=187DFE" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-1f1e1d?logo=apple&logoColor=white" alt="macOS 13 or later">
+  <img src="https://img.shields.io/badge/languages-9-7A5AF8" alt="9 languages">
   <img src="https://img.shields.io/badge/Swift-no%20dependencies-F05138?logo=swift&logoColor=white" alt="Swift, no dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT license"></a>
   <a href="https://github.com/tang1693/KIKUmap/stargazers"><img src="https://img.shields.io/github/stars/tang1693/KIKUmap?style=flat&color=212120" alt="GitHub stars"></a>
@@ -127,7 +128,7 @@ Time per chat and session over 7, 14, 30 or 90 days. ⌘Y.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="Light or dark"><br><b>Light or dark.</b></td>
-<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English and Chinese"><br><b>English · 中文.</b></td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="English and Chinese"><br><b>9 languages:</b> English · 简体中文 · 繁體中文 · 日本語 · 한국어 · Español · Português · Deutsch · Français</td>
 </tr>
 </table>
 

@@ -22,7 +22,7 @@ mkdir -p "$WX/Contents/MacOS"
 for arch in arm64 x86_64; do
   echo "Building the widget, $arch…"
   xcrun swiftc -O -parse-as-library -application-extension -module-cache-path "$OUT/.modules" -target "$arch-apple-macos14.0" \
-    -module-name KikumapWidget -o "$OUT/wx-$arch" Widget/*.swift -framework SwiftUI -framework WidgetKit -framework Foundation \
+    -module-name KikumapWidget -o "$OUT/wx-$arch" Widget/*.swift Sources/L10n.swift Sources/L10nData.swift -framework SwiftUI -framework WidgetKit -framework Foundation \
     -Xlinker -e -Xlinker _NSExtensionMain
 done
 lipo -create -output "$WX/Contents/MacOS/KikumapWidget" "$OUT/wx-arm64" "$OUT/wx-x86_64"

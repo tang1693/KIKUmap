@@ -663,7 +663,20 @@ final class ShortcutStage: NSView {
         }
         var ww = w
         if s.view == .list { ww.zoom *= 0.86 }
-        guard let r = layout(ww, in: mapArea(s.view))[key] else { return nil }
+        let frames = layout(ww, in: mapArea(s.view))
+        // "tag:" an item's tag mark (after its name, as drawNode places it); "off:" a spot clear of the item, below it
+        if key.hasPrefix("tag:") || key.hasPrefix("off:") {
+            let id = String(key.dropFirst(4))
+            guard let r = frames[id], let n = w.nodes.first(where: { $0.id == id }) else { return nil }
+            if key.hasPrefix("off:") { return CGPoint(x: r.midX + 20, y: r.maxY + 34) }
+            let z = w.nodes.first { $0.kind == .root }.flatMap { frames[$0.id] }.map { $0.width / 12 } ?? ww.zoom
+            var x = r.minX + (n.state > 0 ? 8 : 1) * z
+            if n.app == "code" { x += 14 * z }
+            x += (mark(n.app == "code" ? "claude" : n.app, Theme.muted).size.width + 5) * z
+            x += n.title.size(withAttributes: [.font: Self.chatF]).width * z + 4 * z
+            return CGPoint(x: x + 4, y: n.state > 0 ? r.midY : r.midY - 2 * z)
+        }
+        guard let r = frames[key] else { return nil }
         return CGPoint(x: r.minX + min(28, r.width / 2), y: r.midY)
     }
 

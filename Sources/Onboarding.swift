@@ -182,8 +182,12 @@ final class Onboarding: NSObject, NSWindowDelegate {
             titleL.stringValue = "KIKUmap"
             bodyL.stringValue = tr("同时开着很多 Claude 和 ChatGPT 对话？在 Claude 或 ChatGPT 里把要盯的对话置顶，这个菜单栏小工具就会告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。",
                                    "Lots of Claude and ChatGPT chats going at once? Pin the ones you want to watch in Claude or ChatGPT. This menu-bar app then tells you which are still running and which are done but not read yet, and lets you sort them into a mind map.")
-            let seg = NSSegmentedControl(labels: ["中文", "English"], trackingMode: .selectOne, target: self, action: #selector(pickLanguage(_:)))
-            seg.selectedSegment = Prefs.english ? 1 : 0
+            // every language, each by its own name
+            let seg = NSPopUpButton(frame: .zero, pullsDown: false)
+            seg.addItems(withTitles: Lang.allCases.map(\.name))
+            seg.selectItem(at: Lang.allCases.firstIndex(of: Prefs.lang) ?? 0)
+            seg.target = self; seg.action = #selector(pickLanguage(_:))
+            seg.sizeToFit()
             center(seg)
             art.painter = { r, t in Onboarding.paintWelcome(r, t) }
             art.settled = 1.8
@@ -469,8 +473,9 @@ final class Onboarding: NSObject, NSWindowDelegate {
         render()
     }
 
-    @objc private func pickLanguage(_ s: NSSegmentedControl) {
-        Prefs.language = s.selectedSegment == 1 ? .en : .zh
+    @objc private func pickLanguage(_ s: NSPopUpButton) {
+        let l = Lang.allCases[max(0, s.indexOfSelectedItem)]
+        Prefs.language = Prefs.Language(rawValue: l.rawValue) ?? .en
         onLanguage?()
         render()
     }

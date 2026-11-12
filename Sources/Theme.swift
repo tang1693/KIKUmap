@@ -1,15 +1,24 @@
 import Cocoa
 import Carbon
 
-/// Chinese / English text, picked by the language setting.
-func tr(_ zh: String, _ en: String) -> String { Prefs.english ? en : zh }
+extension L10n {
+    /// "1 chat" / "3 chats" in the current language (keys "1 chat" and "%@ chats"), for counts inside a sentence.
+    static func count(_ k: Int, _ one: String, _ many: String) -> String {
+        let key = k == 1 ? TrKey("1 " + one) : TrKey(key: "%@ " + many, args: ["\(k)"], value: "\(k) " + many)
+        return text(key, zh: "", in: Prefs.lang)
+    }
+
+}
+
+/// The text in the language setting's language: written in Chinese and English, the rest from the table (L10n.swift).
+func tr(_ zh: String, _ en: TrKey) -> String { L10n.text(en, zh: zh, in: Prefs.lang) }
 
 /// User settings (UserDefaults).
 enum Prefs {
     private static var d: UserDefaults { .standard }
 
     enum Appearance: String, CaseIterable { case system, light, dark }
-    enum Language: String, CaseIterable { case system, zh, en }
+    enum Language: String, CaseIterable { case system, zh, zhHant = "zh-Hant", en, ja, ko, es, pt = "pt-BR", de, fr }
 
     static var appearance: Appearance {
         get { Appearance(rawValue: d.string(forKey: "Appearance") ?? "") ?? .system }
@@ -23,17 +32,21 @@ enum Prefs {
 
     static var language: Language {
         get { Language(rawValue: d.string(forKey: "Language") ?? "") ?? .system }
-        set { d.set(newValue.rawValue, forKey: "Language"); english = computeEnglish() }
+        set { d.set(newValue.rawValue, forKey: "Language"); lang = computeLang() }
     }
 
-    nonisolated(unsafe) static var english = computeEnglish()
+    /// The language KIKUmap speaks now (the setting, or the Mac's when it's "System").
+    nonisolated(unsafe) static var lang = computeLang()
+    /// Not Chinese: names that only come in Chinese and English (a folder's, say) take the English one. (Setting it
+    /// picks English or Simplified Chinese, as the checks do.)
+    static var english: Bool {
+        get { !lang.isChinese }
+        set { lang = newValue ? .en : .zhHans }
+    }
 
-    private static func computeEnglish() -> Bool {
-        switch language {
-        case .zh: return false
-        case .en: return true
-        case .system: return !(Locale.preferredLanguages.first ?? "zh").hasPrefix("zh")
-        }
+    private static func computeLang() -> Lang {
+        if language == .system { return Lang.system }
+        return Lang(rawValue: language.rawValue) ?? .en
     }
 
     static var onboarded: Bool {
@@ -122,13 +135,30 @@ enum Prefs {
         set { d.set(newValue, forKey: "SpeakRate") }
     }
     /// What's said; {name} is the chat.
+    /// A sentence you wrote yourself stays; one that's a default (in any language, or an older version's) follows the
+    /// app's language, so switching it doesn't leave the voice reading the old language's words.
     static var speakDone: String {
-        get { d.string(forKey: "SpeakDone") ?? tr("{name} 做完了", "{name} is done") }
-        set { d.set(newValue, forKey: "SpeakDone") }
+        get { spoken("SpeakDone", zh: "{name} 做完了", en: "{name} is done", older: ["{name} 做完了"]) }
+        set { setSpoken(newValue, "SpeakDone", zh: "{name} 做完了", en: "{name} is done", older: []) }
     }
     static var speakInput: String {
-        get { d.string(forKey: "SpeakInput") ?? tr("{name} 在等你确认", "{name} is waiting for you") }
-        set { d.set(newValue, forKey: "SpeakInput") }
+        get { spoken("SpeakInput", zh: "{name} 在等你确认", en: "{name} is waiting for you", older: ["{name} 在等你", "{name} needs you"]) }
+        set { setSpoken(newValue, "SpeakInput", zh: "{name} 在等你确认", en: "{name} is waiting for you", older: ["{name} 在等你", "{name} needs you"]) }
+    }
+    /// Every default the sentence has had: Chinese (both scripts), English and each translation, now and before.
+    private static func defaults(zh: String, en: String, older: [String]) -> Set<String> {
+        var all = Set([zh, en, L10n.traditional(zh)] + older + older.map(L10n.traditional))
+        all.formUnion((L10n.entries[en] ?? []).filter { !$0.isEmpty })
+        return Set(all.map { $0.trimmingCharacters(in: .whitespaces) })
+    }
+    private static func spoken(_ key: String, zh: String, en: String, older: [String]) -> String {
+        let now = tr(zh, TrKey(en))
+        guard let s = d.string(forKey: key), !defaults(zh: zh, en: en, older: older).contains(s.trimmingCharacters(in: .whitespaces)) else { return now }
+        return s
+    }
+    private static func setSpoken(_ v: String, _ key: String, zh: String, en: String, older: [String]) {
+        if defaults(zh: zh, en: en, older: older).contains(v.trimmingCharacters(in: .whitespaces)) { d.removeObject(forKey: key) }   // a default: not kept
+        else { d.set(v, forKey: key) }
     }
 
     @MainActor
@@ -316,7 +346,7 @@ enum Theme {
 
     /// A highlight colour, or nil for "no color" (also the old "black" / "gray").
     static func highlight(_ key: String?) -> NSColor? { key.flatMap { byKey[$0]?.color } }
-    static func highlightName(_ key: String) -> String { byKey[key].map { tr($0.zh, $0.en) } ?? key }
+    static func highlightName(_ key: String) -> String { byKey[key].map { tr($0.zh, TrKey($0.en)) } ?? key }
 
     /// Colour of a branch's lines: its highlight, or neutral grey.
     static func branch(_ key: String?) -> NSColor { highlight(key) ?? line }
@@ -495,8 +525,15 @@ enum Clock {
 
     static func format(_ d: Date, _ zh: String, _ en: String) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: Prefs.english ? "en_US" : "zh_CN")
-        f.dateFormat = tr(zh, en)
+        f.locale = Prefs.lang.locale
+        let l = Prefs.lang
+        if l != .en && !l.isChinese && (en.contains("MMM") || en.contains("EEE")) {
+            // month and weekday names in the language's own order ("Mi., 11. Nov."), not the English one; a trailing
+            // ", " (a time follows) becomes a space
+            f.setLocalizedDateFormatFromTemplate(en.filter { $0.isLetter })
+            return f.string(from: d) + (en.hasSuffix(" ") ? " " : "")
+        }
+        f.dateFormat = tr(zh, TrKey(en))
         return f.string(from: d)
     }
 
@@ -550,7 +587,7 @@ enum Clock {
         if cal.isDateInToday(d) { return tr("今天 \(t) 重置", "resets today \(t)") }
         if cal.isDateInTomorrow(d) { return tr("明天 \(t) 重置", "resets tomorrow \(t)") }
         let w = format(d, "EEE HH:mm", "EEE HH:mm")
-        return tr(w + " 重置", "resets " + w)
+        return tr("\(w) 重置", "resets \(w)")
     }
 
     /// "2小时后", "周四 09:00"

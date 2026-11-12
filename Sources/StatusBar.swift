@@ -1,5 +1,6 @@
 import Cocoa
 import AVFoundation
+import NaturalLanguage
 import UniformTypeIdentifiers
 
 /// Attention sounds (a macOS system sound or your own file, chosen in Settings) and, if you like,
@@ -55,12 +56,32 @@ final class Sounds {
         ring(name)
     }
 
+    /// Automatic voice: the language the sentence is written in (Japanese has kanji too, so not just "has Han → Chinese"),
+    /// or the app's when it can't tell.
+    static func speechLanguage(_ text: String) -> String {
+        let r = NLLanguageRecognizer()
+        r.languageConstraints = [.english, .simplifiedChinese, .traditionalChinese, .japanese, .korean, .spanish, .portuguese, .german, .french]
+        r.processString(text)
+        switch r.dominantLanguage {
+        case .simplifiedChinese?: return "zh-CN"
+        case .traditionalChinese?: return "zh-TW"
+        case .japanese?: return "ja-JP"
+        case .korean?: return "ko-KR"
+        case .spanish?: return "es-ES"
+        case .portuguese?: return "pt-BR"
+        case .german?: return "de-DE"
+        case .french?: return "fr-FR"
+        case .english?: return "en-US"
+        default: return Prefs.lang.locale.identifier.replacingOccurrences(of: "_", with: "-")
+        }
+    }
+
     func say(_ text: String, after delay: Double = 0) {
         let u = AVSpeechUtterance(string: text)
         u.rate = Prefs.speakRate
         u.preUtteranceDelay = delay
         u.voice = Prefs.speakVoice.flatMap { AVSpeechSynthesisVoice(identifier: $0) }
-            ?? AVSpeechSynthesisVoice(language: text.range(of: "\\p{Han}", options: .regularExpression) != nil ? "zh-CN" : "en-US")
+            ?? AVSpeechSynthesisVoice(language: Self.speechLanguage(text))
         voice.speak(u)
     }
 
@@ -68,7 +89,7 @@ final class Sounds {
     func test() {
         preview(Prefs.soundDone)
         if Prefs.speak {
-            say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("定价方案", "Pricing plan")), after: Prefs.soundDone == "off" ? 0 : 0.7)
+            say(Prefs.speakDone.replacingOccurrences(of: "{name}", with: tr("对话名", "Chat name")), after: Prefs.soundDone == "off" ? 0 : 0.7)
         }
     }
 

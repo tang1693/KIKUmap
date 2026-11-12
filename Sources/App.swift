@@ -741,9 +741,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static func archiveDialog(_ count: Int, every days: Int?, one: Bool) -> (title: String, text: String) {
         var again = ""
         if let d = days {
-            let zh = d == 1 ? "每天" : d == 30 ? "每月" : "每周", en = d == 1 ? "every day" : d == 30 ? "every month" : "every week"
-            again = tr("\n· 开着「自动更新」：以后\(zh)会自己再这样做一遍，在 Mac 闲置 10 分钟以上、你不在的时候（Claude App 要开着）；你一回来就停下",
-                       "\n· With \"Keep it updated\" on, this happens again on its own \(en), once the Mac has been idle for 10 minutes, while you're away (with the Claude app open); it stops as soon as you're back")
+            let when = d == 1 ? tr("每天", "every day") : d == 30 ? tr("每月", "every month") : tr("每周", "every week")
+            again = tr("\n· 开着「自动更新」：以后\(when)会自己再这样做一遍，在 Mac 闲置 10 分钟以上、你不在的时候（Claude App 要开着）；你一回来就停下",
+                       "\n· With \"Keep it updated\" on, this happens again on its own \(when), once the Mac has been idle for 10 minutes, while you're away (with the Claude app open); it stops as soon as you're back")
         }
         let downloads = Archive.asksNote.map { "\n\n" + $0 } ?? ""
         let clipboard = AppDelegate.summaryClipboard
@@ -841,7 +841,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// clipboard it pastes through.
     static func importDialog(_ count: Int) -> NSAlert {
         let a = NSAlert()
-        a.messageText = tr("导入 \(count) 个对话到现在登录的 Claude 账号？", "Import \(count) \(count == 1 ? "chat" : "chats") into the Claude account that's signed in now?")
+        a.messageText = tr("导入 \(count) 个对话到现在登录的 Claude 账号？", "Import \(L10n.count(count, "chat", "chats")) into the Claude account that's signed in now?")
         a.informativeText = tr("""
         每个存档会在 Claude App 里开一个新对话，发进总结和最多 19 个 artifact（每个小于 5 MB）让 Claude 接上，然后置顶、改回原来的名字。导图上会接到原来的位置。
 

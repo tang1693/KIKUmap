@@ -393,7 +393,7 @@ enum TagPrompt {
         field.placeholderString = tr("标签名，比如「等客户」", "Tag name, e.g. \"waiting on client\"")
         let pop = ColorPopUp(selected: color)
         let group = NSPopUpButton(frame: .zero, pullsDown: false)
-        for g in Tag.groups { group.addItem(withTitle: tr(g.zh, g.en)); group.lastItem?.representedObject = g.key }
+        for g in Tag.groups { group.addItem(withTitle: tr(g.zh, TrKey(g.en))); group.lastItem?.representedObject = g.key }
         group.selectItem(at: Tag.groups.count - 1)
         let grid = IconGridView()
         grid.tint = Theme.highlight(color) ?? Theme.ink
@@ -425,7 +425,7 @@ final class ColorPopUp: NSPopUpButton {
     init(selected: String) {
         super.init(frame: NSRect(x: 0, y: 0, width: 110, height: 26), pullsDown: false)
         for h in Theme.highlights {
-            addItem(withTitle: tr(h.zh, h.en))
+            addItem(withTitle: tr(h.zh, TrKey(h.en)))
             lastItem?.image = Theme.swatch(h.color)
             lastItem?.representedObject = h.key
         }
@@ -728,7 +728,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     private func general() -> NSView {
         let langs = Prefs.Language.allCases
-        let lang = popup([tr("跟随系统", "System"), "中文", "English"], selected: langs.firstIndex(of: Prefs.language) ?? 0) { [weak self] i in
+        let lang = popup(langs.map { $0 == .system ? tr("跟随系统", "System") : (Lang(rawValue: $0.rawValue)?.name ?? $0.rawValue) },
+                         selected: langs.firstIndex(of: Prefs.language) ?? 0) { [weak self] i in
             Prefs.language = langs[i]
             self?.onLanguage?()
         }
@@ -793,7 +794,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     /// The custom set in the Colors menu: "Custom (from Classic)".
     static var customName: String {
-        let base = Palette.preset(Palette.customBase).map { tr($0.zh, $0.en) } ?? ""
+        let base = Palette.preset(Palette.customBase).map { tr($0.zh, TrKey($0.en)) } ?? ""
         return tr("自定义（基于「\(base)」）", "Custom (from \(base))")
     }
 
@@ -803,8 +804,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     /// first, on Settings. `done(true)`: replace it.
     private func confirmReplaceCustom(_ done: @escaping (Bool) -> Void) {
         if let answer = answerReplaceCustom { done(answer()); return }
-        let from = Palette.preset(Theme.paletteKey).map { tr($0.zh, $0.en) } ?? ""
-        let base = Palette.preset(Palette.customBase).map { tr($0.zh, $0.en) } ?? ""
+        let from = Palette.preset(Theme.paletteKey).map { tr($0.zh, TrKey($0.en)) } ?? ""
+        let base = Palette.preset(Palette.customBase).map { tr($0.zh, TrKey($0.en)) } ?? ""
         let a = NSAlert()
         a.messageText = tr("替换存着的自定义配色？", "Replace your saved custom colors?")
         a.informativeText = tr("在「\(from)」里改颜色，会从它新建一套自定义配色，替换掉你存着的那套（基于「\(base)」）：只能存一套。想用回存着的那套：点「取消」，再在「配色」里选「自定义」。",
@@ -850,7 +851,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             pop.removeAllItems()
             for k in keys {
                 let pr = Palette.preset(k)
-                pop.addItem(withTitle: pr.map { tr($0.zh, $0.en) } ?? SettingsWindow.customName)
+                pop.addItem(withTitle: pr.map { tr($0.zh, TrKey($0.en)) } ?? SettingsWindow.customName)
                 pop.lastItem?.image = swatches(pr?.palette ?? custom ?? p)
             }
             pop.selectItem(at: keys.firstIndex(of: key) ?? 0)
@@ -907,13 +908,14 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             let h = ClosureTarget { [weak w] in if let w = w { change(part, dark: dark, w) } }
             w.target = h; w.action = #selector(ClosureTarget.fire)
             objc_setAssociatedObject(w, "h", h, .OBJC_ASSOCIATION_RETAIN)
-            w.setAccessibilityLabel(tr(Palette.parts[part].zh, Palette.parts[part].en) + " · " + (dark ? tr("深色", "Dark") : tr("浅色", "Light")))
+            w.setAccessibilityLabel(tr(Palette.parts[part].zh, TrKey(Palette.parts[part].en)) + " · " + (dark ? tr("深色", "Dark") : tr("浅色", "Light")))
             return w
         }
         // a table: one row per part, the light color in one column and the dark one in the next, each under its heading
         func head(_ s: String) -> NSTextField {
             let t = NSTextField(labelWithString: s)
             t.font = .systemFont(ofSize: 11.5, weight: .medium); t.textColor = .secondaryLabelColor; t.alignment = .center
+            t.setContentCompressionResistancePriority(.required, for: .horizontal)     // a longer word widens its column
             return t
         }
         lightHead = head(tr("浅色", "Light")); darkHead = head(tr("深色", "Dark"))
@@ -921,14 +923,16 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         for (i, part) in Palette.parts.enumerated() {
             let pair = (well(i, dark: false), well(i, dark: true))
             wells.append(pair)
-            rows.append([label(tr(part.zh, part.en), width: 140), pair.0, pair.1])
+            rows.append([label(tr(part.zh, TrKey(part.en)), width: 140), pair.0, pair.1])
         }
         let table = NSGridView(views: rows)
         table.rowSpacing = 10; table.columnSpacing = 14
         table.column(at: 2).leadingPadding = 10        // a little air between the two columns
         table.column(at: 0).xPlacement = .trailing; table.column(at: 0).width = 140
         // as wide as a well: the wells start where the menu above and the note below do
-        for c in 1...2 { table.column(at: c).xPlacement = .center; table.column(at: c).width = 44 }
+        // (wider only where a language's word for light or dark is longer than a well)
+        let colW = max(44, ceil(max(lightHead!.fittingSize.width, darkHead!.fittingSize.width)))
+        for c in 1...2 { table.column(at: c).xPlacement = .center; table.column(at: c).width = colW }
         table.rowAlignment = .none
         for r in 0..<table.numberOfRows { table.row(at: r).yPlacement = .center }
         table.row(at: 0).bottomPadding = -2
@@ -983,12 +987,12 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         // the chat's name, read aloud after the sound
         let speak = check(tr("响完再念出是哪个对话", "Then say which chat it was"), Prefs.speak) { Prefs.speak = $0 }
         let voices = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("en") || $0.language.hasPrefix("zh") }
+            .filter { v in ["en", "zh", "ja", "ko", "es", "pt", "de", "fr"].contains { v.language.hasPrefix($0) } }
             .sorted { ($0.language, $0.name) < ($1.language, $1.name) }
         func grade(_ v: AVSpeechSynthesisVoice) -> String {
             switch v.quality { case .premium: return " ★★"; case .enhanced: return " ★"; default: return "" }
         }
-        let voicePop = popup([tr("自动（跟着文字的语言）", "Automatic (matches the language)")] + voices.map { "\($0.name) · \($0.language)\(grade($0))" },
+        let voicePop = popup([tr("自动（按文字的语言）", "Automatic (matches the language)")] + voices.map { "\($0.name) · \($0.language)\(grade($0))" },
                              selected: (voices.firstIndex { $0.identifier == Prefs.speakVoice }).map { $0 + 1 } ?? 0) { i in
             Prefs.speakVoice = i == 0 ? nil : voices[i - 1].identifier
         }
@@ -1219,8 +1223,10 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         field.setAccessibilityLabel(tr("显示 / 隐藏导图的快捷键", "Shortcut to show or hide the map"))
         // what the shortcut does right now, in one line under it
         let status = label("", small: true, width: 350)
-        status.maximumNumberOfLines = 1
-        status.lineBreakMode = .byTruncatingTail
+        // two lines where a language needs them (the full text is in its tool tip too)
+        status.maximumNumberOfLines = 2
+        status.lineBreakMode = .byWordWrapping
+        status.cell?.truncatesLastVisibleLine = true
         /// `refused`: a combination of KIKUmap's own just pressed while recording.
         func refresh(recording: Bool = false, refused: (code: UInt32, mods: UInt32)? = nil) {
             // the one saved is KIKUmap's own (an older build took it): not active, and why
@@ -1341,7 +1347,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let intro = label(tr("在跑和未读有自己的颜色（在「配色」里设）。其余的颜色留给你：给分支上色（右键主题 → 分支颜色），或者给对话和主题加标签（右键 → 标签），一个可以加好几个。",
                              "Running and unread have colors of their own (set them in Colors). The rest is yours: color a branch (right-click a topic → Branch color) or tag chats and topics (right-click → Tags), as many as you like."), small: true)
         let swatches = NSStackView(views: Theme.highlights.map { h in
-            let v = NSImageView(image: Theme.swatch(h.color, size: 16)); v.toolTip = tr(h.zh, h.en); return v
+            let v = NSImageView(image: Theme.swatch(h.color, size: 16)); v.toolTip = tr(h.zh, TrKey(h.en)); return v
         })
         swatches.spacing = 4
         return vstack([intro, swatches, list, add], spacing: 14)
@@ -1405,7 +1411,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             name.widthAnchor.constraint(equalToConstant: 150).isActive = true
             name.identifier = NSUserInterfaceItemIdentifier(t.id)
             let group = NSPopUpButton(frame: .zero, pullsDown: false)
-            for g in Tag.groups { group.addItem(withTitle: tr(g.zh, g.en)); group.lastItem?.representedObject = g.key }
+            for g in Tag.groups { group.addItem(withTitle: tr(g.zh, TrKey(g.en))); group.lastItem?.representedObject = g.key }
             group.selectItem(at: Tag.groups.firstIndex { $0.key == t.category } ?? 2)
             let pickGroup = ClosureTarget { [weak self, weak group] in
                 guard let g = group?.selectedItem?.representedObject as? String else { return }

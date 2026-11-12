@@ -3,17 +3,18 @@
   <img src="docs/banner-zh-light.png" width="100%" alt="KIKUmap：给 Claude 和 ChatGPT 对话的思维导图">
 </picture>
 
-<p align="center"><a href="README.md">English</a> · <b>简体中文</b> · <a href="README.ja.md">日本語</a></p>
+<p align="center"><a href="README.md">English</a> · <b>简体中文</b> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a></p>
 
 <p align="center">住在 Mac 菜单栏里的思维导图，管理 Claude 和 ChatGPT 的对话。<br>哪个在跑、哪个做完了、哪个在等你，一眼就知道。</p>
 
-<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-zh.svg" height="56" alt="下载 KIKUmap macOS 版"></a></p>
+<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-zh.svg" height="56" alt="下载 KIKUmap macOS 版"></a>&nbsp;&nbsp;<a href="https://tang1693.github.io/KIKUmap/?lang=zh"><img src="docs/website-zh.svg" height="56" alt="访问 KIKUmap 官网"></a></p>
 
 <p align="center"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
 
 <p align="center">
   <a href="https://github.com/tang1693/KIKUmap/releases/latest"><img src="https://img.shields.io/github/v/release/tang1693/KIKUmap?include_prereleases&label=%E7%89%88%E6%9C%AC&color=187DFE" alt="最新版本"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-1f1e1d?logo=apple&logoColor=white" alt="macOS 13 及以上">
+  <img src="https://img.shields.io/badge/languages-9-7A5AF8" alt="9 languages">
   <img src="https://img.shields.io/badge/Swift-%E9%9B%B6%E4%BE%9D%E8%B5%96-F05138?logo=swift&logoColor=white" alt="Swift，零依赖">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT 协议"></a>
   <a href="https://github.com/tang1693/KIKUmap/stargazers"><img src="https://img.shields.io/github/stars/tang1693/KIKUmap?style=flat&color=212120" alt="GitHub stars"></a>
@@ -127,7 +128,7 @@ Claude 和 ChatGPT App 里置顶的对话、Claude Code 会话，都会列在左
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="浅色或深色"><br><b>浅色、深色</b>都有。</td>
-<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="中文和英文"><br><b>中文 · English。</b></td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="中文和英文"><br><b>9 种语言：</b> English · 简体中文 · 繁體中文 · 日本語 · 한국어 · Español · Português · Deutsch · Français</td>
 </tr>
 </table>
 

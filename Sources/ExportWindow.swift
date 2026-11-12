@@ -144,7 +144,7 @@ final class ExportWindow: NSObject, NSWindowDelegate {
         memory = mem
         let memNote = label(tr("每个对话会多一轮问答，用掉一点额度。运行时 Claude 窗口会自己切换对话。没变化、未读、在跑的对话会跳过。",
                                "Each chat gets one more exchange, which uses a little quota. The Claude window switches chats while it runs. Unchanged, unread and running chats are skipped.")
-                            + "\n" + tr(AppDelegate.summaryClipboard.zh + "。", AppDelegate.summaryClipboard.en + "."), small: true, width: 470)
+                            + "\n" + tr(AppDelegate.summaryClipboard.zh, TrKey(AppDelegate.summaryClipboard.en)) + ([.zhHans, .zhHant, .ja].contains(Prefs.lang) ? "。" : "."), small: true, width: 470)
         // (kept when the export starts, like the topics; the note under "Keep it updated" follows it at once)
         let fil = ClosureCheck(title: tr("提示词、完整对话、全部 artifacts 和附件", "Prompts, the whole conversation, every artifact and attachment"), on: Archive.withFiles) { [weak self] _ in
             self?.updateAutoNote()

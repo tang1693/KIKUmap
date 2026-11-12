@@ -1,0 +1,5902 @@
+{
+ "\n\nClaude Code doesn't seem to be on this Mac yet. Install it, run claude in Terminal and /login with your paid account; then usage shows here.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "\n\n这台 Mac 上好像还没装 Claude Code。先装好它，在终端运行 claude，再用付费账号 /login，这里才会有用量。"
+ },
+ "\n\nCodex on this Mac doesn't seem to be signed in with a ChatGPT account yet. Sign in in the ChatGPT desktop app or in Codex first.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "\n\n这台 Mac 上的 Codex 好像还没用 ChatGPT 账号登录。先在 ChatGPT 桌面 App 或 Codex 里登录，这里才查得到。"
+ },
+ "\n\nQuit KIKUmap and open it again.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "\n\n请退出 KIKUmap，再打开它。"
+ },
+ "\nAccount: ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "\n账号："
+ },
+ "\nClaude Code's account: ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "\nClaude Code 的账号："
+ },
+ "\nEstimated: KIKUmap didn't see this time.\nCounted up to when it was next seen or known done;\nelse your usual run of %@": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "\n估算：这段时间 KIKUmap 没看到。\n算到下次看到它、或已知做完的时候；\n都没有时，按你平常一次的时长 %@"
+ },
+ "\nFix: System Settings → Privacy & Security → Accessibility: remove KIKUmap (−) and add it again.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：系统设置 → 隐私与安全性 → 辅助功能，把 KIKUmap 删掉（−）再加回来。"
+ },
+ "\nFix: click \"Pinned\" in Claude's sidebar to unfold it.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：在 Claude 侧边栏里点一下 Pinned，把它展开。"
+ },
+ "\nFix: click Claude in the Dock (it reopens a closed window, or takes you to its desktop). To keep syncing while you work on another desktop, move Claude's window to the desktop you use.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：点程序坞里的 Claude（关着的窗口会重新打开，在别的桌面会切过去）。想在别的桌面工作时也同步，就把 Claude 的窗口放到你用的那个桌面。"
+ },
+ "\nFix: show the sidebar in Claude's window (top left). Claude folds it away when the window is narrow: make the window wider.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：在 Claude 窗口左上角把侧边栏打开；窗口太窄时 Claude 会自动收起它，把窗口拉宽一点。"
+ },
+ "\nFix: switch Claude back to Chat at the top of its sidebar.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：在 Claude 侧边栏顶部切回 Chat。"
+ },
+ "\nFix: wait for it to load; if Claude shows \"Try again\", click it, or check your connection; click a folded group's heading to unfold it.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "\n怎么办：等它加载完；Claude 显示「重试」的话点一下，或者检查网络；分组折叠了就点一下它的标题展开。"
+ },
+ "\nNo activity seen since (maybe waiting for you, maybe a long step)": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "\n之后没再看到动静（可能在等你确认，也可能某一步做得久）"
+ },
+ "\nRed number = unread (done, not looked at yet) · ! = waiting for you (to approve or answer, or it stopped on an error) · number in a ring = how many are running (arc turning: running now)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "\n红色数字 = 未读（做完了，还没看） · ! = 在等你（要你确认或回答，或者出错停下了） · 圈里的数字 = 在跑几个（外圈在转：现在在跑）"
+ },
+ "\nSession ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "\n当前会话 "
+ },
+ "\nSummaries aren't written on the schedule yet: that starts once you click Export and agree.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "\n按计划写总结还没开始：点「导出」并在提示里同意后才开始。"
+ },
+ "\nThe map window, Statistics, the intro, the menu-bar icon and the Shortcuts demos use these colors; the rest of Settings and the desktop widget don't. Change any color and the set becomes Custom.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "\n导图窗口、统计、引导页、菜单栏图标和「快捷键」里的演示都用这些颜色；设置的其余部分和桌面小组件不变。改了任何一个颜色，就成了「自定义」。"
+ },
+ "\nWeek ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "\n本周 "
+ },
+ "\nWeek (%@ only) ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "\n本周（仅 %@）已用 "
+ },
+ "\n· With \"Keep it updated\" on, this happens again on its own %@, once the Mac has been idle for 10 minutes, while you're away (with the Claude app open); it stops as soon as you're back": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "\n· 开着「自动更新」：以后%@会自己再这样做一遍，在 Mac 闲置 10 分钟以上、你不在的时候（Claude App 要开着）；你一回来就停下"
+ },
+ "  attached %@ files": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  附上 %@ 个文件"
+ },
+ "  attached 1 file": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  附上 %@ 个文件"
+ },
+ "  can't read the export: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  导出包读不了："
+ },
+ "  couldn't find the message box": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  找不到输入框"
+ },
+ "  couldn't pin it": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  置顶失败"
+ },
+ "  couldn't read the keyboard layout: ⌘%@ not pressed": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  键盘布局读不了，没按 ⌘%@"
+ },
+ "  couldn't rename it: it keeps the name Claude gave it": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  改名失败，还是 Claude 起的名字"
+ },
+ "  couldn't send": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  发不出去"
+ },
+ "  couldn't start a new chat": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  开不了新对话"
+ },
+ "  failed: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  失败："
+ },
+ "  imported → ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  已导入 → "
+ },
+ "  no reply in time (the chat was made: %@)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  等回复超时（对话已建好：%@）"
+ },
+ "  not Claude's export: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  不是 Claude 的导出包："
+ },
+ "  nothing new, skipped": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  没有新内容，跳过"
+ },
+ "  stopped before Claude replied (the chat was made: %@)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  停下了，Claude 还没回复（对话已建好：%@）"
+ },
+ "  stopped before sending: may be left in the message box": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  停在发送前：可能留在了输入框里"
+ },
+ "  the Copy button did nothing: plain text instead": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  Copy 按钮没反应，改用纯文本"
+ },
+ "  the export folder can't take files anymore, stopped: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  导出文件夹存不进文件了，停下："
+ },
+ "  the export folder can't take files anymore, summaries stopped: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  导出文件夹存不进文件了，总结停下："
+ },
+ "  the files weren't attached": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  文件没附上"
+ },
+ "  the new chat has no address": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  新对话没有地址"
+ },
+ "  the new chat's box isn't empty": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "  新对话的输入框里有东西"
+ },
+ " (%@ more files weren't attached; they're in the export folder)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "（另有 %@ 个文件没附上，在导出文件夹里）"
+ },
+ " (%@ out of sight, maybe still running: marked ?)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "（其中 %@ 个现在看不到，可能还在跑，标着 ?）"
+ },
+ " (%@ waiting for you)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "（其中 %@ 个在等你）"
+ },
+ " (1 more file wasn't attached; it's in the export folder)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "（另有 %@ 个文件没附上，在导出文件夹里）"
+ },
+ " (in Claude as \"%@\")": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "（在 Claude 里叫「%@」）"
+ },
+ " (it couldn't be moved aside; changes you make to the map now won't be saved)": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "（没法移开；现在对导图的改动不会保存）"
+ },
+ " (it couldn't be moved aside; imports and summaries made now aren't recorded)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "（没法移开；现在导入和总结的记录不会保存）"
+ },
+ " (saved by a newer KIKUmap; changes you make to the map now won't be saved)": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "（新版 KIKUmap 存的；现在对导图的改动不会保存）"
+ },
+ " (see To-do)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "（见「待办」）"
+ },
+ " (≈ %@ estimated)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "（含估算 ≈%@）"
+ },
+ " Before %@, only daily totals were kept: view those by day.": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": " %@ 以前只记了每天的总数，请按天看。"
+ },
+ " ChatGPT chats and Claude Code or Codex sessions aren't exported or counted.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "ChatGPT 对话和 Claude Code、Codex 会话不导出，数字里也不算。"
+ },
+ " Claude Code isn't affected.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude Code 不受影响。"
+ },
+ " Codex chats and Claude Code aren't affected.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Codex 对话和 Claude Code 不受影响。"
+ },
+ " KIKUmap opens again by itself, back at this step of the intro.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 会自己重新打开，回到介绍的这一步。"
+ },
+ " KIKUmap opens again by itself; Settings → Access then shows ✓ On.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 会自己重新打开，之后 设置 → 授权 里会显示「✓ 已开启」。"
+ },
+ " They aren't written on the schedule either, until you export again with Claude open and agree.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "之后按计划也不写，直到你在 Claude 打开时再点「导出」并同意。"
+ },
+ " used": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": " 已用"
+ },
+ " · %@ chats": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · %@ 个对话"
+ },
+ " · %@ failed (see logs/archive.log)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · %@ 个失败（看 logs/archive.log）"
+ },
+ " · %@ to pin or rename in Claude by hand": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · %@ 个要在 Claude 里手动置顶或改名"
+ },
+ " · 1 chat": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · %@ 个对话"
+ },
+ " · ChatGPT not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": " · ChatGPT 没同步"
+ },
+ " · Unread %@": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": " · 未读 %@"
+ },
+ " · as of %@": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": " · %@ 时的列表"
+ },
+ " · halted": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · 停下了"
+ },
+ " · leave the Claude window alone": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": " · 请先别动 Claude 窗口"
+ },
+ " · list as of %@": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": " · %@ 时的列表"
+ },
+ " · next read in %@s (sooner if something changes)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "，%@ 秒后再读（有变化会马上读）"
+ },
+ " · stopped": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": " · 中途停止"
+ },
+ " · unread not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": " · 未读没同步"
+ },
+ " ≈%@ is estimated: Claude or ChatGPT unseen, quiet Codex tasks, requests you may have answered.": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其中 ≈%@ 是估算的：Claude 或 ChatGPT 的窗口看不到、Codex 任务没动静，或请求可能已经回答了的那段时间。"
+ },
+ "%.1fh": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "%.1f小时"
+ },
+ "%@ artifacts": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个 artifact"
+ },
+ "%@ can't be saved: %@. Is the disk full, or the data folder not writable? It saves again by itself once there's room.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ 存不了：%@。磁盘满了，或者数据文件夹没有写入权限？腾出空间后会自动再存。"
+ },
+ "%@ chats": {
+  "ctx": "count",
+  "where": "App.swift",
+  "zh": "%@ 个"
+ },
+ "%@ failed (see logs/archive.log)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个失败（看 logs/archive.log）"
+ },
+ "%@ imported": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导入了 %@ 个"
+ },
+ "%@ not in the export zip (is the zip older than the chat?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个不在导出包里（导出包比对话旧？）"
+ },
+ "%@ not written (their folder still holds another chat's things)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个没写（文件夹里还有另一个同名对话的东西）"
+ },
+ "%@ other chats": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其他 %@ 个对话"
+ },
+ "%@ other sessions": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其他 %@ 个会话"
+ },
+ "%@ others": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其他 %@ 个"
+ },
+ "%@ sessions": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "%@ 个会话"
+ },
+ "%@ skipped (unchanged, unread or running)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个跳过（没变化、未读或在跑）"
+ },
+ "%@ summaries": {
+  "ctx": "count",
+  "where": "Archive.swift",
+  "zh": "%@ 个"
+ },
+ "%@ worked": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "%@ 干活总时长"
+ },
+ "%@ worked %@ today · %@ done": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "今天 %@ 干活 %@ · 做完 %@ 个"
+ },
+ "%@d ago": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@天前"
+ },
+ "%@h ago": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@小时前"
+ },
+ "%@m ago": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@分钟前"
+ },
+ "(Optional · experimental)": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "（可选 · 试验性）"
+ },
+ "(Optional)": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "（可选）"
+ },
+ "(deleted chat)": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "(已删除的对话)"
+ },
+ "); trying again": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "），一会儿再试"
+ },
+ ", %@ of them out of sight": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "，其中 %@ 个现在看不到"
+ },
+ ", %@ of them waiting for you": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "，其中 %@ 个在等你"
+ },
+ ", %@ unread": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "，未读 %@ 个"
+ },
+ ", optional": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "，可选"
+ },
+ ", optional, experimental": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "，可选，试验性"
+ },
+ ", required": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "，必需"
+ },
+ ". Claude Code isn't connected (Settings → Access)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。Claude Code 还没连接（设置 → 授权）"
+ },
+ ". Fix data/rules.json, or delete it to get the defaults back.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。改好 data/rules.json，或者删掉它恢复默认。"
+ },
+ ". KIKUmap started that part afresh without writing over it.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。KIKUmap 从空白开始记，没有覆盖它。"
+ },
+ ". Note: ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。注意："
+ },
+ ". Open Claude to answer.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。打开 Claude 去确认。"
+ },
+ ". There may be more running or unread in ChatGPT than shown; open KIKUmap to see how to fix it": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "。ChatGPT 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决"
+ },
+ ". There may be more running or unread in Claude and ChatGPT than shown; open KIKUmap to see how to fix it": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "。Claude 和 ChatGPT 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决"
+ },
+ ". There may be more running or unread in Claude than shown; open KIKUmap to see how to fix it": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "。Claude 里在跑的、未读的可能比这里多，打开 KIKUmap 看怎么解决"
+ },
+ ". Until then, sessions in Terminal or VS Code don't show running or unread.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "。在那之前，终端、VS Code 里的会话不显示在跑和未读。"
+ },
+ ". Which chats you've read in Claude may not show here; open KIKUmap to see how to fix it": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "。你在 Claude 里看过哪些，这里可能没跟上，打开 KIKUmap 看怎么解决"
+ },
+ "1 artifact": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个 artifact"
+ },
+ "1 chat": {
+  "ctx": "count",
+  "where": "App.swift",
+  "zh": "1 个"
+ },
+ "1 other chat": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其他 %@ 个对话"
+ },
+ "1 other session": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "其他 %@ 个会话"
+ },
+ "1 session": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "%@ 个会话"
+ },
+ "1 summary": {
+  "ctx": "count",
+  "where": "Archive.swift",
+  "zh": "1 个"
+ },
+ "24 hours": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "24 小时"
+ },
+ "80–160% in 10% steps, the map with it; View → Default Size goes back to 100%. On a US keyboard ⌘+ is ⇧⌘=; after you click the map, ⌘= works too.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "80%–160%，每次 10%，导图跟着变；「显示 → 默认大小」回到 100%。美式键盘上 ⌘+ 要按 ⇧⌘=；点过导图后 ⌘= 也行。"
+ },
+ ": press another.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "，换一个。"
+ },
+ "; the other attachments are the files made in it": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "；其他附件是那个对话里做出的文件"
+ },
+ "> fix the login button": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "> 修好登录页的按钮"
+ },
+ "A chat or topic can have several tags.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "一个对话或主题可以有多个标签。"
+ },
+ "A dashed line follows the pointer with the date and time, counting down for times ahead; over a chat's bar or a task, its name and times. While the map window is in front.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "虚线跟着指针，显示日期和时间（未来的带倒计时）；停在某个对话的条或计划任务上，显示名字和时间。导图窗口在最前面时才有。"
+ },
+ "A data file couldn't be read and was kept aside": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "有数据文件读不了，已另存"
+ },
+ "A map for your chats": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "导图：把对话归好类"
+ },
+ "A mind map for your Claude and ChatGPT chats": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "Claude 和 ChatGPT 对话导图"
+ },
+ "A pinned Codex chat shows it's running": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "置顶的 Codex 对话，看得出在跑"
+ },
+ "A scheduled task (◆ or a past run) opens claude.ai/code/routines; a day in the day strip jumps to it.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "点计划任务（◆ 或跑过的那段）打开 claude.ai/code/routines；点日期条上的某一天就跳到那天。"
+ },
+ "A solid ring: the keys work in the list; a pale one: they go elsewhere. If the chat is on the map, it's selected there too; the two stay in step. Click empty space in the list to clear the pick.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "圈的颜色深：按键用在左栏；颜色淡：按键用在别处。这个对话也在导图上的话，导图上也会选中它，两边一直一致。点左栏的空白处取消选择。"
+ },
+ "A topic goes with everything under it (what's hidden while ChatGPT is off stays); a chat only comes off the map (a pinned one stays in the left column). ⌦ works too. Several selected: each goes the same way; with ⌥, what's under the topics stays. ⌘Z undoes it.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "主题连同下面的一起删（ChatGPT 关着时藏起来的会留下）；对话只是从导图上拿掉（置顶的还在左栏）。⌦ 也行。选了好几个时每个都这样删；按住 ⌥，各主题下面的都留下。⌘Z 撤销。"
+ },
+ "A topic with items only. Point at a topic and a small − button shows beside it: click it to collapse. Collapsed, the pill shows how many chats it holds; click it, or press ⌘↓, to expand it again.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "主题下面有东西才行。鼠标移到主题上，旁边会出现小圆钮「−」，点它也能折叠。折叠后，小圆钮显示里面有几个对话；点它或按 ⌘↓ 都能展开。"
+ },
+ "About": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "关于"
+ },
+ "About KIKUmap": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "关于 KIKUmap"
+ },
+ "Access": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "授权"
+ },
+ "Accessibility": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "辅助功能"
+ },
+ "Accessibility is mainly for reading the chat lists in the Claude and ChatGPT windows, and neither app is on this Mac, so skip it. If you install one later, turn it on in Settings → Access. Claude Code doesn't need it.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "辅助功能主要用来看 Claude App 和 ChatGPT 窗口里的对话列表，这台 Mac 上两个都没装，跳过就好；以后装了，在 设置 → 授权 里再开。Claude Code 不需要它。"
+ },
+ "Accessibility is mainly for reading the chat lists in the Claude and ChatGPT windows. This Mac has no Claude app, and its ChatGPT app is the older one, whose window KIKUmap doesn't read, so skip it. If you install the Claude app or the current ChatGPT app later, turn it on in Settings → Access. Claude Code doesn't need it.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "辅助功能主要用来看 Claude App 和 ChatGPT 窗口里的对话列表。这台 Mac 上没有 Claude App，ChatGPT 是旧版，KIKUmap 不读它的窗口，跳过就好；以后装了 Claude App 或新版 ChatGPT，在 设置 → 授权 里再开。Claude Code 不需要它。"
+ },
+ "Accessibility is off": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "辅助功能关着"
+ },
+ "Accessibility stopped working for KIKUmap — remove it and add it again in System Settings": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "辅助功能权限失效了：在系统设置里把 KIKUmap 删掉再加回来"
+ },
+ "Accessibility · reads the chat list in Claude's window": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "辅助功能 · 读 Claude 窗口里的对话列表"
+ },
+ "Accessibility: not needed on this Mac": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "辅助功能：这台 Mac 用不上"
+ },
+ "Add KIKUmap to Full Disk Access": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "把 KIKUmap 加进「完全磁盘访问」"
+ },
+ "Add to or take out of the selection": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "加选 / 取消选中"
+ },
+ "Adds a few lines to Claude Code's settings (~/.claude/settings.json) so Claude Code sessions in Terminal or VS Code show running / unread too. The old file is backed up first. Works for sessions started afterward.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "在 Claude Code 的设置（~/.claude/settings.json）里加几行，让终端、VS Code 里的 Claude Code 会话也显示「在跑 / 未读」。原文件会先备份。只对之后新开的会话有用。"
+ },
+ "All": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "全选"
+ },
+ "All good: KIKUmap just read Claude's sidebar and reads it again whenever Claude changes. Nothing to do.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "一切正常：KIKUmap 刚读过 Claude 的侧边栏，Claude 一有变化就会再读。不需要做什么。"
+ },
+ "All shortcuts, with demos…": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "全部快捷键和演示…"
+ },
+ "Allow Claude to run this command?": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "要允许 Claude 运行这条命令吗？"
+ },
+ "Already switched KIKUmap on in System Settings? Then KIKUmap has to quit and reopen to get access (this happens if you chose \"Later\" when macOS asked).\n\nNot yet? Open System Settings, drag KIKUmap from the Finder window into the list (or click + and choose it), then switch it on.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已经在系统设置里打开了 KIKUmap 的开关？那要退出并重新打开 KIKUmap 才能用上（在 macOS 的提示里选了「以后」就会这样）。\n\n还没打开？打开系统设置，把 KIKUmap 从访达窗口拖进列表（或点 ＋ 选它），再打开开关。"
+ },
+ "Also in the Edit menu, and it works in the left column too. In a search field or while typing a name, it undoes the typing.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "「编辑」菜单里也有；在左栏里也能用。在搜索框里或正在改名时，撤销的是刚打的字。"
+ },
+ "An export is still running": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "存档还没做完"
+ },
+ "An import is still running": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导入还没做完"
+ },
+ "An independent open-source project, not affiliated with Anthropic or OpenAI. MIT License.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "个人独立开源项目，与 Anthropic 和 OpenAI 无关。MIT 协议。"
+ },
+ "Another app": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "其他 App"
+ },
+ "Another computer": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "别的电脑、服务器"
+ },
+ "Anpinnen": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "置顶"
+ },
+ "Anthropic asked to check usage less often — trying again at %@": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Anthropic 让晚点再查用量，%@ 再试"
+ },
+ "Anthropic asked to check usage less often — trying again shortly": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Anthropic 让晚点再查用量，马上再试"
+ },
+ "Anthropic's answer on usage couldn't be read": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Anthropic 回的用量读不懂"
+ },
+ "Appearance": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "外观"
+ },
+ "Archive a summary…": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "让 Claude 写总结存档…"
+ },
+ "Archive it once it's done. KIKUmap doesn't open a chat while Claude is still replying in it.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "等它做完再存档。Claude 还在回复时，KIKUmap 不会打开它。"
+ },
+ "Archiving": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "正在存档"
+ },
+ "At %@ Claude asked for an approval in a chat its notification doesn't name. That notification has gone since: it may have been answered, or only cleared. Open Claude to check.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ Claude 问了一次「允许吗？」，它的通知没说是哪个对话。这条通知后来不见了：可能已经确认过了，也可能只是被清掉了。打开 Claude 看看。"
+ },
+ "At %@ Claude asked for an approval, but its notification doesn't say in which chat, and ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ Claude 问了一次「允许吗？」，但它的通知没说是哪个对话，"
+ },
+ "Automatic (matches the language)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "自动（按文字的语言）"
+ },
+ "Average per active day": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "有活动的日子 · 平均"
+ },
+ "Back": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "上一步"
+ },
+ "Back to now, and keep following it": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "回到现在并一直跟着"
+ },
+ "Back to the left column": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "从导图移回左栏"
+ },
+ "Background": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "背景"
+ },
+ "Backtick": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "反引号"
+ },
+ "Bauhaus black": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "包豪斯黑"
+ },
+ "Be told when Claude asks \"Allow this?\" or waits for your answer, and know when a Cowork task in the Claude app finishes, even with its window closed. Needs Full Disk Access. (Claude sends no notification when an ordinary chat's reply finishes.)": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "Claude 问「允许吗？」或等你回答时提醒你；Claude App 里的 Cowork 任务做完了，窗口关着也知道。要开「完全磁盘访问」。（普通对话回复完，Claude 不发通知。）"
+ },
+ "Below and above stay at the selected item's level; on the center, or with nothing selected, they add a main topic. ⇧ Return always adds a main topic.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "上下两种都和选中的条目同级；选中中心点或什么都没选时新建主主题。⇧ 回车不管选中什么都新建主主题。"
+ },
+ "Below the map is the timeline: when Claude and ChatGPT worked on which chat, and when scheduled tasks run (with a countdown). Hover to see names.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "导图下方是时间轴：Claude 和 ChatGPT 什么时候在跑哪个对话，计划任务什么时候跑（带倒计时）。鼠标停在上面能看到名字。"
+ },
+ "Bigger": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "放大"
+ },
+ "Blue": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "蓝"
+ },
+ "Branch color": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "分支颜色"
+ },
+ "Branch color ▸": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "分支颜色 ▸"
+ },
+ "Brown": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "棕"
+ },
+ "Browser": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "浏览器"
+ },
+ "Busiest": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "最忙"
+ },
+ "Busiest · ": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "最忙 · "
+ },
+ "Buttons by a chat · mark unread / read": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "对话旁的按钮 · 标为未读 / 已读"
+ },
+ "Can't import": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没法导入"
+ },
+ "Can't open it: ChatGPT isn't on this Mac": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "打不开：这台 Mac 上没有 ChatGPT"
+ },
+ "Can't reach Anthropic to read usage": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "连不上 Anthropic，读不到用量"
+ },
+ "Can't reach OpenAI (offline, or trouble on its side); trying again in 10 minutes or so. The numbers from using Codex still show.": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "连不上 OpenAI（没联网，或者它那边出了问题），十来分钟后再试。用 Codex 时的数字照样会显示。"
+ },
+ "Can't reach OpenAI (offline, or trouble on its side); trying again in a minute. The numbers from using Codex still show.": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "连不上 OpenAI（没联网，或者它那边出了问题），一分钟后再试。用 Codex 时的数字照样会显示。"
+ },
+ "Can't reach OpenAI to look up ChatGPT usage": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "连不上 OpenAI，查不到 ChatGPT 用量"
+ },
+ "Can't see Claude's unread marks": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "看不到 Claude 的未读标记"
+ },
+ "Can't write summaries": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没法写总结"
+ },
+ "Cancel": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "取消"
+ },
+ "Candy": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "糖果"
+ },
+ "Case, accents and full- or half-width don't matter; the count shows matches / all. Esc clears it.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "不分大小写、重音和全角半角；数字是「找到的 / 全部」。按 Esc 清空。"
+ },
+ "Change icon": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "换图标"
+ },
+ "Changes can't be saved": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "有改动存不进去"
+ },
+ "Change…": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "更改…"
+ },
+ "Changing a color in %@ starts a new custom set from it. It replaces the custom set you saved (from %@), since only one is kept. To use the saved one instead, click Cancel and choose Custom under Color set.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "在「%@」里改颜色，会从它新建一套自定义配色，替换掉你存着的那套（基于「%@」）：只能存一套。想用回存着的那套：点「取消」，再在「配色」里选「自定义」。"
+ },
+ "Chart": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "图表"
+ },
+ "Chat %@": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "对话 %@"
+ },
+ "Chat name": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "对话名"
+ },
+ "ChatGPT chats not pinned": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "没置顶的 ChatGPT 对话"
+ },
+ "ChatGPT is installed but hasn't been used yet: start a chat in it, then connect here.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "ChatGPT 装好了但还没用过：在里面开一个对话，再来这里连接。"
+ },
+ "ChatGPT isn't open": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 没打开"
+ },
+ "ChatGPT isn't running, so there's no window to read.\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 没在运行，看不到它的窗口。\n"
+ },
+ "ChatGPT not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT 没同步"
+ },
+ "ChatGPT not synced: ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT 没同步："
+ },
+ "ChatGPT not synced: its data can't be read": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT 没同步：它的数据读不了"
+ },
+ "ChatGPT usage": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "ChatGPT 用量"
+ },
+ "ChatGPT usage · in the menu bar": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "ChatGPT 用量 · 菜单栏里"
+ },
+ "ChatGPT · reads its records in ~/.codex (read-only)": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "ChatGPT · 读 ~/.codex 里的记录（只读）"
+ },
+ "ChatGPT's data can't be read (%@): its chats stay as last read. KIKUmap tries again every minute and picks up by itself.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT 的数据读不了（%@），它的对话停在上次读到的样子。KIKUmap 每分钟会再试，读到了就自动恢复。"
+ },
+ "ChatGPT's sidebar doesn't show the pinned chats": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 侧边栏里找不到置顶的对话"
+ },
+ "ChatGPT's sidebar doesn't show the pinned chats KIKUmap lists: its Pinned group is folded, a chat was just renamed, you switched accounts in ChatGPT, or ChatGPT changed its layout.\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 的侧边栏里没找到 KIKUmap 列出的置顶对话：「置顶」那一组折叠了、对话刚改了名字、ChatGPT 换了账号，或者 ChatGPT 换了界面。\n"
+ },
+ "ChatGPT's sidebar doesn't show this chat by its name (renamed just now, or another pinned chat has the same name). ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "ChatGPT 的侧边栏里按名字找不到这个对话（刚改了名，或者另一个置顶对话和它同名）。"
+ },
+ "ChatGPT's sidebar is hidden": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 的侧边栏收起来了"
+ },
+ "ChatGPT's sidebar is hidden, so its pinned chats can't be seen.\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 窗口的侧边栏收起来了，看不到置顶的对话。\n"
+ },
+ "ChatGPT's window can't be seen": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 的窗口看不见"
+ },
+ "ChatGPT's window is covered whole, minimized, hidden (⌘H), closed, or on another desktop (with several ChatGPT windows open: the one with the sidebar). ChatGPT doesn't update its window then, so what it shows would be old: it isn't read meanwhile.\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 的窗口被整个挡住、最小化、隐藏（⌘H）、关了，或者在别的桌面上（开了几个 ChatGPT 窗口的话，说的是带侧边栏的那个）。这时 ChatGPT 自己也不更新窗口，看到的会是旧的，所以先不看。\n"
+ },
+ "ChatGPT: %@ pinned · ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：置顶 %@ 个，"
+ },
+ "ChatGPT: can't read it (": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：读不了（"
+ },
+ "ChatGPT: installed; reading starts once you've used it": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：装好了，用过一次后开始读"
+ },
+ "ChatGPT: no ChatGPT app on this Mac, so only Codex sessions from editors and the terminal show · ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：这台 Mac 上没有 ChatGPT App，只显示编辑器、终端里的 Codex 会话，"
+ },
+ "ChatGPT: off (Settings → Access)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：已关闭（设置 → 授权）"
+ },
+ "ChatGPT: reading…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：正在读…"
+ },
+ "ChatGPT: the desktop app isn't on this Mac": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：这台 Mac 上没找到 ChatGPT 桌面 App"
+ },
+ "ChatGPT: this is the older app, whose chats KIKUmap can't see (update to the current one, built on Codex); for now only Codex sessions from editors and the terminal show · ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：这是旧版 App，KIKUmap 读不到它的对话（更新到新版、Codex 内核的才行）；现在只显示编辑器、终端里的 Codex 会话，"
+ },
+ "ChatGPT: this is the older app; update to the current one (built on Codex) to read it": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "ChatGPT：这是旧版 App，更新到新版（Codex 内核）才能读"
+ },
+ "Chats": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "对话"
+ },
+ "Chats and sessions": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "对话和会话"
+ },
+ "Chats finished in the background, but Claude's chat list showed no unread mark KIKUmap knows. Claude may have stopped showing it (since its recent update, others see the status dots missing from its list too), or changed how it looks.\nMeanwhile: unread dots for Claude chats aren't synced with Claude; they clear when you open a chat here or mark it read.\nNothing to do: once Claude marks unread chats again, syncing comes back by itself and this goes away. If it stays, write a diagnostic report (Settings → Access) and send it to the developer.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "有对话在后台做完了，Claude 的对话列表里却没出现 KIKUmap 认得的未读标记。可能是 Claude 自己的问题（它最近更新后，也有别人发现列表上的状态点不见了），也可能是 Claude 换了标记的样子。\n现在：Claude 对话的未读点不跟 Claude 同步，在这里打开或标为已读才会消失。\n不用做什么：Claude 一恢复标未读，KIKUmap 就会自己恢复同步，这条也会消失。一直不好的话，可以写一份诊断报告（设置 → 授权）发给开发者。"
+ },
+ "Chats right on the map (not in a topic)": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "直接放在导图上的对话（不在主题里）"
+ },
+ "Chats that were running show \"running?\". The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running when the window is back, or up to the notification if Claude notifies its finish (a Cowork task); otherwise your typical run's length, never past when it's seen finished. Claude sends none when an ordinary chat's reply finishes: that shows when the window is back.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "在跑的对话显示「在跑？」。看不到的这段时长是估算的（标 ≈）：窗口回来时还在跑的，整段都算；Claude 发通知说做完的（Cowork 任务），算到通知那一刻；其余按你一次运行的常见时长算，不超过它被看到做完的时候。普通对话回复完 Claude 不发通知，要等窗口回来才知道。\n"
+ },
+ "Chats that were running show \"running?\"; whether they've finished shows when the window is back. The time KIKUmap can't see is estimated (marked ≈): in full if a chat is still running then; otherwise your typical run's length, never past when it's seen finished.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "在跑的对话显示「在跑？」，做完没有要等窗口回来才知道。看不到的这段时长是估算的（标 ≈）：那时还在跑的，整段都算；其余按你一次运行的常见时长算，不超过它被看到做完的时候。\n"
+ },
+ "Chats you pin in ChatGPT join the left column": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "在 ChatGPT 里置顶的对话，列进左栏"
+ },
+ "Check memory.md, or check \"Prompts, the whole conversation…\" and choose Claude's data export.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "勾上 memory.md；或者勾上「提示词、完整对话…」，并选好 Claude 的官方导出包。"
+ },
+ "Choose the archive folder": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "选存档文件夹"
+ },
+ "Choose zip…": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "选择 zip…"
+ },
+ "Circle": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "圆圈"
+ },
+ "Classic": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "经典黑白"
+ },
+ "Claude & ChatGPT": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "Claude 和 ChatGPT"
+ },
+ "Claude Code and Codex sessions in terminals and editors: %@ shown (while running or unread, and for 12 hours after; ones a script started only while running; kept or on the map: always)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "终端和编辑器里的 Claude Code、Codex 会话：显示 %@ 个（在跑、未读，或做完后 12 小时内；脚本启动的只在跑的时候；一直留着的、在导图上的一直显示）"
+ },
+ "Claude Code gets to work in Terminal": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "终端里的 Claude Code 开始干活"
+ },
+ "Claude Code isn't on this Mac: install it and sign in with a paid plan, or skip this.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "这台 Mac 上没有 Claude Code：先安装并用付费账号登录，或者跳过这项。"
+ },
+ "Claude Code isn't signed in with a Claude account": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Claude Code 还没用 Claude 账号登录"
+ },
+ "Claude Code not signed in": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "Claude Code 未登录"
+ },
+ "Claude Code sessions can't report to KIKUmap": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude Code 的会话报不到 KIKUmap"
+ },
+ "Claude Code sessions in Terminal or VS Code show in the left column, running or done.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "终端、VS Code 里的 Claude Code 会话也会列在左栏，显示在跑、做完。"
+ },
+ "Claude Code sessions in Terminal or VS Code show running and unread too.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "终端、VS Code 里的 Claude Code 会话也显示在跑和未读。"
+ },
+ "Claude Code · sessions report to KIKUmap": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Claude Code · 会话自己报给 KIKUmap"
+ },
+ "Claude Code's account": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "Claude Code 的账号"
+ },
+ "Claude Code's settings turn all hooks off (disableAllHooks in ~/.claude/settings.json)": {
+  "ctx": "paired",
+  "where": "ClaudeCode.swift",
+  "zh": "Claude Code 的设置里关掉了所有 hook（~/.claude/settings.json 里的 disableAllHooks）"
+ },
+ "Claude Code's sign-in can't read usage — run /login again": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Claude Code 的登录不含用量权限，重新 /login 一次"
+ },
+ "Claude Code's sign-in expired — using Claude Code renews it": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "Claude Code 的登录过期了，用一下 Claude Code 就会续上"
+ },
+ "Claude Code, Codex over SSH": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "远程的 Claude Code、Codex"
+ },
+ "Claude Export": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "Claude 导出"
+ },
+ "Claude and ChatGPT not synced: Accessibility off": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "Claude 和 ChatGPT 没同步：辅助功能关着"
+ },
+ "Claude app chats: KIKUmap sees them finish in the chat list in Claude's window, so keep that window open on the desktop you're using. With Full Disk Access (Settings → Access), you're also told when Claude asks \"Allow this?\", waits for your answer, or finishes a Cowork task, even with its window closed (Claude sends no notification when an ordinary chat's reply finishes). ChatGPT's ordinary chats: KIKUmap sees them finish in the chat list in ChatGPT's window, so let part of that window show. Claude Code sessions: connect Claude Code in Settings → Access first.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "Claude App 的对话：KIKUmap 从 Claude 窗口里的对话列表看到它们做完，所以 Claude 的窗口要开在你正在用的桌面上。开了「完全磁盘访问」（设置 → 授权）的话，Claude 问「允许吗？」、等你回答、Cowork 任务做完时，窗口关着也会提醒（普通对话回复完，Claude 不发通知）。ChatGPT 的普通对话：从 ChatGPT 窗口里的对话列表看到它们做完，所以窗口要露出一部分。Claude Code 会话：先在 设置 → 授权 里连接 Claude Code。"
+ },
+ "Claude app closed": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude App 没打开"
+ },
+ "Claude has quit since": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "而 Claude 后来退出了"
+ },
+ "Claude is answering: running on the map": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Claude 在回答：导图上显示在跑"
+ },
+ "Claude is in Code mode — switch back to Chat to sync pinned chats": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 在 Code 模式，切回 Chat 才能同步置顶对话"
+ },
+ "Claude is in Code mode, which doesn't show your chats": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 又停在 Code 模式，看不到你的对话"
+ },
+ "Claude is waiting for you to approve": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 在等你确认"
+ },
+ "Claude may still be waiting for you to approve": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 可能还在等你确认"
+ },
+ "Claude not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 没同步"
+ },
+ "Claude not synced: Accessibility off": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 没同步：辅助功能关着"
+ },
+ "Claude usage": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "Claude 用量"
+ },
+ "Claude usage (paid plans)": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "Claude 用量（付费套餐）"
+ },
+ "Claude usage needs Claude Code": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 用量需要 Claude Code"
+ },
+ "Claude usage · in the menu bar": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Claude 用量 · 菜单栏里"
+ },
+ "Claude's Pinned section is collapsed — expand it to sync": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 的 Pinned 区折叠了，展开才能同步"
+ },
+ "Claude's Pinned section is folded": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 的 Pinned 区又折叠着"
+ },
+ "Claude's chats (running, unread, pinned) aren't synced; what you see is as last read.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 里的对话（在跑、未读、置顶）都没同步，看到的是上次读到的样子。\n"
+ },
+ "Claude's data export": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "Claude 官方导出包"
+ },
+ "Claude's notification asks for your OK": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Claude 发通知：要你允许一步"
+ },
+ "Claude's sidebar doesn't show which one yet": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 的侧边栏里又还看不出是哪个"
+ },
+ "Claude's sidebar is hidden": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 的侧边栏又收起来了"
+ },
+ "Claude's sidebar is hidden (or its window is too narrow) — show it to sync": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 的侧边栏收起来了（或窗口太窄），展开才能同步"
+ },
+ "Claude's sidebar is hidden, so there's nothing for KIKUmap to read.\nPaused: running, pins and unread for Claude's chats.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 的侧边栏收起来了，KIKUmap 没有东西可看。\n暂停：Claude 对话的在跑、置顶和未读。\n"
+ },
+ "Claude's sidebar is showing Code instead of Chat, so your pinned chats aren't in it.\nPaused: syncing pins, and running and unread for chats.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 的侧边栏现在显示的是 Code，不是 Chat，里面没有你的置顶对话。\n暂停：置顶同步，以及对话的在跑和未读。\n"
+ },
+ "Claude's sidebar shows no chats": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 的侧边栏里又一个对话也没显示"
+ },
+ "Claude's sidebar shows no chats right now — syncing resumes once it does": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 的侧边栏现在一个对话也没显示，显示出来就会同步"
+ },
+ "Claude's unread not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 的未读没同步"
+ },
+ "Claude's usage is for the account Claude Code is signed in with: ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "Claude 的用量来自 Claude Code 登录的账号："
+ },
+ "Claude's window can't be seen (closed, or on another desktop): approval alerts still come (with Claude's notifications on); chats update when it's back": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "看不到 Claude 的窗口（关了，或在别的桌面）：等你确认的提醒照常（要开着 Claude 的通知），对话等窗口回来再更新"
+ },
+ "Claude's window can't be seen (closed, or on another desktop): chats update when it's back": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "看不到 Claude 的窗口（关了，或在别的桌面）：对话等窗口回来再更新"
+ },
+ "Claude's window is closed": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Claude 的窗口关着"
+ },
+ "Claude: %@ pinned · ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：置顶 %@ 个，"
+ },
+ "Claude: can't read it until Accessibility is on (see To-do at the top)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：要先开「辅助功能」权限才能读（见顶部「待办」）"
+ },
+ "Claude: connecting…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：正在连接…"
+ },
+ "Claude: no Claude app on this Mac": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：这台 Mac 上没有 Claude App"
+ },
+ "Claude: paused, ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：暂停，"
+ },
+ "Claude: reading the sidebar…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：正在读侧边栏…"
+ },
+ "Claude: the app is closed; reading starts when it opens": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude：App 没打开，打开后会自动开始读"
+ },
+ "Claude가 계속하려면 입력이 필요합니다": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "Claudeが続行するには入力が必要です"
+ },
+ "Claude가 승인을 요청합니다": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "Claudeが承認を必要としています"
+ },
+ "Claude가 입력을 기다리고 있습니다": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "Claudeはあなたの入力を待っています"
+ },
+ "Click \"▶ See it\" on an item to see what it does": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "点一项的「▶ 看看」，看它有什么用"
+ },
+ "Click Change… in the Export chats window to pick another folder.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "在「导出对话」窗口点「更改…」，换一个文件夹。"
+ },
+ "Click Read again and choose Allow when macOS asks (it may ask again after Claude Code renews its sign-in).\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "点「重新读取」，macOS 问的时候选「允许」（Claude Code 续登录后它可能会再问）。\n"
+ },
+ "Click a row below to see where and how it works": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "点下面的一行，看它在哪里、怎么用"
+ },
+ "Click a row in the left column first; while its ring is solid, the keys work in the list.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "先在左栏里点一行；它的圈颜色深时，按键用在左栏。"
+ },
+ "Click again to clear": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "再点一下取消"
+ },
+ "Click in the left column first": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "先在左栏里点一下"
+ },
+ "Click the map first": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "先点一下导图"
+ },
+ "Click the map first so the keys go to it; most of them act on the selected item.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "先点一下导图，按键才会用在导图上；大多作用于选中的条目。"
+ },
+ "Click the menu-bar icon → Open map. ": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "点菜单栏图标 →「打开导图」。"
+ },
+ "Click to go on": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "点一下继续"
+ },
+ "Click to pause": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "点一下暂停"
+ },
+ "Click to watch again": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "点一下再看一次"
+ },
+ "Close window": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "收起窗口"
+ },
+ "Cloud": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "云端"
+ },
+ "Code": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "代码"
+ },
+ "Codex chats": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Codex 对话"
+ },
+ "Codex not signed in": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "Codex 未登录"
+ },
+ "Codex on this Mac isn't signed in with a ChatGPT account": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "这台 Mac 上的 Codex 没有用 ChatGPT 账号登录"
+ },
+ "Codex's sign-in expired — using Codex renews it": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "Codex 的登录过期了，用一下 Codex 就会续上"
+ },
+ "Collapse": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "折叠"
+ },
+ "Collapse  ⌥.": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "折叠  ⌥."
+ },
+ "Collapse or expand the topic": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "折叠 / 展开主题"
+ },
+ "Color is yours": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "颜色留给你"
+ },
+ "Color set": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "配色"
+ },
+ "Color, icon, tags, open, collapse and more": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "分支颜色、图标、标签、打开、折叠…"
+ },
+ "Colors": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "配色"
+ },
+ "Comma": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "逗号"
+ },
+ "Connect": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "连接"
+ },
+ "Connect Claude Code?": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "连接 Claude Code？"
+ },
+ "Connected · turned off in Claude Code": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已连接 · 但被 Claude Code 关掉了"
+ },
+ "Connected, but Claude Code's settings block it": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已连接，但 Claude Code 的设置不让它运行"
+ },
+ "Continue": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "继续"
+ },
+ "Copy": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "拷贝"
+ },
+ "Couldn't back up ~/.claude/settings.json first, so it was left alone: ": {
+  "ctx": "paired",
+  "where": "ClaudeCode.swift",
+  "zh": "没法先备份 ~/.claude/settings.json，所以没有改动它："
+ },
+ "Couldn't connect Claude Code": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没能连接 Claude Code"
+ },
+ "Couldn't disconnect Claude Code": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没能断开 Claude Code"
+ },
+ "Couldn't find ChatGPT's data": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没找到 ChatGPT 的数据"
+ },
+ "Couldn't read ~/.claude/settings.json (permissions?), so it was left alone.": {
+  "ctx": "paired",
+  "where": "ClaudeCode.swift",
+  "zh": "读不了 ~/.claude/settings.json（权限？），没有改动它。"
+ },
+ "Couldn't reopen KIKUmap": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没能重新打开 KIKUmap"
+ },
+ "Couldn't set KIKUmap to open at login": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没能设成登录时自动打开"
+ },
+ "Couldn't stop KIKUmap opening at login": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没能取消登录时自动打开"
+ },
+ "Couldn't write to %@ (%@). It may belong to root (installers run with sudo can leave it like that): in Terminal, run sudo chown $(whoami) ~/Library/LaunchAgents, then try again.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "%@ 写不进去（%@）。这个文件夹可能属于 root（有些用 sudo 的安装程序会这样）：在「终端」里运行 sudo chown $(whoami) ~/Library/LaunchAgents，再试一次。"
+ },
+ "Cross": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "交叉"
+ },
+ "Current session": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "当前会话"
+ },
+ "Custom (from %@)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "自定义（基于「%@」）"
+ },
+ "Cut": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "剪切"
+ },
+ "Daily digest · in %@h %@m": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "日报 · %@小时%@分后"
+ },
+ "Dark": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "深色"
+ },
+ "Deep sea": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "深海"
+ },
+ "Default": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "恢复默认"
+ },
+ "Default Size": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "默认大小"
+ },
+ "Delete": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "删除"
+ },
+ "Delete  ⌫": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "删除  ⌫"
+ },
+ "Delete topic, keep its items": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "只删这个主题（保留下面的）"
+ },
+ "Delete · delete just the topic, keep its items": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "删除 · 只删这个主题（保留下面的）"
+ },
+ "Demo: a still of “%@” (Reduce Motion is on)": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "演示画面：「%@」的静止画面（已打开减弱动态效果）"
+ },
+ "Demo: nothing chosen yet. ": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "演示画面：还没选。"
+ },
+ "Demo: playing “%@” (%@)": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "演示画面：正在演示「%@」（%@）"
+ },
+ "Demo: “%@” ended; click to watch again": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "演示画面：「%@」演示完了，点一下再看一次"
+ },
+ "Demo: “%@” paused; click to go on": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "演示画面：「%@」已暂停，点一下继续"
+ },
+ "Deselect (again: put the map away) · select all": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "取消选择（再按一次收起导图）· 全选"
+ },
+ "Design draft": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "设计稿"
+ },
+ "Desktop Folder": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「桌面」文件夹"
+ },
+ "Diagnostic report": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "诊断报告"
+ },
+ "Diamond": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "菱形"
+ },
+ "Disconnect ChatGPT": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "断开 ChatGPT"
+ },
+ "Disconnect Claude Code": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "断开 Claude Code"
+ },
+ "Document": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "文档"
+ },
+ "Documents Folder": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「文稿」文件夹"
+ },
+ "Done": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "已完成"
+ },
+ "Done: a red dot until you look": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "做完了：红点，等你去看"
+ },
+ "Double-click empty space to add a topic": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "双击空白处新建主题"
+ },
+ "Double-click the lower part (on a bar, the first click opens its chat), or click ◎ Now.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "双击时间轴下半部分（点在对话的条上时，第一下会先打开对话），或点「◎ 现在」。"
+ },
+ "Double-clicking a row does it too. A Codex session opens in VS Code if it runs there; if not, Finder shows its folder. With several picked, one opens: the last ⌘-clicked, or where a ⇧ range began.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "双击一行也可以。Codex 会话：在 VS Code 里跑的就在那里打开，别的在访达里显示它的文件夹。选了好几行时只打开一行：最后 ⌘ 点的那行，或 ⇧ 范围的起点。"
+ },
+ "Down": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "下"
+ },
+ "Downloads Folder": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「下载」文件夹"
+ },
+ "Drag any of them to move them all, with a count by the pointer. Keys like Tab act on the last one clicked; ⌫ removes them all. In the left column ⇧ picks a range instead.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖其中任意一个就一起移动，指针旁显示数量。Tab 这类键只作用于最后点的那个；⌫ 全部删掉。在左栏里 ⇧ 是连续多选。"
+ },
+ "Drag any picked row to carry them all, in list order. Drag chats from the map back onto the left column to take them off the map.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖多选中的任意一行，会按列表顺序全部带上。从导图拖回左栏，就从导图上拿掉。"
+ },
+ "Drag chats and sessions here from the left column": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "把左栏里的对话和会话拖到这里"
+ },
+ "Drag empty space to select · hold space to move the map · ⇥ subtopic · ⏎ sibling · ⌘F search · right-click for colors and tags": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "拖动空白处框选 · 按住空格移动导图 · ⇥ 子主题 · ⏎ 同级 · ⌘F 搜索 · 右键改颜色和标签"
+ },
+ "Drag it off an item to remove it · along the item to reorder": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖出条目就去掉 · 在条目里拖换顺序"
+ },
+ "Drag to tag · click to highlight": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "拖到条目上 · 点击高亮"
+ },
+ "Each archived chat is imported only once.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每个存档只会导入一次。"
+ },
+ "Each chat gets one more exchange, which uses a little quota. The Claude window switches chats while it runs. Unchanged, unread and running chats are skipped.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "每个对话会多一轮问答，用掉一点额度。运行时 Claude 窗口会自己切换对话。没变化、未读、在跑的对话会跳过。"
+ },
+ "Each folder holds": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "每个文件夹里放"
+ },
+ "Each one starts a new chat in the Claude app, sends in the summary with up to 19 of the chat's artifacts (under 5 MB each) so Claude can pick up, then pins the chat and gives it the old name. On the map it takes the old chat's place.\n\n· Each chat is one exchange with Claude, which uses some of your quota (more with many or large files)\n· Sign in to the target account in the Claude app first\n· Leave the Claude window alone while it runs\n· Larger artifacts, and any past 19, stay in the export folder; Claude is told how many\n· It pastes through the clipboard, marked for clipboard history apps to skip, and puts yours back after each paste": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每个存档会在 Claude App 里开一个新对话，发进总结和最多 19 个 artifact（每个小于 5 MB）让 Claude 接上，然后置顶、改回原来的名字。导图上会接到原来的位置。\n\n· 每个对话是和 Claude 的一轮问答，会用掉一些额度（文件多或大时更多）\n· 先在 Claude App 里登录要导入的账号\n· 运行时先别动 Claude 窗口\n· 更大的和第 19 个之后的 artifact 留在导出文件夹里，会告诉 Claude 有几个\n· 会借用剪贴板粘贴，并标记让剪贴板历史类 App 跳过；每次粘贴后放回你原来的内容"
+ },
+ "Each summary comes through Claude's Copy button, so a clipboard history app may keep it; your clipboard is put back right after": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每份总结要经过 Claude 的复制按钮，剪贴板历史类 App 可能会存下它；之后马上放回你原来的剪贴板"
+ },
+ "Edit": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "编辑"
+ },
+ "Either scroll direction works; a mouse wheel moves further per notch. Once you move, it stops following now and ◎ Now fills in.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "两个滚动方向都行，鼠标滚轮一格走得更远。一移动就不再跟随现在，「◎ 现在」变成实心的。"
+ },
+ "Elsewhere": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "别处"
+ },
+ "Enabled": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "启用"
+ },
+ "Equals": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "等号"
+ },
+ "Everything at a glance": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "菜单栏一眼看完"
+ },
+ "Everything in the window bigger · smaller": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "整个窗口放大 · 缩小"
+ },
+ "Example": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "示例"
+ },
+ "Expand": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "展开"
+ },
+ "Export": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导出"
+ },
+ "Export chats": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "导出对话"
+ },
+ "Export chats…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导出对话…"
+ },
+ "Export files only": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "只导出文件"
+ },
+ "Export map as PDF…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导出导图 PDF…"
+ },
+ "Export the map as PDF · export chats": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "导出导图 PDF · 导出对话"
+ },
+ "Export…": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "导出…"
+ },
+ "Fast": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "快"
+ },
+ "Faster": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "更快"
+ },
+ "Filter the left column by name or title": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "按名字或标题筛选左栏"
+ },
+ "Find in map": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "搜索导图"
+ },
+ "Finds topics, chat names and titles, and tags. Matches stay bright, the rest fade, and the first is selected; a folded topic counts if something inside matches. Esc closes and clears it.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "能搜主题、对话的名字和标题、标签。搜到的保持清楚，其他的变淡，并选中第一个；折叠的主题里有搜到的也算。按 Esc 关掉并清空。"
+ },
+ "Finished": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "做完了"
+ },
+ "Fix: Settings → Access → Accessibility.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "怎么办：设置 → 授权 → 辅助功能。"
+ },
+ "Fix: System Settings → Privacy & Security → Files and Folders: turn on %@ for KIKUmap. Or click Change… in the Export chats window to pick another folder.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "怎么办：系统设置 → 隐私与安全性 → 文件与文件夹，给 KIKUmap 打开%@。或者在「导出对话」窗口点「更改…」，换一个文件夹。"
+ },
+ "Fix: free up some space on that disk, or click Change… in the Export chats window to pick another folder.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "怎么办：在这个磁盘上腾出一些空间；或者在「导出对话」窗口点「更改…」，换一个文件夹。"
+ },
+ "Fix: if two pinned chats share its name, rename one of them in ChatGPT.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "怎么办：两个置顶对话同名的话，在 ChatGPT 里给其中一个改个名。"
+ },
+ "Fix: let part of ChatGPT's window show (its sidebar, ideally); it syncs right away.": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "怎么办：让 ChatGPT 的窗口露出一部分（侧边栏露出来最好），马上就会同步。"
+ },
+ "Fix: open ChatGPT; KIKUmap picks it up by itself.": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "怎么办：打开 ChatGPT，会自动接上。"
+ },
+ "Fix: show the sidebar in ChatGPT's window (top left).": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "怎么办：在 ChatGPT 窗口左上角把侧边栏打开。"
+ },
+ "Fix: unfold Pinned in ChatGPT's sidebar. Switched accounts in ChatGPT: pin or unpin a chat there, and KIKUmap switches too. If that doesn't help, write a diagnostic report (Settings → Access) and send it to the developer.": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "怎么办：在 ChatGPT 侧边栏里把「置顶」展开。在 ChatGPT 里换了账号的话，在那里置顶或取消置顶一个对话，KIKUmap 也会跟着换。还不行的话，写一份诊断报告（设置 → 授权）发给开发者。"
+ },
+ "Flights": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "机票"
+ },
+ "Folder": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "文件夹"
+ },
+ "For the summaries, open the Claude app and turn on Accessibility first.\n\nExport just the files for now (prompts, the whole conversation, artifacts and attachments)? No summaries are written this time.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "要写总结，得先打开 Claude App，并开启「辅助功能」权限。\n\n先只导出文件（提示词、完整对话、artifacts 和附件）吗？总结这次不写。"
+ },
+ "Forward Delete": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "向前删除"
+ },
+ "From 15 seconds to an hour per pixel; zooming stops following now too. The 3h … 7d buttons pick a span and follow now again (remembered).": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "从一个像素 15 秒到一个像素 1 小时；缩放也会停止跟随现在。「3小时」…「7天」按钮直接选时长，并重新跟随现在（会记住）。"
+ },
+ "From Claude's data export — click \"Choose zip…\" to pick it. (With Full Disk Access, it's found in Downloads by itself.)": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "来自 Claude 官方导出包 — 点「选择 zip…」选它。（开了完全磁盘访问的话，会自己在「下载」里找。）"
+ },
+ "From Claude's data export — none in Downloads yet. In Claude: Settings → Privacy → Export data.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "来自 Claude 官方导出包 —「下载」里还没有。在 Claude 里：设置 → 隐私 → 导出数据。"
+ },
+ "From Claude's data export: ": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "来自 Claude 官方导出包："
+ },
+ "Full Disk Access": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "完全磁盘访问"
+ },
+ "Full Disk Access is on, but macOS's notification records can't be read (maybe an update changed them), so alerts from Claude's notifications don't work for now.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "「完全磁盘访问」已经开了，但读不了 macOS 的通知记录（可能是系统更新改了它），所以暂时收不到来自 Claude 通知的提醒。"
+ },
+ "Full Disk Access isn't on yet": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "「完全磁盘访问」还没生效"
+ },
+ "Full Disk Access only counts once KIKUmap reopens. Click Open Settings to quit and reopen it.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "「完全磁盘访问」要等 KIKUmap 重新打开才生效。点「打开设置」，可以让它退出并重新打开。"
+ },
+ "Full Disk Access · reads Claude's notifications": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "完全磁盘访问 · 读 Claude 发的通知"
+ },
+ "General": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "通用"
+ },
+ "Get ChatGPT's usage straight from OpenAI? (experimental)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "直接向 OpenAI 查 ChatGPT 的用量？（试验性）"
+ },
+ "Get started": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "开始使用"
+ },
+ "Global": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "全局"
+ },
+ "Green": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "绿"
+ },
+ "Have Claude write a hand-off summary (memory)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "让 Claude 写交接总结（memory）"
+ },
+ "Have Claude write hand-off summaries (memory)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "让 Claude 写交接总结（memory）"
+ },
+ "Hide KIKUmap": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "隐藏 KIKUmap"
+ },
+ "Hide Others": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "隐藏其他"
+ },
+ "Hide tags  ⌃⌘G": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "收起标签  ⌃⌘G"
+ },
+ "Hide tags (drag the edge above to resize)  ⌃⌘G": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "收起标签（拖动上边可以调高度）  ⌃⌘G"
+ },
+ "Hold ⇧ or ⌘ to add to what's selected. The map scrolls when you reach its edge.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "按住 ⇧ 或 ⌘ 就加到已选的里面；拖到边缘会自动滚动。"
+ },
+ "Home": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "家"
+ },
+ "Home page copy": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "首页文案"
+ },
+ "Homepage copy": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "网站首页文案"
+ },
+ "Hotel deals": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "酒店比价"
+ },
+ "Hours %@ worked %@, by chat and session; those running at once share the time.": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "%@ %@ 干活的时长，按对话和会话分段；几个同时在跑时，平分那段时间。"
+ },
+ "Hover a chat, or select only it: ↗ opens it, ✉ marks it unread or read (a running chat, or one Claude shows waiting for you, gets ↗ only). ⇧⌘U: selected chats unread, or read if all are.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "鼠标停在对话上，或只选中它：↗ 在它的 App 里打开，✉ 标为未读 / 已读（在跑的和 Claude 显示等你确认的只有 ↗）。⇧⌘U 把选中的对话标为未读；都已是未读时标为已读。"
+ },
+ "How do I get it?": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "怎么拿到？"
+ },
+ "How long Claude, ChatGPT and Codex worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar.": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "最近 24 小时和 7 天 Claude、ChatGPT 和 Codex 干了多久，还有用量。在跑和未读的看菜单栏。"
+ },
+ "How much time each bar covers": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "每根柱子代表多长时间"
+ },
+ "I keep a lot of Claude chats open at once and kept losing track of which one had finished or was waiting for me, so I built this. It's free and open source, and everything stays on your Mac.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "我自己同时开着一堆 Claude 对话，总是忘了哪个做完了、哪个在等我，就做了这个小工具。免费、开源，所有数据都留在你的 Mac 上。"
+ },
+ "Icon…": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "图标…"
+ },
+ "Idea": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "想法"
+ },
+ "Ignore": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "忽略"
+ },
+ "Ignore (bring it back from To-do at the top of the window)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "忽略（可在窗口顶部的「待办」里恢复）"
+ },
+ "Ignored": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "已忽略"
+ },
+ "Image": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "图片"
+ },
+ "Import": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导入"
+ },
+ "Import %@ into the Claude account that's signed in now?": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导入 %@ 个对话到现在登录的 Claude 账号？"
+ },
+ "Import into this account…": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "导入到当前账号…"
+ },
+ "Import looks for the memory.md summaries an export writes. Pick the export folder, or a topic's or chat's folder in it.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导入找的是导出时写的 memory.md 总结。选导出文件夹，或者里面的主题、对话文件夹。"
+ },
+ "Import stopped": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导入停下了"
+ },
+ "Important": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "重要"
+ },
+ "Importing": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "正在导入"
+ },
+ "In Claude, ChatGPT, or the editor or terminal where the Claude Code session runs. A Codex session opens in VS Code if it runs there; if not, Finder shows its folder. Tap space quickly with the mouse still; holding it moves the map instead.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在 Claude、ChatGPT 里，或 Claude Code 会话所在的编辑器或终端里打开。Codex 会话：在 VS Code 里跑的就在那里打开，别的在访达里显示它的文件夹。空格要轻按、鼠标别动；按住空格是移动导图。"
+ },
+ "In Claude: Settings → Privacy → Export data. A few minutes later you get an email with a download link. Download the zip, then click \"Choose zip…\" and pick it. If KIKUmap has Full Disk Access, a zip in Downloads is found by itself.\n\nOnly this export has the full prompts, conversations and artifacts. With Full Disk Access and \"Keep it updated\" on, each new export you download updates the files by itself.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "在 Claude 里：设置 → 隐私 → 导出数据。几分钟后，你会收到一封带下载链接的邮件。下载后点「选择 zip…」选它。KIKUmap 有完全磁盘访问的话，放在「下载」里就会自己找到。\n\n完整的提示词、对话和 artifact 只有这个导出包里有。开了完全磁盘访问和「自动更新」后，以后每次下载新的导出包，文件都会自己更新。"
+ },
+ "In any app": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "任何 App 里"
+ },
+ "In any app, or while a KIKUmap window is in front": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "任何 App 里，或 KIKUmap 的窗口在最前面时"
+ },
+ "In progress": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "进行中"
+ },
+ "Index.md": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "索引.md"
+ },
+ "Indigo": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "靛"
+ },
+ "Install the current ChatGPT desktop app (the one built on Codex), use it once, then connect here.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "装上新版 ChatGPT 桌面 App（Codex 内核）并用过一次，再来这里连接。"
+ },
+ "It acts on the row under the pointer, not on the picked ones. A Claude Code session can be kept in the list (otherwise it leaves 12 hours after it's done, or when it stops if a script started it; one on the map stays anyway); ChatGPT and Codex rows just open.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "作用于指针下的那一行，不是选中的那些。Claude Code 会话可以一直留在左栏（不然做完 12 小时后会消失；脚本启动的停下就消失；在导图上的本来就会留着）；ChatGPT 和 Codex 的只能打开。"
+ },
+ "It selects what's under the pointer first. Icon… shows every shape and icon at once. Chats also get Open and Mark unread / read, Claude chats Archive a summary…; empty space: New topic, Export map as PDF…. ⌃-click works too.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "会先选中指针下的条目。「图标…」一次列出全部形状和图标。对话上还有打开、标为未读 / 已读，Claude 对话还有「让 Claude 写总结存档…」；空白处：新主题、导出导图 PDF…。按住 ⌃ 点也行。"
+ },
+ "It shows up in the left column, running": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "左栏里出现，在跑"
+ },
+ "It was running at %@; whether it has finished isn't known yet, and its time from then is estimated (≈). ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "%@ 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。"
+ },
+ "It was running when KIKUmap last saw it. Whether it has finished isn't known yet. Archive it once it's done and KIKUmap can see Claude's chat list again.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "KIKUmap 上次看到它时，它还在跑；现在做完没有，还不知道。等它做完、KIKUmap 又能看到 Claude 的对话列表时再存档。"
+ },
+ "Its task log hasn't moved since %@: it may be waiting for you to approve, a long step may be running, or ChatGPT stopped. Its time from then is estimated (≈). Open it in ChatGPT to see.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "它的任务记录 %@ 起没再动：可能在等你确认，可能有一步做得久，也可能 ChatGPT 停了。从那时起的时长是估算的（≈）。在 ChatGPT 里打开看看。"
+ },
+ "Its task log hasn't moved since %@: it may be waiting for your approval in VS Code, a long step may be running, or Codex quit. Its time from then is estimated (≈). Look in VS Code to see.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "它的任务记录 %@ 起没再动：可能在 VS Code 里等你确认，可能有一步做得久，也可能 Codex 退出了。从那时起的时长是估算的（≈）。到 VS Code 里看看。"
+ },
+ "Its task log hasn't moved since %@: it may be waiting for your approval in its terminal or editor, a long step may be running, or Codex quit. Its time from then is estimated (≈). Look there to see.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "它的任务记录 %@ 起没再动：可能在它的终端或编辑器里等你确认，可能有一步做得久，也可能 Codex 退出了。从那时起的时长是估算的（≈）。到那里看看。"
+ },
+ "Just one step: Accessibility": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "只需要一步：辅助功能"
+ },
+ "KIKU flower": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "KIKU 花"
+ },
+ "KIKUmap Index.md": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "KIKUmap 索引.md"
+ },
+ "KIKUmap adds a few lines to ~/.claude/settings.json (Claude Code calls them hooks). Then, each time a Claude Code session gets your message, finishes or needs your approval, it writes a line to KIKUmap's folder, so sessions in Terminal or VS Code show running / unread too.\n\n• Before KIKUmap first changes the file, it backs it up as settings.json.before-claude-console (that copy isn't updated later)\n• Only sessions started from now on report; restart the ones already open\n• You can disconnect any time in Settings → Access": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 会在 ~/.claude/settings.json 里加几行（Claude Code 管它们叫 hook）。之后 Claude Code 会话每次收到你的消息、做完了、要你批准时，都会往 KIKUmap 的文件夹写一行，这样终端、VS Code 里的会话也会显示「在跑 / 未读」。\n\n• KIKUmap 第一次改这个文件前，会把原文件备份成 settings.json.before-claude-console（以后不再更新这份备份）\n• 只对之后新开的会话有用，已经开着的要重开\n• 随时可以在 设置 → 授权 里断开"
+ },
+ "KIKUmap can look up your plan usage and scheduled tasks with the sign-in Claude Code already keeps in this Mac's Keychain, so you don't sign in again. It needs a paid Claude plan (Pro, Max, Team or Enterprise) signed in to Claude Code. The Free plan and API keys have no usage to show.\n\n• It only reads the sign-in: it never changes or saves it\n• It's sent only to api.anthropic.com, every 10 minutes, only to look up usage and scheduled tasks\n• Anthropic doesn't allow third-party apps to collect Claude sign-ins. KIKUmap only reads it on this Mac, never saves it and only looks up your own usage, but this may still not be allowed and could be blocked. It's your call\n• You can turn it off any time in Settings → Access\n\nKIKUmap reads it the same way Claude Code does, so macOS usually doesn't ask. If it does, choose \"Allow\".": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 可以借用 Claude Code 存在这台 Mac 钥匙串里的登录，查你的套餐用量和计划任务，不用再登录一次。需要 Claude 付费套餐（Pro、Max、Team 或 Enterprise），并在 Claude Code 里登录；免费套餐和 API key 没有用量可看。\n\n• 只读这份登录，不改、不存\n• 每 10 分钟查一次，只发给 api.anthropic.com，只用来查用量和计划任务\n• Anthropic 不允许第三方应用收集 Claude 的登录信息。KIKUmap 只在本机读、不保存、只查你自己的用量，但这样做仍可能不被允许、被限制。开不开由你决定\n• 随时可以在 设置 → 授权 里关掉\n\nKIKUmap 读它的方式和 Claude Code 一样，所以 macOS 一般不会问。如果问了，选「允许」。"
+ },
+ "KIKUmap can't read Claude's chat list or ChatGPT's window: Accessibility is off. ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 读不了 Claude 的对话列表和 ChatGPT 的窗口：辅助功能关着。"
+ },
+ "KIKUmap can't read Claude's chat list: Accessibility is off. ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 读不了 Claude 的对话列表：辅助功能关着。"
+ },
+ "KIKUmap can't read Claude's window (Accessibility is off)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 又读不了 Claude 的窗口（辅助功能关着）"
+ },
+ "KIKUmap can't read Claude's window (Accessibility stopped working)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 又读不了 Claude 的窗口（辅助功能权限失效了）"
+ },
+ "KIKUmap can't see Claude's chat list right now (window closed or on another desktop, sidebar hidden or folded, Code mode, Claude quit, or Accessibility off): it was running at %@; whether it has finished isn't known yet, and its time from then is estimated (≈). The sync status at the top of the window says how to fix it.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "KIKUmap 现在看不到 Claude 的对话列表（窗口关了或在别的桌面、侧边栏收起或折叠、在 Code 模式、Claude 退出了，或辅助功能关了）：%@ 时它还在跑，现在做完没有还不知道，从那时起的时长是估算的（≈）。窗口顶部的同步状态写着怎么解决。"
+ },
+ "KIKUmap can't see Claude's window (closed, or on another desktop)": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 又看不到 Claude 的窗口（关了，或在别的桌面）"
+ },
+ "KIKUmap can't see Claude's window: it's closed (⌘W and the red button only hide it; Claude keeps running), or it's on another desktop (full screen counts as a desktop of its own).\nPaused: running, finished, unread and pins for Claude's chats; they resume once the window is back on this desktop. ": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "KIKUmap 看不到 Claude 的窗口：关了（⌘W 和红色按钮只是把它藏起来，Claude 还在运行），或者在别的桌面上（全屏也算单独一个桌面）。\n暂停：Claude 对话的在跑、做完、未读和置顶，窗口回到这个桌面就自动恢复。"
+ },
+ "KIKUmap is asking Claude to write a hand-off summary in each chat, so it switches chats in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 正在让 Claude 给每个对话写交接总结，所以会自己在 Claude 窗口里切换对话。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。"
+ },
+ "KIKUmap is free. If it saves you time, you can buy me a coffee; a GitHub star or a bug report helps just as much.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 是免费的。如果它帮你省了时间，可以请我喝杯咖啡；点个 GitHub ⭐ 或者反馈问题也一样有帮助。"
+ },
+ "KIKUmap is one icon in the menu bar. A red number = unread (done, not looked at yet); a ! means one is waiting for you. A number in a ring = how many are running; an arc turns around it while they run. Click the icon for the list and your usage; click a chat to jump to it.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "菜单栏里只有一个图标。红色数字 = 未读（做完了还没看），带 ! 表示有对话在等你确认。圈里的数字 = 几个在跑，圈上的弧在转，就是正在跑。点开图标看列表和用量，点一个对话就直接跳过去。"
+ },
+ "KIKUmap is running from the disk image (or a temporary place), so it's gone after a restart. Drag it into Applications and open it from there; then it can open when you log in.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 现在是从磁盘映像（或临时位置）打开的，重启后就不在了。把它拖进「应用程序」，从那里打开，就能设成登录时自动打开。"
+ },
+ "KIKUmap is running from the disk image (or a temporary place), which won't be there at the next login. Drag KIKUmap into Applications, open it from there, then turn this on.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 现在是从磁盘映像（或临时位置）打开的，下次登录时就找不到它了。把 KIKUmap 拖进「应用程序」文件夹，从那里打开，再来打开这一项。"
+ },
+ "KIKUmap is starting a new chat in Claude for each exported one, so it works in Claude's window by itself.\nLeave that window alone until it's done, or click \"Stop\".": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 正在把导出的对话一个个开成新对话，所以会自己在 Claude 窗口里操作。\n等它做完再用 Claude 窗口；想停下就点右边的「停止」。"
+ },
+ "KIKUmap is writing each chat's files from Claude's data export (prompts, the whole conversation, artifacts and attachments). It doesn't touch Claude's window.\nTo stop, click \"Stop\".": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 正在用 Claude 的官方导出包写每个对话的文件（提示词、完整对话、artifacts 和附件），不碰 Claude 窗口。\n想停下就点右边的「停止」。"
+ },
+ "KIKUmap map ": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "KIKUmap 导图 "
+ },
+ "KIKUmap reads the chat list in Claude's window": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "KIKUmap 读 Claude 窗口里的对话列表"
+ },
+ "KIKUmap sees what's on this Mac: chats you pin in the Claude app (on your phone or the web too), Claude Code and Codex running on this Mac, and chats you pin in the ChatGPT app (running and unread too: Codex chats best; ordinary ones only while ChatGPT's window shows). Claude Code or Codex on another computer, a server or in the cloud, and ChatGPT chats not pinned in the app, are out of its sight.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "KIKUmap 只看这台 Mac 上的东西：Claude App 里置顶的对话（在手机、网页上置顶的也算），在这台 Mac 上跑的 Claude Code 和 Codex，ChatGPT App 里置顶的对话（在跑、未读也看得到：Codex 对话最准；普通对话只在 ChatGPT 的窗口露出来时看得到）。别的电脑、服务器或云端跑的 Claude Code / Codex，还有没在 ChatGPT App 里置顶的对话，它看不到。"
+ },
+ "KIKUmap tells you: waiting for you": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "KIKUmap 提醒你：等你确认"
+ },
+ "KIKUmap tries again every 10 minutes or so. If it keeps happening, your network, a proxy or your organization may be blocking it; if you don't need it, turn ChatGPT usage off.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 隔十来分钟会再试。一直这样的话，可能是网络、代理或公司的设置拦下了它；用不上就关掉 ChatGPT 用量。\n"
+ },
+ "KIKUmap tries again every 10 minutes or so. If it keeps happening, your network, a proxy or your organization may be blocking it; if you don't need usage, turn it off.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "KIKUmap 隔十来分钟会再试。一直这样的话，可能是网络、代理或公司的设置拦下了它；用不上用量就关掉它。\n"
+ },
+ "KIKUmap uses %@ (%@)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "KIKUmap 自己用 %@（%@）"
+ },
+ "KIKUmap wasn't running then": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "当时 KIKUmap 又没在运行"
+ },
+ "KIKUmap works without them. Turn them on any time in Settings → Access.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "不开也能正常用。以后在 设置 → 授权 里随时能开。"
+ },
+ "KIKUmap, %@ running": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "KIKUmap，在跑 %@ 个"
+ },
+ "Keep in the list (it stays anyway while it's on the map)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "一直留在左栏（在导图上时本来就会留着）"
+ },
+ "Keep in the list (otherwise it leaves 12 hours after it's done)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "一直留在左栏（不然做完 12 小时后会消失）"
+ },
+ "Keep in the list (otherwise it leaves when it stops)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "一直留在左栏（不然停下后就消失）"
+ },
+ "Keep it updated": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "自动更新"
+ },
+ "Keychain error": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "钥匙串出错"
+ },
+ "Keychain locked": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "钥匙串锁着"
+ },
+ "Language": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "语言"
+ },
+ "Last 2 days": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "昨天–今天"
+ },
+ "Last 24 hours": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "最近 24 小时"
+ },
+ "Last 7 days": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "最近 7 天"
+ },
+ "Last ran: ": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "上次运行："
+ },
+ "Last: ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "上次："
+ },
+ "Later": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "稍后再说"
+ },
+ "Launch checklist": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "上线检查清单"
+ },
+ "Learning": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "学习"
+ },
+ "Left": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "左"
+ },
+ "Left column": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "左栏"
+ },
+ "Left column · click in it first": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "左栏 · 先在左栏里点一下"
+ },
+ "Left column · tags": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "左栏 · 标签区"
+ },
+ "Lets KIKUmap read the Claude app's chat list (running, done, pinned), ChatGPT's for its ordinary chats (running, unread), and the window titles of a session's editor or terminal in front, to tell if you saw it finish. KIKUmap changes nothing by itself; it clicks in Claude only when you ask (to open a chat or export).\nClick below, then switch on KIKUmap in the list.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "用来读 Claude App 窗口里的对话列表：哪些在跑、做完了、置顶了；ChatGPT 普通对话的在跑、未读，也从它的窗口里看。会话所在的编辑器或终端在最前面时，还读它的窗口标题，判断你有没有看到做完的会话。KIKUmap 不会自己改任何东西，只有你让它做事时（打开对话、导出）才会在 Claude 里点按。\n点下面的按钮，在列表里打开 KIKUmap 的开关。"
+ },
+ "Lets KIKUmap read the chat list in the Claude app's window: which chats are still running and which you've read there. It also reads the list in ChatGPT's window: whether its ordinary chats are running or unread. While a session's editor or terminal is in front, it reads that app's window titles too, to tell whether you've seen a finished session there.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "用来读 Claude App 窗口里的对话列表：哪些对话还在跑，哪些你在 Claude 里看过了；也读 ChatGPT 窗口里的对话列表：它的普通对话在不在跑、有没有未读。会话所在的编辑器或终端在最前面时，还读它的窗口标题，判断你有没有看到做完的会话。"
+ },
+ "Life": {
+  "ctx": "paired",
+  "where": "LucideIcons.swift",
+  "zh": "生活"
+ },
+ "Light": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "浅色"
+ },
+ "Lines": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "线条"
+ },
+ "List as of %@": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "%@ 时的列表"
+ },
+ "Lots of Claude and ChatGPT chats going at once? Pin the ones you want to watch in Claude or ChatGPT. This menu-bar app then tells you which are still running and which are done but not read yet, and lets you sort them into a mind map.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "同时开着很多 Claude 和 ChatGPT 对话？在 Claude 或 ChatGPT 里把要盯的对话置顶，这个菜单栏小工具就会告诉你哪个还在跑、哪个做完了还没看（未读），还能把它们整理成一张导图。"
+ },
+ "Made by Yang Tang (GitHub @tang1693)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "作者：Yang Tang（GitHub @tang1693）"
+ },
+ "Manage tags…": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "管理标签…"
+ },
+ "Map shortcuts": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "导图快捷键"
+ },
+ "Map · click the map first": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "导图 · 先点一下导图"
+ },
+ "Map · keys": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "导图 · 按键"
+ },
+ "Map · mouse": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "导图 · 鼠标"
+ },
+ "Map · mouse or trackpad": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "导图 · 鼠标或触控板"
+ },
+ "Map · with an item selected": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "导图 · 先选中一个条目"
+ },
+ "Mark all as read": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "全部标为已读"
+ },
+ "Mark all read": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "全部已读"
+ },
+ "Mark as read": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "标为已读"
+ },
+ "Mark as read  ⇧⌘U": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "标为已读  ⇧⌘U"
+ },
+ "Mark as unread": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "标为未读"
+ },
+ "Mark as unread  ⇧⌘U": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "标为未读  ⇧⌘U"
+ },
+ "Menu bar": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "菜单栏"
+ },
+ "Minus": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "减号"
+ },
+ "More alerts": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "更多提醒"
+ },
+ "Most time": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "用时最多"
+ },
+ "Move KIKUmap to Applications": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "把 KIKUmap 拖进「应用程序」"
+ },
+ "Move around the map: just move the pointer": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "按住空格，移动指针：导图跟着走"
+ },
+ "Move back and forth in time": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "前后移动时间"
+ },
+ "Move it up or down, or a level in or out": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "上下移动，或者换一级"
+ },
+ "Move it with everything under it": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖动条目：连同下面的一起移动"
+ },
+ "Neon": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "霓虹"
+ },
+ "Network Volumes": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「网络宗卷」"
+ },
+ "Neuer Chat": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "新建"
+ },
+ "New sibling": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "新同级主题"
+ },
+ "New subtopic": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "新子主题"
+ },
+ "New subtopic  ⇥": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "新子主题  ⇥"
+ },
+ "New subtopic · put it inside a new topic": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "新建子主题 · 在它外面套一层主题"
+ },
+ "New tag": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "新标签"
+ },
+ "New tag…": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "新标签…"
+ },
+ "New topic": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "新主题"
+ },
+ "New topic below · above · a new main topic": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "下方新建同级 · 上方新建同级 · 新建主主题"
+ },
+ "Next": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "下一步"
+ },
+ "Next or previous row": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "下一行 / 上一行"
+ },
+ "Next scheduled task: ": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "下一个计划任务："
+ },
+ "Next: pin a chat in Claude or ChatGPT, and it shows up in KIKUmap's menu and left column. KIKUmap lives in the menu bar at the top right; change language, appearance, notifications, access and shortcuts any time in Settings.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "接下来：在 Claude 或 ChatGPT 里置顶一个对话，它就会出现在 KIKUmap 的菜单和左栏里。KIKUmap 在屏幕右上角的菜单栏里；语言、外观、通知、授权和快捷键，随时可以在「设置」里改。"
+ },
+ "No archived chats in this folder": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "这个文件夹里没有存档"
+ },
+ "No click needed (dragging works too). Two-finger scrolling, ⌥-drag or the middle mouse button move it as well, even starting on an item.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "不用按鼠标（拖也行）。双指滑动、按住 ⌥ 拖、鼠标中键拖也可以，从条目上开始拖也行。"
+ },
+ "No icon": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "不要图标"
+ },
+ "No matches": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "没有结果"
+ },
+ "No permission to save to the export folder": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没有权限存到导出文件夹"
+ },
+ "No pinned chats found": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "没有找到置顶对话"
+ },
+ "No room for the tags at this size: make the window taller or press ⌘-": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "放不下标签：把窗口拉高，或按 ⌘- 缩小"
+ },
+ "No tags yet.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "还没有标签。"
+ },
+ "No topics on the map yet.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "导图上还没有主题。"
+ },
+ "None": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "全不选"
+ },
+ "Normal": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "正常"
+ },
+ "Not active: ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没有生效："
+ },
+ "Not active: macOS didn't accept it. Try another combination.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "没有生效：macOS 没接受这个组合，换一个试试。"
+ },
+ "Not active: see above": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "没有生效：见上面"
+ },
+ "Not needed: no Claude app or current ChatGPT": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "用不上：没有 Claude App，也没有新版 ChatGPT"
+ },
+ "Not needed: no Claude or ChatGPT app on this Mac": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "用不上：这台 Mac 上没有 Claude App，也没有 ChatGPT"
+ },
+ "Not now": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "先不用"
+ },
+ "Not started": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "未开始"
+ },
+ "Not synced: ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "没同步："
+ },
+ "Not tied to the map, the left column or the timeline: some work in any app, the rest while a KIKUmap window is in front (see the headings below).": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "不限于导图、左栏或时间轴：有的在任何 App 里都能用，其余的在 KIKUmap 的窗口在最前面时能用（见下面的小标题）。"
+ },
+ "Not yet · you can skip for now": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "还没开启 · 可以先跳过"
+ },
+ "Note: the widget's times include the estimated time too, without the ≈.": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "注：小组件里的时长也算上了估算的部分，只是不标 ≈。"
+ },
+ "Nothing chosen to export": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "没选要导出的内容"
+ },
+ "Nothing exported yet.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "还没导出过。"
+ },
+ "Nothing here has “%@” in its name": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "没有名字里带「%@」的"
+ },
+ "Nothing in these 24 hours": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "这 24 小时没有活动"
+ },
+ "Nothing recorded in this range yet. While KIKUmap is open, it records the time %@ spent working.": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "这段时间还没有记录。KIKUmap 开着时，会记下 %@ 干活的时长。"
+ },
+ "Nothing selected: the map is put away": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "什么都没选：收起导图窗口"
+ },
+ "Nothing to do.": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "没有要做的事。"
+ },
+ "Nothing to export": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "没有要导出的对话"
+ },
+ "Nothing to keep up to date: neither box above is checked.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "上面两项都没勾，没有要更新的。"
+ },
+ "Notification Center's records can't be read (maybe a macOS update changed them): ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "读不了 macOS 的通知记录（可能是系统更新改了它）："
+ },
+ "Notifications": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "通知"
+ },
+ "Now": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "现在"
+ },
+ "OK": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "好"
+ },
+ "Off": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "未开启"
+ },
+ "Off here but on in System Settings? Quit and reopen KIKUmap. Still off (after reinstalling, say)? Select KIKUmap in that list, click − to remove it, then add it again.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这里显示未开启，系统设置里却开着？先退出并重新打开 KIKUmap。还不行（比如重装后）：在系统设置的列表里选中 KIKUmap，点 − 删掉，再加一次。"
+ },
+ "Off · switched it on? Reopen KIKUmap": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "未开启 · 开了的话要重新打开 KIKUmap"
+ },
+ "Off: check Enabled above": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "已关闭：在上面勾上「启用」"
+ },
+ "Off: check Enabled to use it from any app.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已关闭：勾上「启用」就能在任何 App 里用。"
+ },
+ "Off: it waits for your next Codex task": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "没开：等下次用 Codex 才更新"
+ },
+ "Off: no Claude usage in the menu": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "没开：菜单里没有 Claude 的用量"
+ },
+ "Off: pressing it does nothing now. Check Enabled at the top of this page and it works in any app: the map opens on the desktop you're on, ready for its shortcuts.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "已关闭，现在按它没有反应。在本页最上面勾上「启用」后，在任何 App 里都能按：导图出现在你现在的桌面上，马上就能用它的快捷键。"
+ },
+ "On hold": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "搁置"
+ },
+ "On the map, with a mouse or trackpad. On an item or on empty space, the same move can do different things.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在导图上用鼠标或触控板。同一个动作，在条目上和在空白处效果不一样。"
+ },
+ "On · ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · "
+ },
+ "On · can't read Notification Center": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 读不了通知中心"
+ },
+ "On · can't read it": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 读不了"
+ },
+ "On · its data isn't there yet": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 还没找到它的数据"
+ },
+ "On · no ChatGPT app: Codex in editors and terminal only": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 没有 ChatGPT App，只读编辑器、终端里的 Codex"
+ },
+ "On · older ChatGPT app: Codex in editors and terminal only": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 旧版 ChatGPT App：只读编辑器、终端里的 Codex"
+ },
+ "On · reading…": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "已开启 · 读取中…"
+ },
+ "On: how much you've used, when it resets": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "开了：用了多少、什么时候重置"
+ },
+ "On: it updates every 10 minutes": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "开了：每 10 分钟更新一次"
+ },
+ "One look for light, one for dark: it follows the Mac or the ☾ / ☀︎ button.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "浅色和深色各一套，跟着系统或 ☾ / ☀︎ 按钮切换。"
+ },
+ "Open": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "打开"
+ },
+ "Open ChatGPT": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "打开 ChatGPT"
+ },
+ "Open Claude": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "打开 Claude"
+ },
+ "Open KIKUmap once to fill this in": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "打开一次 KIKUmap，这里就有内容了"
+ },
+ "Open KIKUmap when you log in": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "登录 Mac 时自动打开 KIKUmap"
+ },
+ "Open KIKUmap when you log in (menu bar only)": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "登录 Mac 时自动打开 KIKUmap（只在菜单栏）"
+ },
+ "Open Settings": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "打开设置"
+ },
+ "Open System Settings": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "打开系统设置"
+ },
+ "Open at login (menu bar only)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "登录时自动打开（只在菜单栏）"
+ },
+ "Open at login: first drag KIKUmap into Applications and open it from there": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "登录时自动打开：先把 KIKUmap 拖进「应用程序」，从那里打开"
+ },
+ "Open data folder": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "打开数据文件夹"
+ },
+ "Open in ChatGPT": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "在 ChatGPT 里打开"
+ },
+ "Open in Claude": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "在 Claude 里打开"
+ },
+ "Open in VS Code": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "在 VS Code 里打开"
+ },
+ "Open its folder": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "打开它的文件夹"
+ },
+ "Open map": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "打开导图"
+ },
+ "Open that chat in its app": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在对应的 App 里打开那个对话"
+ },
+ "Open the Claude app and turn on Accessibility first.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "要先打开 Claude App，并开启「辅助功能」权限。"
+ },
+ "Open the chat in its app": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在对应的 App 里打开对话"
+ },
+ "Open · Archive a summary… · keep in the list": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "打开 · 让 Claude 写总结存档… · 一直留在左栏"
+ },
+ "OpenAI asked to check less often — trying again at %@": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "OpenAI 让晚点再查，%@ 再试"
+ },
+ "OpenAI asked to check less often — trying again shortly": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "OpenAI 让晚点再查，马上再试"
+ },
+ "OpenAI's answer couldn't be read: the interface isn't public and may have changed. The numbers from using Codex still show.": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "OpenAI 的回答读不懂：这个接口没有公开，可能改了。用 Codex 时的数字照样会显示。"
+ },
+ "OpenAI's answer on ChatGPT usage couldn't be read": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "OpenAI 回的 ChatGPT 用量读不懂"
+ },
+ "Optional extras": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "可选功能"
+ },
+ "Optional, off by default. While it's off, ChatGPT's usage updates only when you run a Codex task (read from Codex's records on this Mac); after a reset, new numbers show only once you use Codex again. When on, it uses the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI every 10 minutes. Read-only, sent only to chatgpt.com. It's an interface OpenAI hasn't published or said other apps may use, so it may stop working or be blocked.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "可选，默认关闭。关着时，ChatGPT 的用量只在你用 Codex 跑任务时更新（从 Codex 在这台 Mac 上的记录里读）；用量重置后，要等下次用 Codex 才有新数字。开启后借用 Codex 存在这台 Mac 上的 ChatGPT 登录（~/.codex/auth.json），每 10 分钟向 OpenAI 查一次；只读，只发给 chatgpt.com。用的是 OpenAI 没公开的接口，OpenAI 也没说允许别的应用这样用，可能失效或被限制。"
+ },
+ "Optional, off by default. While it's off, Claude's usage and scheduled tasks aren't shown (nothing else on this Mac has them). Needs a paid Claude plan signed in to Claude Code on this Mac (the Free plan and API keys have no usage to show). When on, it uses Claude Code's sign-in from the Keychain to look up usage and scheduled tasks every 10 minutes. Read-only, sent only to api.anthropic.com. Anthropic doesn't allow third-party apps to collect Claude sign-ins: KIKUmap only reads it on this Mac and never saves it, but this may still not be allowed and could be blocked.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "可选，默认关闭。关着时不显示 Claude 的用量和计划任务（这台 Mac 上没有别的地方能读到）。需要 Claude 付费套餐，并在这台 Mac 的 Claude Code 里登录（免费套餐和 API key 没有用量可看）。开启后借用 Claude Code 存在钥匙串里的登录，每 10 分钟查一次用量和计划任务；只读，只发给 api.anthropic.com。Anthropic 不允许第三方应用收集 Claude 的登录信息：KIKUmap 只在本机读、不保存，但仍可能不被允许、被限制。"
+ },
+ "Optional. Lets KIKUmap read Claude's notifications in Notification Center: you're told when Claude asks \"Allow this?\" or waits for your answer, and KIKUmap knows when a Cowork task in the Claude app finishes, even with its window closed (Claude sends no notification when an ordinary chat's reply finishes). Read-only, never uploaded.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "可选。用来读通知中心里 Claude 发的通知：Claude 问「允许吗？」或等你回答时提醒你；Claude App 里的 Cowork 任务做完了，窗口关着也知道（普通对话回复完，Claude 不发通知）。只读，不上传。"
+ },
+ "Or right-click one chat → \"Archive a summary…\" to try one first.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "也可以右键单个对话 →「让 Claude 写总结存档…」，先试一个。"
+ },
+ "Orange": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "橙"
+ },
+ "Other": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "其他"
+ },
+ "Other sound file…": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "其他声音文件…"
+ },
+ "Otherwise KIKUmap doesn't come back after a restart. Until you open it, there are no alerts, chats in the Claude app and ChatGPT don't count time, and the widget doesn't update. Change it any time in Settings → General.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "不开的话，重启 Mac 后 KIKUmap 不会自己打开。在你打开它之前：没有提醒，Claude App 和 ChatGPT 的对话不记时间，小组件也不更新。随时可以在 设置 → 通用 里改。"
+ },
+ "Output": {
+  "ctx": "paired",
+  "where": "LucideIcons.swift",
+  "zh": "产出"
+ },
+ "Panels": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "面板"
+ },
+ "Paste": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "粘贴"
+ },
+ "Paused · click to go on": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "已暂停 · 点一下继续"
+ },
+ "Paused: running, finished and unread for ChatGPT's ordinary chats (Codex chats aren't affected). Those that were running show \"running?\"; the time KIKUmap can't see is estimated (marked ≈).\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "暂停：ChatGPT 普通对话的在跑、做完和未读（Codex 对话不受影响）。在跑的显示「在跑？」，看不到的这段时长是估算的（标 ≈）。\n"
+ },
+ "Period": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "句号"
+ },
+ "Personal": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "个人"
+ },
+ "Pick a row; the keys below then work in the list": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "选中一行，下面这些按键就用在左栏"
+ },
+ "Pick a sound file; a short one works best": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "选一个声音文件，几秒钟的短音最合适"
+ },
+ "Pick several · a range up to this row": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "多选 · 从选中的那行到这一行全选"
+ },
+ "Pick topics and export their Claude chats in one go. Each chat gets a folder with memory.md (a hand-off summary written by Claude), the prompts, the whole chat, and every artifact and attachment. Exports can keep themselves up to date. Later you can import them into another Claude account in one go, and the new chats carry on with the summary and files.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "选几个主题，把里面的 Claude 对话一次导出：每个对话一个文件夹，里面有 memory.md（Claude 写的交接总结）、提示词、完整对话、所有 artifact 和附件。可以设成自动更新。以后可以一键导入另一个 Claude 账号，新对话会带着总结和文件接着做。"
+ },
+ "Pick topics. Every Claude chat under them is exported, pinned or not, each in a folder of its own.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "选主题：主题下的 Claude 对话都会导出，置顶的和没置顶的都算。每个对话一个文件夹。"
+ },
+ "Pin a chat in ChatGPT and it shows up here.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在 ChatGPT 里置顶一个对话，它就会出现在这里。"
+ },
+ "Pin a chat in Claude and it shows up here.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在 Claude 里置顶一个对话，它就会出现在这里。"
+ },
+ "Pin a chat in Claude or ChatGPT and it shows up here.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在 Claude 或 ChatGPT 里置顶对话，它就会出现在这里。"
+ },
+ "Pin or rename by hand": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "有对话要手动置顶或改名"
+ },
+ "Pinching zooms only the map (40–200%), and it's remembered. ⌘0 fits the map in and centers it, at 55–100% (a very large map may not fit); it doesn't undo ⌘+ / ⌘-.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "捏合只缩放导图（40%–200%），会记住。⌘0 把整张导图放进窗口并居中（55%–100%，很大的导图可能放不全），不影响 ⌘+ / ⌘-。"
+ },
+ "Pink": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "粉"
+ },
+ "Pinned": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "置顶对话"
+ },
+ "Pinned chats not on the map": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "没放进导图的置顶对话"
+ },
+ "Pins and sessions · drag to the map": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "置顶对话和会话 · 拖到导图上"
+ },
+ "Playing": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "正在演示"
+ },
+ "Plays it once in the picture above": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "在上面的画面里演示一遍"
+ },
+ "Plus": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "加号"
+ },
+ "Prep": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "准备"
+ },
+ "Press %@ to open the map. ": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "按 %@ 打开导图。"
+ },
+ "Press a shortcut…": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "请按下快捷键…"
+ },
+ "Press it in any app to show or hide the map.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "在任何 App 里按它，就能显示或隐藏导图。"
+ },
+ "Pressing it does nothing now: %@. Pick another combination at the top of this page.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "现在按它没有反应：%@。在本页最上面换一个组合。"
+ },
+ "Pressing it does nothing now: macOS didn't accept this combination; another app or a system shortcut may use it. Pick another at the top of this page.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "现在按它没有反应：macOS 没接受这个组合，可能别的 App 或系统快捷键在用。在本页最上面换一个。"
+ },
+ "Progress": {
+  "ctx": "paired",
+  "where": "LucideIcons.swift",
+  "zh": "进度"
+ },
+ "Prompts": {
+  "ctx": "paired",
+  "where": "ClaudeExport.swift",
+  "zh": "提示词"
+ },
+ "Prompts, the whole conversation, every artifact and attachment": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "提示词、完整对话、全部 artifacts 和附件"
+ },
+ "Put chats on the map where the preview shows": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖到导图上，放在预览显示的位置"
+ },
+ "Put the window away · quit KIKUmap": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "收起窗口 · 退出 KIKUmap"
+ },
+ "Quit": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "退出"
+ },
+ "Quit & Reopen": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "退出并重新打开"
+ },
+ "Quit KIKUmap": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "退出 KIKUmap"
+ },
+ "Read Claude, ChatGPT and usage again now": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "马上重新读 Claude、ChatGPT 和用量"
+ },
+ "Read again": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "重新读取"
+ },
+ "Reading Claude and ChatGPT again now": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "马上重新读 Claude 和 ChatGPT"
+ },
+ "Reading Claude's data export…": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "正在读 Claude 的导出包…"
+ },
+ "Reading Claude's sidebar for the first time…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "正在第一次读取 Claude 的侧边栏…"
+ },
+ "Reading your pins…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "正在读取置顶…"
+ },
+ "Reading…": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "读取中…"
+ },
+ "Reads the chat lists in Claude's and ChatGPT's windows to see which chats are running or done. Without it, KIKUmap can't see your Claude app chats.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "读 Claude 和 ChatGPT 窗口里的对话列表，看出哪个在跑、哪个做完了。不开的话，KIKUmap 看不到 Claude App 里的对话。"
+ },
+ "Reads what the ChatGPT desktop app keeps on this Mac (~/.codex, read-only): the chats you pin in the app, plus Codex chats' list, unread and usage (Codex in VS Code or the terminal too). The widget can show ChatGPT's usage as well. Codex chats work best: running / unread stay right even with the window closed. For ordinary chats, running / unread can only be read off ChatGPT's window (with Accessibility, while part of it shows), and clicking one brings up ChatGPT. Changes nothing, uploads nothing.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "读 ChatGPT 桌面 App 存在这台 Mac 上的记录（~/.codex，只读）：你在 App 里置顶的对话，还有 Codex 对话（包括 VS Code、终端里的 Codex）的列表、未读和用量；小组件也能显示 ChatGPT 的用量。Codex 对话最准：窗口关着，「在跑 / 未读」也对。普通对话的「在跑 / 未读」只能从 ChatGPT 的窗口里看（要开「辅助功能」，窗口要露出一部分），点它会打开 ChatGPT。不改任何东西，不上传。"
+ },
+ "Recording: press the new keys (two of ⌃ ⌥ ⌘); esc cancels.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "录制中：按下新组合（要有 ⌃ ⌥ ⌘ 里的两个），esc 取消。"
+ },
+ "Red": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "红"
+ },
+ "Redo": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "重做"
+ },
+ "Refactor the login flow": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "重构登录流程"
+ },
+ "Refresh": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "刷新"
+ },
+ "Refresh now: check Claude and ChatGPT again  ⌘R": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "马上刷新：重新看一遍 Claude 和 ChatGPT  ⌘R"
+ },
+ "Refresh: KIKUmap checks Claude, ChatGPT and usage again right away, and ⟳ in the left column turns. ⌘Y and ⌘, are the chart and gear buttons in the top bar too.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "刷新：马上重新看一遍 Claude、ChatGPT 和用量，左栏的 ⟳ 会转一下。⌘Y 和 ⌘, 就是顶栏的图表和齿轮按钮。"
+ },
+ "Remind me": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "再提醒我"
+ },
+ "Removable Volumes": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「可移除的宗卷」"
+ },
+ "Remove from the map": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "从导图上拿掉"
+ },
+ "Rename": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "改名"
+ },
+ "Rename  ⌘↩": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "改名  ⌘↩"
+ },
+ "Rename (a chat's new name shows only here)": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "改名（对话的新名字只在 KIKUmap 里显示）"
+ },
+ "Rename in KIKUmap only": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "改名（只在 KIKUmap 里）"
+ },
+ "Rename it · on empty space: a new main topic": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "双击条目改名 · 双击空白处新建主主题"
+ },
+ "Replace": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "替换"
+ },
+ "Replace your saved custom colors?": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "替换存着的自定义配色？"
+ },
+ "Report an issue": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "反馈问题"
+ },
+ "Required": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "必需"
+ },
+ "Research": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "调研"
+ },
+ "Reset to preset": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "恢复预设"
+ },
+ "Reset to ⌃⌥C": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "恢复 ⌃⌥C"
+ },
+ "Retro": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "复古"
+ },
+ "Return": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "回车"
+ },
+ "Return, Esc or a click elsewhere finishes; Esc keeps what you typed. Left empty, a topic reads New topic and a chat gets its own title back. The center can't be renamed. F2 may need fn.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "回车、Esc 或点别处都会结束，Esc 也保留已输入的。名字清空：主题变回「新主题」，对话恢复原标题。中心点不能改名；F2 可能要同时按 fn。"
+ },
+ "Right": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "右"
+ },
+ "Run claude in Terminal (or open the Claude Code panel in VS Code or Cursor), type /login and choose your paid Claude account (Pro, Max, Team or Enterprise). If Claude Code here uses an API key, this switches Claude Code itself to your plan; to keep the key, turn usage off. The Free plan, and Claude Code through Bedrock, Vertex or a gateway, have no usage to show.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在终端运行 claude（或在 VS Code、Cursor 的 Claude Code 面板里），输入 /login，选 Claude 付费账号（Pro、Max、Team 或 Enterprise）。如果这里的 Claude Code 用的是 API key，这会把 Claude Code 本身换成你的套餐计费；想保留 API key 就关掉用量。免费套餐，以及通过 Bedrock、Vertex 或网关用的 Claude Code，都没有用量可看。"
+ },
+ "Run claude in Terminal (or the Claude Code panel in your editor) and type /login again.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在终端运行 claude（或在编辑器的 Claude Code 面板里），输入 /login 重新登录一次。\n"
+ },
+ "Running": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "在跑"
+ },
+ "Running %@": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "在跑 %@"
+ },
+ "Running and unread chats; click one to open it": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "看在跑和未读的对话；点一个直接打开"
+ },
+ "Running and unread have colors of their own (set them in Colors). The rest is yours: color a branch (right-click a topic → Branch color) or tag chats and topics (right-click → Tags), as many as you like.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "在跑和未读有自己的颜色（在「配色」里设）。其余的颜色留给你：给分支上色（右键主题 → 分支颜色），或者给对话和主题加标签（右键 → 标签），一个可以加好几个。"
+ },
+ "Running · ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "在跑 · "
+ },
+ "Running · %@": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "在跑 · %@"
+ },
+ "Running · 1": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "在跑 · 1"
+ },
+ "Same as the top-bar buttons, or double-click the pane's edge. Drag the left column's edge to change its width, or to the window's edge to hide it; the tags' top edge drags too.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "和顶栏的按钮一样；双击那一栏的边也行。拖左栏的边改宽度，拖到窗口最左边就收起；标签区的上边也能拖。"
+ },
+ "Save to": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "存到"
+ },
+ "Scheduled": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "计划任务"
+ },
+ "Scheduled task": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "计划任务"
+ },
+ "Scheduled tasks": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "计划任务"
+ },
+ "Scheduled tasks not synced": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "计划任务没同步"
+ },
+ "Scheduled tasks not synced: ": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "计划任务没同步："
+ },
+ "Scheduled tasks show here once usage is on · click to turn it on": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "开启「用量」后，这里会显示计划任务 · 点这里开启"
+ },
+ "Scheduled tasks · as of %@": {
+  "ctx": "paired",
+  "where": "Timeline.swift",
+  "zh": "计划任务 · %@ 时的列表"
+ },
+ "Scheduled tasks · not synced": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "计划任务 · 没同步"
+ },
+ "Search": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "搜索"
+ },
+ "Search the list": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "搜索左栏"
+ },
+ "Search the map · next match · previous one": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "搜索导图 · 下一个 · 上一个"
+ },
+ "Search topics, chats, tags": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "搜索主题、对话、标签"
+ },
+ "Secondary text": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "次要文字"
+ },
+ "See Claude's 5-hour and weekly usage in the menu and the widget. It uses Claude Code's sign-in, so Claude Code must be installed and signed in with a paid plan.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "在菜单和小组件里看 Claude 的 5 小时和每周用量。它借用 Claude Code 的登录，所以要先装好 Claude Code，并用付费账号登录。"
+ },
+ "See the time, and which chat ran when": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "看时间，以及哪个对话什么时候在跑"
+ },
+ "See what %@ does": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "看看「%@」有什么用"
+ },
+ "Select All": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "全选"
+ },
+ "Select an item; click empty space to deselect": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "点击选中条目；点空白处取消选择"
+ },
+ "Select everything a box touches": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖一个框：碰到的都选中"
+ },
+ "Select the nearest item that way · its topic": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "选中那个方向最近的条目 · 所在的主题"
+ },
+ "Selection": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "选中"
+ },
+ "Semicolon": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "分号"
+ },
+ "Session": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "会话"
+ },
+ "Session  42%": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "当前会话  42%"
+ },
+ "Sessions": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "会话"
+ },
+ "Settings": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "设置"
+ },
+ "Settings…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "设置…"
+ },
+ "Shapes": {
+  "ctx": "paired",
+  "where": "Icons.swift",
+  "zh": "形状"
+ },
+ "Shortcut to show or hide the map": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "显示 / 隐藏导图的快捷键"
+ },
+ "Shortcuts": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "快捷键"
+ },
+ "Show / Hide Left Column": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "显示 / 隐藏左栏"
+ },
+ "Show / Hide Tags": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "显示 / 隐藏标签"
+ },
+ "Show / Hide Timeline": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "显示 / 隐藏时间轴"
+ },
+ "Show / hide the left column  ⌃⌘S": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "显示 / 隐藏左栏  ⌃⌘S"
+ },
+ "Show / hide the map": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "显示 / 隐藏导图"
+ },
+ "Show / hide the tags  ⌃⌘G": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "显示 / 隐藏标签  ⌃⌘G"
+ },
+ "Show / hide the timeline  ⌃⌘T": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "显示 / 隐藏时间轴  ⌃⌘T"
+ },
+ "Show All": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "全部显示"
+ },
+ "Show Claude's usage and scheduled tasks (paid plans)…": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "显示 Claude 的用量和计划任务（付费套餐）…"
+ },
+ "Show Claude's usage and scheduled tasks?": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "显示 Claude 的用量和计划任务？"
+ },
+ "Show in Finder": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "在访达中显示"
+ },
+ "Show or hide the left column · tags · timeline": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "显示或隐藏左栏 · 标签 · 时间轴"
+ },
+ "Show the intro again": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "再看一次介绍"
+ },
+ "Show the map; press again to put it away": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "呼出导图；它在最前面时再按就收起"
+ },
+ "Shows how much of your Claude plan you've used and when it resets. Uses Claude Code's sign-in, which may not be allowed.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "显示 Claude 套餐用了多少、什么时候重置。借用 Claude Code 的登录，可能不被允许。"
+ },
+ "Shows the chats you pin in the ChatGPT app (Codex ones show running and done), plus Codex sessions in your editor or terminal. Read-only, no uploads.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "显示你在 ChatGPT App 里置顶的对话（其中的 Codex 对话看得出在跑、做完），还有编辑器、终端里的 Codex 会话。只读，不上传。"
+ },
+ "Side project": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "副业"
+ },
+ "Sign in with your ChatGPT account in the ChatGPT desktop app or in Codex, then click Read again. If Codex uses an API key, there's no ChatGPT usage to look up: then turn ChatGPT usage off.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在 ChatGPT 桌面 App 或 Codex 里用 ChatGPT 账号登录，再点「重新读取」。Codex 用的是 API key 的话，没有 ChatGPT 用量可查，那就关掉 ChatGPT 用量。\n"
+ },
+ "Skip intro": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "跳过介绍"
+ },
+ "Slash": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "斜杠"
+ },
+ "Slides": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "幻灯片"
+ },
+ "Slow": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "慢"
+ },
+ "Smaller": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "缩小"
+ },
+ "Speed": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "语速"
+ },
+ "Speichern": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "保存"
+ },
+ "Spreadsheet": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "表格"
+ },
+ "Square": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "方块"
+ },
+ "Star": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "星星"
+ },
+ "Start": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "开始"
+ },
+ "Startup": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "启动"
+ },
+ "Statistics": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "统计"
+ },
+ "Statistics  ⌘Y": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "统计  ⌘Y"
+ },
+ "Statistics · refresh now · Settings": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "统计 · 马上刷新 · 设置"
+ },
+ "Statistics…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "统计…"
+ },
+ "Status has colors of its own: a moving line = running, a dot = unread (change them in Settings → Colors). The rest is yours: color branches, and give chats and topics as many tags as you like.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "状态有自己的颜色：转动的线 = 在跑，圆点 = 未读（可以在 设置 → 配色 里换）。其余的颜色都留给你：给分支上色，给对话和主题加任意多个标签。"
+ },
+ "Stay quiet while the ChatGPT app is in front": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "正在看 ChatGPT App 时不响"
+ },
+ "Stay quiet while the Claude app is in front": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "正在看 Claude App 时不响"
+ },
+ "Still in the menu bar": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "还在菜单栏里"
+ },
+ "Still works: Claude Code, %@. (With Full Disk Access on, Claude's notifications would also say when it's waiting for you to approve and when a Cowork task finishes.)": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "不受影响：Claude Code、%@。（开了「完全磁盘访问」的话，Claude 等你确认、Cowork 任务做完时的通知也能收到。）"
+ },
+ "Still works: Claude's notifications (it's waiting for you to approve or answer; a Cowork task in the Claude app finished), Claude Code, %@.": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "不受影响：Claude 的通知（等你确认或回答；Claude App 里的 Cowork 任务做完）、Claude Code、%@。"
+ },
+ "Stop": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "停止"
+ },
+ "Stop keeping it (it leaves 12 hours after it's done)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "不再一直留着（做完 12 小时后消失）"
+ },
+ "Stop keeping it (it leaves right away)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "不再一直留着（马上就会消失）"
+ },
+ "Stop keeping it (it leaves when it stops)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "不再一直留着（停下后就消失）"
+ },
+ "Stop keeping it (it stays while it's on the map)": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "不再一直留着（在导图上时仍会留着）"
+ },
+ "Summaries are updated on this schedule, once the Mac has been idle for 10 minutes, with the Claude app open and Accessibility on.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "总结按选的频率更新：要 Mac 闲置 10 分钟以上，而且 Claude App 开着、「辅助功能」也开着时才写。"
+ },
+ "Summaries can't be written now": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "现在没法写总结"
+ },
+ "Sunset": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "日落"
+ },
+ "Swift basics": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "Swift 入门"
+ },
+ "Switch light / dark": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "切换浅色 / 深色"
+ },
+ "Switched it on in System Settings? KIKUmap has to quit and reopen to use it: click this button again.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "在系统设置里开好了？KIKUmap 要退出并重新打开才能用上：再点一下这个按钮。"
+ },
+ "Symbols": {
+  "ctx": "paired",
+  "where": "LucideIcons.swift",
+  "zh": "符号"
+ },
+ "Sync paused": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "同步暂停"
+ },
+ "Synced · ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "已同步 · "
+ },
+ "Syncing…": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "同步中…"
+ },
+ "System": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "跟随系统"
+ },
+ "System Settings opens at Full Disk Access, along with a Finder window that has KIKUmap selected. Drag KIKUmap into the list (or click + and choose it), then switch it on.\n\nIf macOS offers \"Quit & Reopen\", choose it:": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "接下来会打开系统设置里的「完全磁盘访问」，还有一个已经选中 KIKUmap 的访达窗口。把 KIKUmap 从访达拖进列表（或点 ＋ 选它），再打开它的开关。\n\n如果 macOS 问要不要「退出并重新打开」，选它："
+ },
+ "Tag an item · light up all with that tag": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖到条目上加标签 · 点一下高亮带它的"
+ },
+ "Tag name, e.g. \"waiting on client\"": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "标签名，比如「等客户」"
+ },
+ "Tags": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "标签"
+ },
+ "Tags ▸": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "标签 ▸"
+ },
+ "Tax question": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "报税问题"
+ },
+ "Tax question 13:55 – running": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "报税问题 13:55 – 在跑"
+ },
+ "Teal": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "青"
+ },
+ "Tech": {
+  "ctx": "paired",
+  "where": "LucideIcons.swift",
+  "zh": "技术"
+ },
+ "Tells you when Claude asks \"Allow this?\" or waits for your answer, even with its window closed.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "Claude 问「允许吗？」或等你回答时提醒你，Claude 的窗口关着也行。"
+ },
+ "Terminal · editors": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "终端 · 编辑器"
+ },
+ "Test": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "试听"
+ },
+ "Text": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "文字"
+ },
+ "The ChatGPT usage request was refused — it may be blocked": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "ChatGPT 用量查询被拒绝了，可能是被拦下了"
+ },
+ "The Claude app will open %@ in turn, send a message asking Claude for a hand-off summary, and save the reply as memory.md (%@).\n\n· Each chat gets one more exchange, which uses a little of your quota\n· The Claude window switches chats while this runs — leave it alone (you can stop from the top bar)\n· Chats that are running, unread or unchanged are skipped\n· %@": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "会在 Claude App 里依次打开%@，发一条消息请 Claude 写交接总结，再把总结存成 memory.md（%@）。\n\n· 每个对话会多一轮问答，用掉一点额度\n· 运行时 Claude 窗口会自己切换对话，先别动它（顶栏可以随时停止）\n· 正在跑、未读、没有新内容的对话会跳过\n· %@"
+ },
+ "The Claude app will open this chat, send a message asking Claude for a hand-off summary, and save the reply as memory.md (%@).\n\n· It's asked even if nothing changed since the last summary: one more exchange, which uses a little of your quota\n· Once it's open in Claude, Claude treats it as read\n· The Claude window switches to this chat while this runs — leave it alone (you can stop from the top bar)\n· %@": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "会在 Claude App 里打开这个对话，发一条消息请 Claude 写交接总结，再把总结存成 memory.md（%@）。\n\n· 就算上次总结后没有新内容，也会再问一次：多一轮问答，用掉一点额度\n· 在 Claude 里打开后，Claude 会把它当作已读\n· 运行时 Claude 窗口会自己切到这个对话，先别动它（顶栏可以随时停止）\n· %@"
+ },
+ "The Claude desktop app isn't running.\nStill works: Claude Code sessions and everything already on your map.\nPaused: running, finished, unread and pins for chats in the Claude app.\nFix: open Claude; KIKUmap picks it up by itself.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "Claude 桌面 App 没在运行。\n不受影响：Claude Code 会话、导图上已有的内容。\n暂停：Claude App 里对话的在跑、做完、未读和置顶。\n怎么办：打开 Claude App，会自动接上。"
+ },
+ "The Keychain didn't let KIKUmap read Claude Code's sign-in": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "钥匙串没让 KIKUmap 读 Claude Code 的登录"
+ },
+ "The Keychain gave an error reading Claude Code's sign-in": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "钥匙串出错，读不了 Claude Code 的登录"
+ },
+ "The Mac may be offline, or there's trouble on Anthropic's side. KIKUmap tries again by itself every 10 minutes or so.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "可能是 Mac 没联网，也可能是 Anthropic 那边出了问题。KIKUmap 隔十来分钟会自己再试。"
+ },
+ "The Mac may be offline, or there's trouble on OpenAI's side. KIKUmap tries again by itself every 10 minutes or so.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "可能是 Mac 没联网，也可能是 OpenAI 那边出了问题。KIKUmap 隔十来分钟会自己再试。\n"
+ },
+ "The PDF is light, with nothing selected, and holds just the map; it asks where to save it first. Export chats opens its own window.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "PDF 是浅色的，不带选中框，只有导图本身；会先问你存到哪里。「导出对话」会打开自己的窗口。"
+ },
+ "The Pinned section in Claude's sidebar is folded, so KIKUmap can't see which chats are pinned.\nPaused: syncing your pins (the left column won't update), and running and unread for pinned chats.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 侧边栏里的 Pinned 区折叠起来了，KIKUmap 看不到哪些对话被置顶。\n暂停：置顶同步（左栏不会更新），以及置顶对话的在跑和未读。\n"
+ },
+ "The center can be selected too. With several selected, click one and let go without dragging to keep just that one.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "中心点也能选中。选了好几个时，点其中一个、不拖动就松手，就只留下它。"
+ },
+ "The chat list in Claude's sidebar shows no chats: it's still loading, couldn't load (offline?), or its groups are folded.\nPaused: running, pins and unread for Claude's chats; your pins aren't cleared meanwhile.\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "Claude 侧边栏的对话列表里一个对话也没显示：还在加载、没能加载出来（断网了？），或者分组都折叠起来了。\n暂停：Claude 对话的在跑、置顶和未读；置顶不会因此被清掉。\n"
+ },
+ "The color set in use is always dark (Settings → Colors)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "现在的配色一直是深色（设置 → 配色）"
+ },
+ "The color set in use is always dark, so neither this nor the ☾ / ☀︎ button on the map changes it. To switch, pick another set in Colors.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "现在的配色一直是深色，这里和导图顶栏的 ☾ / ☀︎ 按钮都换不了。要切换浅色 / 深色，先在「配色」里换一套。"
+ },
+ "The color set in use is always light (Settings → Colors)": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "现在的配色一直是浅色（设置 → 配色）"
+ },
+ "The color set in use is always light, so neither this nor the ☾ / ☀︎ button on the map changes it. To switch, pick another set in Colors.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "现在的配色一直是浅色，这里和导图顶栏的 ☾ / ☀︎ 按钮都换不了。要切换浅色 / 深色，先在「配色」里换一套。"
+ },
+ "The error comes from macOS's Keychain, not the network. KIKUmap reads the sign-in again by itself every 15 minutes or so.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "是 macOS 的钥匙串报的错，不是网络的问题。KIKUmap 隔 15 分钟左右会自己再读一次。"
+ },
+ "The export folder can't be reached (is its disk connected?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导出文件夹现在打不开（外接盘或网络盘没接上？）"
+ },
+ "The export folder's disk is full": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导出文件夹所在的磁盘满了"
+ },
+ "The export folder's disk is read-only": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导出文件夹所在的磁盘是只读的"
+ },
+ "The export stopped there: what was left wasn't done this time.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导出到这里停下了，剩下的这次没有做。"
+ },
+ "The first time KIKUmap saves into Documents, Desktop or Downloads, or onto an external or network disk, macOS asks once whether it may. For a folder picked with Change…, it may ask only later, the first time KIKUmap saves there after it restarts.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "第一次存到「文稿」「桌面」「下载」或外接盘、网络盘里时，macOS 会问一次是否允许 KIKUmap 存到这里。用「更改…」选的文件夹，可能要等 KIKUmap 重新打开后、再存进去时才问。"
+ },
+ "The interface isn't public and may have changed. KIKUmap tries again by itself every 10 minutes or so.\n": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "这个接口没有公开，可能改了。KIKUmap 隔十来分钟会自己再试。\n"
+ },
+ "The left column lists the chats you pinned in Claude and ChatGPT, plus Claude Code and Codex sessions from your editors and terminal. Drag them onto a topic to sort them. Keys work like MindNode.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "左栏里是你在 Claude 和 ChatGPT 里置顶的对话，还有编辑器、终端里的 Claude Code 和 Codex 会话。把它们拖到主题上就归好类了。快捷键和 MindNode 一样。"
+ },
+ "The list couldn't be read; trying again in 10 minutes or so": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "列表没读到，十来分钟后再试"
+ },
+ "The map can't be saved": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "导图存不进去"
+ },
+ "The map makes room as you drag. Over a topic's middle it goes inside; past its end, under it. Chats dropped on the left column come off the map. Esc puts it back.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖的时候导图会让出位置。停在主题中间就放进去，拖过主题外侧就放到它下面。把对话拖到左栏就从导图上拿掉。按 Esc 放回原处。"
+ },
+ "The map's keys and mouse moves; all shortcuts, with demos, are in Settings → Shortcuts": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "导图上的按键和鼠标操作；全部快捷键和演示在「设置 → 快捷键」"
+ },
+ "The new topic's name is ready to type. The center has no name, so double-clicking it does nothing.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "新主题直接输入名字。中心点没有名字，双击它没有反应。"
+ },
+ "The number in a ring: how many are running. Red: done, not looked at yet (unread); with ! it's waiting for you. Open map is at the top. Hover the icon to see what each mark means.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "圈里的数字是在跑的个数；红色是做完了还没看（未读），带 ! 是在等你确认。「打开导图」在最上面。鼠标停在图标上，能看每个标记的意思。"
+ },
+ "The strip at the bottom of the map window": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "导图窗口最下面那条"
+ },
+ "The strip at the bottom of the map window: point at it, then scroll, drag or click.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "导图窗口最下面那条：把指针放上去，再滑动、拖动或点击。"
+ },
+ "The tags on an item can be dragged: let go outside the item and the tag comes off it (the tag itself stays); drag it along the item to change its place among the item's tags. ⌘Z undoes it.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "条目上的标签可以直接拖：拖到条目外面松手，这个标签就从它身上去掉（标签本身还在）；在条目里左右拖，换它和其他标签的先后。⌘Z 能撤销。"
+ },
+ "The unreadable file was kept as it was in ": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "读不了的文件已原样留在 "
+ },
+ "The usage interface isn't public and may have changed. KIKUmap tries again by itself every 10 minutes or so.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "查用量的接口没有公开，可能改了。KIKUmap 隔十来分钟会自己再试。"
+ },
+ "The usage request was refused — it may be blocked": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "用量查询被拒绝了，可能是被拦下了"
+ },
+ "The usage request was refused — it may be blocked. The numbers from using Codex still show.": {
+  "ctx": "paired",
+  "where": "GPTUsage.swift",
+  "zh": "用量查询被拒绝了，可能是被拦下了。用 Codex 时的数字照样会显示。"
+ },
+ "The ☾ / ☀︎ button at the top of the map also switches light / dark any time.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "导图顶栏的 ☾ / ☀︎ 按钮也能随时切换浅色 / 深色。"
+ },
+ "Then say which chat it was": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "响完再念出是哪个对话"
+ },
+ "These chats were started in Claude and their summaries sent, but KIKUmap couldn't finish them (Claude didn't reply in time, the import was stopped, or Claude's menu wasn't found). Finish them in Claude by hand:": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这些对话已经在 Claude 里开好，总结也发进去了，但 KIKUmap 没能做完（Claude 没及时回复、导入被停下，或找不到 Claude 的菜单）。请在 Claude 里手动补上："
+ },
+ "These were all imported already": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "这些都已经导入过了"
+ },
+ "This Mac": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "这台 Mac"
+ },
+ "This Mac has the older ChatGPT app, which keeps nothing on the Mac. Update to the current ChatGPT desktop app (the one built on Codex), use it once, then connect here.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这台 Mac 上是旧版 ChatGPT App，它不在本机保存对话。更新到新版 ChatGPT 桌面 App（Codex 内核），用过一次后再来这里连接。"
+ },
+ "This Mac has the older ChatGPT app, whose window KIKUmap doesn't read. Accessibility is mainly for reading the windows of the Claude app and the current ChatGPT app (built on Codex).": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这台 Mac 上是旧版 ChatGPT App，KIKUmap 不读它的窗口。辅助功能主要用来读 Claude App 和新版 ChatGPT（Codex 内核）的窗口。"
+ },
+ "This chat is in the ChatGPT desktop app, so it opens only there.": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。"
+ },
+ "This chat is in the ChatGPT desktop app, so it opens only there. Once the app is installed, chats pinned in ChatGPT show in KIKUmap again.": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "这个对话在 ChatGPT 桌面 App 里，装上 App 才能打开。装好后，在 ChatGPT 里置顶的对话也会回到 KIKUmap。"
+ },
+ "This chat is still running": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这个对话还在跑"
+ },
+ "This chat may still be running": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这个对话可能还在跑"
+ },
+ "This doesn't look like Claude's data export: ": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "这个看起来不是 Claude 的官方导出包："
+ },
+ "This set is always dark, whatever the Mac or the ☾ / ☀︎ button says.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这套配色一直是深色，不跟着系统和 ☾ / ☀︎ 按钮变。"
+ },
+ "This set is always light, whatever the Mac or the ☾ / ☀︎ button says.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这套配色一直是浅色，不跟着系统和 ☾ / ☀︎ 按钮变。"
+ },
+ "This shortcut works in any app, so it gets the keys before KIKUmap's menus. With %@, %@ would stop working in KIKUmap. Pick another combination.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "这个快捷键在任何 App 里都能用，所以它会比 KIKUmap 的菜单先收到按键：设成 %@ 的话，KIKUmap 里的「%@」就按不出来了。换一个组合吧。"
+ },
+ "This week": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "本周"
+ },
+ "This week (%@ only)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "本周（仅 %@）"
+ },
+ "This week (all models)": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "本周（所有模型）"
+ },
+ "Timeline": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "时间轴"
+ },
+ "Timeline · bottom of the map window": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "时间轴 · 导图窗口最下面"
+ },
+ "To-do": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "待办"
+ },
+ "To-do · %@": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "待办 · %@"
+ },
+ "Today": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "今天"
+ },
+ "Today ": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "今天 "
+ },
+ "Today · ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "今日回顾 · "
+ },
+ "Today · nothing yet": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "今日回顾 · 还没有"
+ },
+ "Tokyo flights": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "东京机票"
+ },
+ "Tokyo hotels": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "东京酒店"
+ },
+ "Tokyo trip": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "东京旅行"
+ },
+ "Topic": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "主题"
+ },
+ "Total ": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "合计 "
+ },
+ "Triangle": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "三角"
+ },
+ "Trip": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "旅行"
+ },
+ "Trip itinerary": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "旅行行程规划"
+ },
+ "Trip plan": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "旅行计划"
+ },
+ "Trip planning": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "旅行规划"
+ },
+ "Try again once it's done. The top bar shows its progress, and its Stop button ends it.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "等它做完再试：顶栏会显示进度，也可以点那里的「停止」。"
+ },
+ "Try now": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "现在再试"
+ },
+ "Turn off ChatGPT usage": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "关闭 ChatGPT 用量"
+ },
+ "Turn off Claude usage": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "关闭 Claude 用量"
+ },
+ "Turn off usage": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "关闭用量"
+ },
+ "Turn on": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "去开启"
+ },
+ "Turn on Accessibility for KIKUmap": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "给 KIKUmap 开「辅助功能」权限"
+ },
+ "Turn on Accessibility to see Claude's pins": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "先开「辅助功能」才能看到 Claude 的置顶"
+ },
+ "Type the name right away; Tab again finishes it and adds another level. On a chat, Tab adds a topic below it; with nothing selected, a main topic. ⌥⇥ does nothing on the center.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "马上就能输入名字；再按 Tab 结束输入，并再往下加一级。选中对话时，Tab 在它下面新建同级主题；什么都没选时新建主主题。⌥⇥ 对中心点没用。"
+ },
+ "Umbenennen": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "重命名"
+ },
+ "Undo": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "撤销"
+ },
+ "Undo · redo, up to 200 steps": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "撤销 · 重做（最多 200 步）"
+ },
+ "Unfiled": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "未归类"
+ },
+ "Unread": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "未读"
+ },
+ "Unread · ": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "未读 · "
+ },
+ "Unread · %@": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "未读 · %@"
+ },
+ "Unread · 1": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "未读 · 1"
+ },
+ "Until then, ChatGPT's pinned ordinary chats show no running or unread.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前，ChatGPT 置顶的普通对话看不出在不在跑、有没有未读。"
+ },
+ "Until then, ChatGPT's usage updates only when you run a Codex task.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前，ChatGPT 的用量只在你用 Codex 跑任务时更新。"
+ },
+ "Until then, Claude app chats show no pins, running or unread, and ChatGPT's pinned ordinary chats show no running or unread.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前，Claude App 的对话看不到置顶、在跑和未读；ChatGPT 置顶的普通对话也看不出在不在跑、有没有未读。"
+ },
+ "Until then, Claude app chats show no pins, running or unread.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前，Claude App 的对话看不到置顶、在跑和未读。"
+ },
+ "Until then, no Claude usage in the menu, the window or the widget.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前，菜单、窗口和小组件里没有 Claude 的用量。"
+ },
+ "Until then, usage doesn't update (what's shown is from the last read).": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "在那之前用量不会更新，显示的是上次读到的数字。"
+ },
+ "Up": {
+  "ctx": "paired",
+  "where": "Keycaps.swift",
+  "zh": "上"
+ },
+ "Update to the current ChatGPT app (built on Codex) to see the chats you pin there.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "更新到新版 ChatGPT App（Codex 内核），才能看到在它里面置顶的对话。"
+ },
+ "Updated ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "更新于 "
+ },
+ "Updates ChatGPT's usage every 10 minutes, without waiting for your next Codex task. Uses an interface OpenAI hasn't published, so it may stop working.": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "每 10 分钟更新 ChatGPT 用量，不用等下次跑 Codex。接口是 OpenAI 没公开的，可能失效。"
+ },
+ "Urgent": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "紧急"
+ },
+ "Usage": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "用量"
+ },
+ "Usage is read through Claude Code's sign-in on this Mac: install Claude Code, run claude in Terminal, type /login and sign in with your paid Claude account (Pro, Max, Team or Enterprise). The Free plan and API keys have no usage to show: then just turn usage off.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "用量通过这台 Mac 上 Claude Code 的登录读取：安装 Claude Code，在终端运行 claude，输入 /login，用你的付费 Claude 账号（Pro、Max、Team 或 Enterprise）登录。免费套餐和 API key 没有用量可看，那就关掉用量。"
+ },
+ "Usage needs Claude Code signed in": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "用量要 Claude Code 登录"
+ },
+ "Usage · ChatGPT Plus": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "用量 · ChatGPT Plus"
+ },
+ "Usage · Claude Pro": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "用量 · Claude Pro"
+ },
+ "Video": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "视频"
+ },
+ "View": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "显示"
+ },
+ "Violet": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "紫"
+ },
+ "Visa": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "签证"
+ },
+ "Voice": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "声音"
+ },
+ "Waiting for you": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "等你确认"
+ },
+ "Waiting on others": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "等别人"
+ },
+ "Web and phone": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "网页、手机"
+ },
+ "Web page": {
+  "ctx": "paired",
+  "where": "MapModel.swift",
+  "zh": "网页"
+ },
+ "Website": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "网站"
+ },
+ "Wed 9:41": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "周三 9:41"
+ },
+ "Week": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "本周"
+ },
+ "Weekly report": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "周报草稿"
+ },
+ "Weekly report numbers": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "周报数据整理"
+ },
+ "What KIKUmap can see": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "KIKUmap 能看到什么"
+ },
+ "What it says": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "念的内容"
+ },
+ "What you checked has no chats yet.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "勾选的部分里还没有对话。"
+ },
+ "What you picked holds only ChatGPT chats and Claude Code or Codex sessions. Those aren't exported: only Claude chats are.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "选的部分里只有 ChatGPT 对话和 Claude Code、Codex 会话，这些不导出：只导出 Claude 对话。"
+ },
+ "What's left to do and what it affects. It's up to you.": {
+  "ctx": "paired",
+  "where": "Todo.swift",
+  "zh": "还有哪些事没做、不做会影响什么。做不做由你。"
+ },
+ "Whether a ChatGPT ordinary chat is running or unread shows only in its window, which takes Accessibility access.\n": {
+  "ctx": "paired",
+  "where": "GPTSidebar.swift",
+  "zh": "ChatGPT 的普通对话在不在跑、有没有未读，只能从它的窗口里看，这要「辅助功能」权限。\n"
+ },
+ "While Claude's or ChatGPT's window can't be seen (closed, on another desktop, the app quit), or a Codex task is quiet, KIKUmap can't tell whether a chat is still running, so that time is estimated: in full between two sightings, or up to a known finish (Claude's notification, the task's log); otherwise your typical run's length, never past when it was seen finished. A request you may have answered (approved in its terminal or editor, or its notification cleared) is estimated too: counted up to when KIKUmap hears that step end, at most your typical run.": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "Claude 或 ChatGPT 的窗口看不到时（关了、在别的桌面、退出了），或者 Codex 任务没动静时，KIKUmap 不知道对话还在不在跑，这段时间是估算的：两次看到它在跑之间，或者到确定做完的时刻（Claude 的通知、任务记录），整段都算；其余按你一次运行的常见时长算，最多算到看到它做完的时候。你可能已经回答了的请求（在终端或编辑器里批准了，或者它的通知被清掉了）也是估算的：算到 KIKUmap 听到那一步结束，最多按你一次运行的常见时长算。"
+ },
+ "While a KIKUmap window is in front": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "KIKUmap 的窗口在最前面时"
+ },
+ "With Full Disk Access, a new export zip in Downloads updates the files right away.": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "开了完全磁盘访问的话，「下载」里一有新的导出包，文件就马上更新。"
+ },
+ "With a mouse or trackpad, on the map": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在导图上用鼠标或触控板"
+ },
+ "With it, KIKUmap can read Claude's notifications in Notification Center (read-only, never uploaded): it knows when Claude asks \"Allow this?\", waits for your answer or finishes a Cowork task, even with its window closed. Claude sends no notification when an ordinary chat's reply finishes.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "有了它，KIKUmap 能读通知中心里 Claude 发的通知（只读，不上传）：Claude 问「允许吗？」、等你回答，或者 Cowork 任务做完时，窗口关着也知道。普通对话回复完，Claude 不发通知。"
+ },
+ "With no row picked, ↓ starts at the top and ↑ at the bottom; it stops at the ends and clears a multi-pick.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "还没选时 ↓ 从第一行、↑ 从最后一行开始；到头就停，会取消多选。"
+ },
+ "With nothing selected, Esc puts the map window away; while you drag an item, it puts the item back. ⌘A selects everything shown except the center.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "什么都没选时按 Esc 收起导图窗口；拖动条目时按 Esc 放回原处。⌘A 选中看得见的全部条目（不含中心点）。"
+ },
+ "Without it, ChatGPT's usage updates only when you run a Codex task (KIKUmap reads it from Codex's own records on this Mac). After a reset, the new numbers show only once you use Codex again.\n\nWith it, KIKUmap uses the ChatGPT sign-in Codex keeps on this Mac (~/.codex/auth.json) to ask OpenAI for your usage every 10 minutes, the way Codex itself does. You don't sign in again.\n\n• It only reads the sign-in: it never changes, saves or renews it (if it expires, using Codex renews it)\n• It's sent only to chatgpt.com, only to look up usage\n• It uses an interface OpenAI hasn't published, and OpenAI hasn't said other apps may use it. It may stop working or be blocked, so it's your call. If it stops, the numbers from using Codex still show\n• You can turn it off any time in Settings → Access": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "不开的话，ChatGPT 的用量只在你用 Codex 跑任务时更新（从 Codex 在这台 Mac 上的记录里读）；用量重置后，要等下次用 Codex 才有新数字。\n\n开了以后，KIKUmap 借用 Codex 存在这台 Mac 上的 ChatGPT 登录（~/.codex/auth.json），像 Codex 自己那样每 10 分钟向 OpenAI 查一次用量，不用再登录一次。\n\n• 只读这份登录，不改、不存，也不帮它续期（过期了，用一下 Codex 就会续上）\n• 只发给 chatgpt.com，只用来查用量\n• 用的是 OpenAI 没公开的接口，OpenAI 也没说允许别的应用这样用：以后可能失效或被限制，开不开由你决定。失效了，照样显示你用 Codex 时的数字\n• 随时可以在 设置 → 授权 里关掉"
+ },
+ "Work": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "工作"
+ },
+ "Work · this week": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "工作 · 本周"
+ },
+ "Working: ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "正在处理："
+ },
+ "Works in any app: the map opens on the desktop you're on, ready for its shortcuts. Press it again while the map is in front to put it away. Change it at the top of this page.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "在任何 App 里都能按：导图出现在你现在的桌面上，马上就能用它的快捷键。导图在最前面时再按就收起。在本页最上面可以改。"
+ },
+ "Writes kikumap-check.txt: what works and what doesn't; with ChatGPT open, also chatgpt-window-time.txt (how its window is laid out). They're meant to leave out chat titles, messages and passwords; open them to check before you send them to whoever helps.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "写一份 kikumap-check.txt：哪些正常、哪些不行；ChatGPT 开着的话，再写一份 chatgpt-window-时间.txt（它窗口的结构）。它们不该含对话标题、内容和密码；发给帮你看的人之前，可以先打开看一眼。"
+ },
+ "Yellow": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "黄"
+ },
+ "Yesterday": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "昨天"
+ },
+ "You're all set": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "准备好了"
+ },
+ "Your login keychain is locked — it reads again once the Mac is unlocked": {
+  "ctx": "paired",
+  "where": "Usage.swift",
+  "zh": "钥匙串锁着，解锁 Mac 后自动再读"
+ },
+ "Your organization has turned off custom hooks in Claude Code, so sessions can't report to KIKUmap": {
+  "ctx": "paired",
+  "where": "ClaudeCode.swift",
+  "zh": "你的组织在 Claude Code 里关掉了自定义 hook，会话没法报告给 KIKUmap"
+ },
+ "Zoom the map · fit the whole map in": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "缩放导图 · 整张导图放进窗口"
+ },
+ "Zoom the time scale around the pointer": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "以指针为中心缩放时间刻度"
+ },
+ "[Chat archive] Please write a hand-off summary of this conversation so far, in Markdown. I'll paste it into a new chat to carry on, and the new Claude will only see this summary (and the artifact files attached). Write just the summary — don't use tools or change any files.\n\nInclude:\n1. Goal: what this conversation is trying to get done\n2. Where things stand now\n3. Key decisions made, and why\n4. Important facts, numbers, names, links\n5. Files and artifacts produced: each one's name, purpose, and which version is the latest\n6. What's left, and the next step\n7. My preferences and requirements (tone, format, constraints)\n\nKeep it tight, so a new Claude can pick up seamlessly from this summary alone.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "【对话存档】请把这个对话到目前为止的内容整理成一份交接总结，用 Markdown 写。以后我会把它放进一个新对话里接着做，新的 Claude 只能看到这份总结（和附上的 artifact 文件）。只写总结本身，不要调用工具，不要改任何文件。\n\n包括：\n1. 目标：这个对话要做成什么\n2. 现在的进度和状态\n3. 已经做出的关键决定，以及理由\n4. 重要的事实、数字、名字、链接\n5. 产出的文件和 artifact：每个的名字、用途、最新版本是哪个\n6. 还没做完的事，和下一步\n7. 我的偏好和要求（语气、格式、限制）\n\n写得紧凑，让新的 Claude 只看这份总结就能无缝接着做。"
+ },
+ "[Continuing an earlier chat] The attached %@ is the hand-off summary of a previous conversation (titled \"%@\")%@%@. Read it, confirm in two or three sentences the goal, where things stand and the next step, then wait for me. From now on, treat this as the same conversation.": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "【接续之前的对话】附件「%@」是我之前一个对话的交接总结（原标题：%@）%@%@。请先读完，用两三句话确认你理解的目标、进度和下一步，然后等我继续。从现在起就当作是同一个对话。"
+ },
+ "a name the disk refuses": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "磁盘不接受这个名字"
+ },
+ "another chat is open now": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "打开的已经不是这个对话"
+ },
+ "as of %@": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ 时的数据"
+ },
+ "as of 09:12": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "09:12 时的数据"
+ },
+ "can't get it right now": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "暂时查不到"
+ },
+ "can't open %@: ": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "打不开 %@："
+ },
+ "can't reach it": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "连不上"
+ },
+ "can't read its chat list: ": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "读不了它的对话列表："
+ },
+ "can't read the sign-in": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "读不到登录"
+ },
+ "chats you pin": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "置顶的对话"
+ },
+ "click": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "点击"
+ },
+ "click 3h": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "点「3小时」"
+ },
+ "click Waiting on others": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "点标签「等别人」"
+ },
+ "click a bar": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "点对话的条"
+ },
+ "click a row": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "点一行"
+ },
+ "click it again": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "再点一下"
+ },
+ "click the menu-bar icon": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "点菜单栏图标"
+ },
+ "click ◎ Now": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "点「◎ 现在」"
+ },
+ "couldn't bring its summary along: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "总结没能带过去："
+ },
+ "couldn't copy the reply": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "复制不到回复"
+ },
+ "couldn't find the message box": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "找不到输入框"
+ },
+ "couldn't find the messages (Claude's window changed?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "找不到对话内容（Claude 的界面变了？）"
+ },
+ "couldn't open the chat": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "打不开这个对话"
+ },
+ "couldn't read the export zip": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "§N§ 个失败（看 logs/archive.log）"
+ },
+ "couldn't read the export zip (it isn't tried again by itself: click Export to try again, or download a new export)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导出包读不了（不会自己再试；点「导出」再试，或下载新的导出包）"
+ },
+ "couldn't send": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "发不出去"
+ },
+ "couldn't write the file: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "写文件失败："
+ },
+ "daily": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "每天"
+ },
+ "done after %@": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "%@ 后做完"
+ },
+ "double-click": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "双击"
+ },
+ "drag": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "拖动"
+ },
+ "drag a tag on the map": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖导图上的标签"
+ },
+ "drag an item": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖动条目"
+ },
+ "drag on empty space": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "拖空白处"
+ },
+ "drag onto the map": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "拖到导图上"
+ },
+ "drag or click a tag": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "拖或点标签"
+ },
+ "drag the tag": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "拖标签"
+ },
+ "each day": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "每天"
+ },
+ "each hour": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "每小时"
+ },
+ "every %@ hours": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "每 %@ 小时"
+ },
+ "every 2 days": {
+  "ctx": "paired",
+  "where": "Stats.swift",
+  "zh": "每 2 天"
+ },
+ "every day": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每天"
+ },
+ "every month": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每月"
+ },
+ "every week": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "每周"
+ },
+ "files not written: ": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "文件没写成："
+ },
+ "files of %@ couldn't be saved (see logs/archive.log)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个对话的文件没写成（看 logs/archive.log）"
+ },
+ "files of §N§ chat§S§ couldn't be saved (see logs/archive.log)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "§N§ 个对话的提示词和全文，§N§ 个 artifact"
+ },
+ "finished": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "做完了"
+ },
+ "flight": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "机票"
+ },
+ "halted": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "导入了 §N§ 个"
+ },
+ "hold": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "按住"
+ },
+ "hover": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "悬停"
+ },
+ "in %@d %@h": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@天%@小时后"
+ },
+ "in %@h %@m": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@小时%@分后"
+ },
+ "in %@m": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@分钟后"
+ },
+ "in the Claude app": {
+  "ctx": "paired",
+  "where": "MapView.swift",
+  "zh": "在 Claude App 里"
+ },
+ "in the last 24 hours": {
+  "ctx": "paired",
+  "where": "WidgetViews.swift",
+  "zh": "最近 24 小时"
+ },
+ "it isn't where macOS used to keep it": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "它不在 macOS 原来放它的位置"
+ },
+ "its chat list was only partly read (it was busy)": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "对话列表没读完，它正忙"
+ },
+ "its database has no chat list (ChatGPT may have changed its format)": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "它的数据库里没有对话列表，ChatGPT 可能改了格式"
+ },
+ "its folder followed it": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "文件夹跟过去了"
+ },
+ "its folder still holds another chat's things (same name): not written this time": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "文件夹里还有另一个同名对话的东西，这次没写"
+ },
+ "its folder still holds another chat's things (same name): skipped this time": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "文件夹里还有另一个同名对话的东西，这次跳过"
+ },
+ "just now": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "刚刚"
+ },
+ "macOS didn't accept it (error %@); another app or a system shortcut may already use this combination.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "macOS 没接受这个组合（错误 %@）：可能别的 App 或系统快捷键已经在用它。"
+ },
+ "macOS switched off KIKUmap's Accessibility access (common after reinstalling or updating).\nAffected: running, pins and unread for Claude's chats; running and unread for ChatGPT's ordinary chats (seen in its window too).\n": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "macOS 关掉了 KIKUmap 的「辅助功能」权限（重新安装或更新后常见）。\n受影响：Claude 对话的在跑、置顶和未读；ChatGPT 普通对话的在跑和未读（也要从它的窗口里看）。\n"
+ },
+ "macOS then says \"Background Items Added\" once: that's this. Change it any time in Settings → General.": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "macOS 会提示一次「已添加后台项目」，说的就是这个。随时可以在 设置 → 通用 里改。"
+ },
+ "macOS won't let KIKUmap save to the export folder": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "macOS 不让 KIKUmap 存到导出文件夹"
+ },
+ "map.json can't be saved: %@. Is the disk full, or the data folder not writable? It saves again by itself once there's room.": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "map.json 存不了：%@。磁盘满了，或者数据文件夹没有写入权限？腾出空间后会自动再存。"
+ },
+ "maybe waiting": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "等你？"
+ },
+ "maybe waiting for you": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "可能在等你"
+ },
+ "memory.md saved": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "已存 memory.md"
+ },
+ "memory.md — a hand-off summary Claude writes": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "memory.md：让 Claude 写一份交接总结"
+ },
+ "monthly": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "每月"
+ },
+ "more than one chat was running then": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "当时在跑的对话又不止一个"
+ },
+ "needs /login again": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "要重新 /login"
+ },
+ "no permission to write there": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没有写入权限"
+ },
+ "no reason given": {
+  "ctx": "paired",
+  "where": "ChatGPT.swift",
+  "zh": "原因不明"
+ },
+ "no reply in time": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "等回复超时"
+ },
+ "no reply yet, so not pinned or renamed": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没等到回复，没置顶、没改名"
+ },
+ "none of the chats KIKUmap sees was running then": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "当时 KIKUmap 看得到的对话又都没在跑"
+ },
+ "not known": {
+  "ctx": "paired",
+  "where": "StatusBar.swift",
+  "zh": "不知道"
+ },
+ "not pinned": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没置顶"
+ },
+ "not pinned or renamed": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没置顶、没改名"
+ },
+ "not renamed": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没改名"
+ },
+ "not started: the message box of Claude's new chat isn't empty (a draft?); clear it, then import again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没开始：Claude 新对话的输入框里有东西（草稿？），清空后再导入"
+ },
+ "not synced": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "没同步"
+ },
+ "nothing to update": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没有要更新的"
+ },
+ "now": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "现在"
+ },
+ "old": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "旧数据"
+ },
+ "or": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "或"
+ },
+ "paused as you came back; it goes on when the Mac is idle again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "你回来了，先停下；Mac 再空闲时接着做"
+ },
+ "paused for a while": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "暂停查询中"
+ },
+ "pinch": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "捏合"
+ },
+ "prompts": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "提示词"
+ },
+ "prompts and full text of %@, %@": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "%@ 个对话的提示词和全文，%@ 个 artifact"
+ },
+ "prompts and full text of §N§ chat§S§, §N§ artifact§S§": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "没有要更新的"
+ },
+ "quiet": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "没动静"
+ },
+ "quiet since %@": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "%@ 起没动静"
+ },
+ "read %@ min ago": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ 分钟前读过"
+ },
+ "read %@s ago": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ 秒前读过"
+ },
+ "read just now": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "刚刚读过"
+ },
+ "refused": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "被拒绝了"
+ },
+ "reply failed": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "回复失败"
+ },
+ "reset %@": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "%@ 已重置"
+ },
+ "reset 13:00": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "13:00 已重置"
+ },
+ "resets %@": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "%@ 重置"
+ },
+ "resets Mon 09:00": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "周一 09:00 重置"
+ },
+ "resets today %@": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "今天 %@ 重置"
+ },
+ "resets today 15:00": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "今天 15:00 重置"
+ },
+ "resets today 18:00": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "今天 18:00 重置"
+ },
+ "resets tomorrow %@": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "明天 %@ 重置"
+ },
+ "right-click": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "右键"
+ },
+ "right-click a row": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "右键一行"
+ },
+ "rules.json has a mistake; using the built-in rules": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "rules.json 有错，先用内置规则"
+ },
+ "rules.json isn't valid JSON": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "rules.json 不是有效的 JSON"
+ },
+ "running": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "在跑"
+ },
+ "running?": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "在跑？"
+ },
+ "scroll": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "双指滑动"
+ },
+ "sessions run in the cloud": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "云端运行的会话"
+ },
+ "sign-in expired": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "登录过期了"
+ },
+ "something else is in the way": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "那里已经有别的东西"
+ },
+ "space": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "空格"
+ },
+ "still running: next time": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "正在跑，下次再存"
+ },
+ "stopped": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "中途停止"
+ },
+ "stopped: ": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "出错停下："
+ },
+ "stopped: %@": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "，已停下"
+ },
+ "stopped: Claude's chat page couldn't be read (was Claude updated?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "认不出 Claude 的对话页面，已停下（Claude 更新了？）"
+ },
+ "stopped: Claude's message box may still hold the summary and files of \"%@\"; clear it, then import again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "已停下：Claude 的输入框里可能还留着「%@」的总结和文件，清空后再导入"
+ },
+ "stopped: Send was pressed for \"%@\", but its new chat wasn't seen, so it isn't recorded as imported; look for it in Claude before importing again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "已停下：「%@」已经点了发送，但没看到新对话，所以没记成已导入；重新导入前，先在 Claude 里找找它"
+ },
+ "summaries not written: the Claude app isn't open, or Accessibility is off": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "总结没写：Claude App 没打开，或「辅助功能」关着"
+ },
+ "summary brought along to its folder now": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "总结已带到它现在的文件夹"
+ },
+ "tap": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "轻按"
+ },
+ "that zip isn't Claude's data export, so it wasn't used": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这个 zip 不是 Claude 的官方导出包，没用它"
+ },
+ "the \"%@\" rule has a mistake": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "「%@」这条规则写得不对"
+ },
+ "the chat didn't load": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "对话内容没加载出来"
+ },
+ "the chat isn't available (deleted, or in another account?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这个对话打不开了（删了，或在别的账号里？）"
+ },
+ "the disk is full": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "磁盘满了"
+ },
+ "the disk is read-only": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "磁盘只读"
+ },
+ "the folder isn't there": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "文件夹不在了"
+ },
+ "the request for a summary may still be in the message box of \"%@\", unsent: clear it in Claude": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "「%@」的输入框里可能还留着没发出的总结请求，在 Claude 里清掉它"
+ },
+ "then": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "然后"
+ },
+ "there's an unsent draft in the message box: left alone": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "输入框里有你还没发的草稿，没动它"
+ },
+ "these aren't retried on their own any more: the next export, or a new export zip, tries them again": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这些不再单独重试；下次导出或有新的导出包时再试"
+ },
+ "this folder still holds another chat's summary (same name), not written": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这个文件夹里还是另一个同名对话的总结，没写"
+ },
+ "two fingers": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "双指滑动"
+ },
+ "type in the search box": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "在搜索框里输入"
+ },
+ "unread not synced": {
+  "ctx": "paired",
+  "where": "App.swift",
+  "zh": "未读没同步"
+ },
+ "version ": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "版本 "
+ },
+ "waiting": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "等你"
+ },
+ "waiting for you": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "等你确认"
+ },
+ "waiting?": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "等你？"
+ },
+ "weekly": {
+  "ctx": "paired",
+  "where": "ExportWindow.swift",
+  "zh": "每周"
+ },
+ "yesterday": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "昨天"
+ },
+ "{label}에 대한 더 많은 옵션": {
+  "ctx": "paired",
+  "where": "Watchers.swift",
+  "zh": "{label}のその他のオプション"
+ },
+ "{name} becomes the chat's name. It's said out loud, so people nearby hear it too. For a more natural voice: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download a Premium or Enhanced voice; it shows here with ★.": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "{name} 会换成对话名。名字会念出声，周围的人也听得到。想要更自然的声音：系统设置 → 辅助功能 → 朗读内容 → 系统嗓音 → 管理嗓音，下载一个高质量的嗓音，它在这里会带 ★。"
+ },
+ "{name} is done": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "{name} 做完了"
+ },
+ "{name} is waiting for you": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "{name} 在等你确认"
+ },
+ "{name} needs you": {
+  "ctx": "paired",
+  "where": "Theme.swift",
+  "zh": "{name} 在等你"
+ },
+ "~/.claude/settings.json isn't valid JSON, so it was left alone.": {
+  "ctx": "paired",
+  "where": "ClaudeCode.swift",
+  "zh": "~/.claude/settings.json 不是有效的 JSON，没有改动它。"
+ },
+ "§N§ failed (see logs/archive.log)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "§N§ 个不在导出包里（导出包比对话旧？）"
+ },
+ "§N§ imported": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "中途停止"
+ },
+ "§N§ not in the export zip (is the zip older than the chat?)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "这些不再单独重试；下次导出或有新的导出包时再试"
+ },
+ "§N§ not written (their folder still holds another chat's things)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "§N§ 个跳过（没变化、未读或在跑）"
+ },
+ "§N§ skipped (unchanged, unread or running)": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "总结没写：Claude App 没打开，或「辅助功能」关着"
+ },
+ "§N§ summary": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "§N§ 个对话的文件没写成（看 logs/archive.log）"
+ },
+ "§N§ to pin or rename in Claude by hand": {
+  "ctx": "paired",
+  "where": "Archive.swift",
+  "zh": "停下了"
+ },
+ "· as of %@": {
+  "ctx": "paired",
+  "where": "Window.swift",
+  "zh": "· %@ 时的列表"
+ },
+ "↑ ↓: the nearest item above or below on that side, at any level. Away from the center: into its items; toward it: back out. ⌘↑: the topic it's in. Nothing selected: the center.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "↑↓ 选同一边上下最近的一个，不管哪一级；往远离中心点的方向进到它下面，往中心点的方向回到上一级。⌘↑ 选它所在的主题。什么都没选时选中心点。"
+ },
+ "⌘ adds or removes one row; ⇧ picks every row from the last one you clicked or reached with ↑ ↓. Esc clears the extra picks. In the map, ⇧ adds one item instead.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⌘ 加上或去掉一行；⇧ 从上次点的（或用 ↑↓ 选到的）那行一直选到这行。Esc 取消多选。在导图里 ⇧ 是加选一个。"
+ },
+ "⌘W closes the front window. The map is only put away: KIKUmap stays in the menu bar (and leaves the Dock once no window is open). %@ or the menu-bar icon brings it back.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⌘W 关掉最前面的窗口。导图只是收起，KIKUmap 还在菜单栏里（窗口都关了，Dock 里就没有它）。按 %@ 或点菜单栏图标就能叫回来。"
+ },
+ "⌘W closes the front window. The map is only put away: KIKUmap stays in the menu bar (and leaves the Dock once no window is open). The menu-bar icon brings it back.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⌘W 关掉最前面的窗口。导图只是收起，KIKUmap 还在菜单栏里（窗口都关了，Dock 里就没有它）。点菜单栏图标就能叫回来。"
+ },
+ "⌥↑ ⌥↓: past the item ↑ ↓ would pick (into its topic if need be). ⌥ away from the center: into the topic just above; toward it: out of its topic. Several selected: only one moves.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⌥↑ ⌥↓ 移过 ↑↓ 会选到的那一个（需要时移进它的主题）。⌥ 加远离中心点的方向键：移进上面紧挨着的主题；加朝中心点的：移出所在的主题。选了好几个时只移一个。"
+ },
+ "▶ See it": {
+  "ctx": "paired",
+  "where": "AccessPage.swift",
+  "zh": "▶ 看看"
+ },
+ "▶ Watch again": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "▶ 再看一次"
+ },
+ "◎ Now": {
+  "ctx": "paired",
+  "where": "ShortcutStage.swift",
+  "zh": "◎ 现在"
+ },
+ "☕ Buy me a coffee on Ko-fi": {
+  "ctx": "paired",
+  "where": "Settings.swift",
+  "zh": "☕ 请我喝杯咖啡（Ko-fi）"
+ },
+ "✓ Done": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "✓ 改好了"
+ },
+ "✓ On": {
+  "ctx": "paired",
+  "where": "Onboarding.swift",
+  "zh": "✓ 已开启"
+ },
+ "✻ Working…": {
+  "ctx": "paired",
+  "where": "DemoScenes.swift",
+  "zh": "✻ 正在改…"
+ },
+ "⟳ is ⌘R. Scheduled tasks are listed once usage is on; one opens claude.ai/code/routines. Hover the Pinned heading to see what KIKUmap checks and when.": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⟳ 就是 ⌘R。打开「用量」后才会列出计划任务，点一个会打开 claude.ai/code/routines。鼠标停在「置顶对话」标题上，能看到 KIKUmap 在看什么、什么时候看。"
+ },
+ "⟳ refresh now · a scheduled task opens its page": {
+  "ctx": "paired",
+  "where": "ShortcutTable.swift",
+  "zh": "⟳ 马上刷新 · 点计划任务打开它的页面"
+ },
+ "컴퓨터를 계속 사용하려면 Claude에게 권한이 필요합니다": {
+  "ctx": "paired",
+  "where": "Store.swift",
+  "zh": "Claude がコンピューターの使用を続けるには許可が必要です"
+ }
+}

@@ -159,22 +159,27 @@ enum Icons {
 enum IconPicker {
     private static var open: NSPopover?
 
-    /// `clear`: a line under the grid to go without one (its title, and what it does).
-    static func show(relativeTo rect: NSRect, of view: NSView, selected: String?, tint: NSColor, clear: (title: String, run: () -> Void)? = nil, onPick: @escaping (String) -> Void) {
+    /// `shapes`: the topic's simple shapes as the grid's first group (picked as "s:<shape>"). `clear`: a line under
+    /// the grid to go without one (its title, and what it does); `extra`: more such lines (e.g. back to the default).
+    static func show(relativeTo rect: NSRect, of view: NSView, selected: String?, tint: NSColor,
+                     shapes: [(key: String, zh: String, en: String)] = [], clear: (title: String, run: () -> Void)? = nil,
+                     extra: [(title: String, run: () -> Void)] = [], onPick: @escaping (String) -> Void) {
         open?.close()
-        let grid = IconGridView()
+        let grid = IconGridView(shapes: shapes)
         grid.selected = selected
         grid.tint = tint
         let pop = NSPopover()
         pop.behavior = .transient
         grid.onPick = { n in onPick(n); pop.close() }
-        let scroll = grid.scrolled(height: 300)
-        let box = NSView(frame: NSRect(x: 0, y: 0, width: scroll.frame.width, height: 300 + (clear == nil ? 0 : 34)))
-        scroll.frame.origin = NSPoint(x: 0, y: clear == nil ? 0 : 34)
+        let lines = (clear.map { [$0] } ?? []) + extra
+        let scroll = grid.scrolled(height: 340)
+        let foot = CGFloat(lines.count) * 30 + (lines.isEmpty ? 0 : 4)
+        let box = NSView(frame: NSRect(x: 0, y: 0, width: scroll.frame.width, height: 340 + foot))
+        scroll.frame.origin = NSPoint(x: 0, y: foot)
         box.addSubview(scroll)
-        if let c = clear {
+        for (i, c) in lines.enumerated() {
             let b = ClosureButton(title: c.title) { c.run(); pop.close() }
-            b.frame = NSRect(x: 8, y: 4, width: scroll.frame.width - 16, height: 26)
+            b.frame = NSRect(x: 8, y: foot - 30 * CGFloat(i + 1), width: scroll.frame.width - 16, height: 26)
             box.addSubview(b)
         }
         let vc = NSViewController()
@@ -196,11 +201,15 @@ final class IconGridView: NSView {
     private var hits: [(NSRect, String)] = []
     private var hover: String?
     private var tracking: NSTrackingArea?
+    /// The topic's simple shapes, first (picked as "s:<shape>"); none in the tag dialog.
+    private let shapes: [(key: String, zh: String, en: String)]
 
-    init(columns: Int = 9) {
+    init(columns: Int = 9, shapes: [(key: String, zh: String, en: String)] = []) {
         self.columns = columns
+        self.shapes = shapes
         super.init(frame: .zero)
         var h: CGFloat = 4
+        if !shapes.isEmpty { h += head + CGFloat(Int(ceil(Double(shapes.count) / Double(columns)))) * cell + 4 }
         for g in LucideData.groups {
             let rows = Int(ceil(Double(g.names.count) / Double(columns)))
             h += head + CGFloat(rows) * cell + 4
@@ -221,8 +230,24 @@ final class IconGridView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         hits = []
         var y: CGFloat = 4
+        if !shapes.isEmpty {
+            (tr("形状", "Shapes") as NSString).draw(at: NSPoint(x: 8, y: y + 4), withAttributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.muted])
+            y += head
+            for (i, s) in shapes.enumerated() {
+                let n = "s:" + s.key
+                let r = NSRect(x: 6 + CGFloat(i % columns) * cell, y: y + CGFloat(i / columns) * cell, width: cell, height: cell)
+                hits.append((r, n))
+                if selected == n || hover == n {
+                    let bg = NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 2), xRadius: 5, yRadius: 5)
+                    (selected == n ? tint.withAlphaComponent(0.18) : Theme.hover).setFill(); bg.fill()
+                    if selected == n { tint.setStroke(); bg.lineWidth = 1; bg.stroke() }
+                }
+                MapView.drawShape(s.key, in: r.insetBy(dx: 9, dy: 9), color: selected == n ? tint : Theme.ink)
+            }
+            y += CGFloat(Int(ceil(Double(shapes.count) / Double(columns)))) * cell + 4
+        }
         for g in LucideData.groups {
-            (tr(g.zh, g.en) as NSString).draw(at: NSPoint(x: 8, y: y + 4), withAttributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.muted])
+            (tr(g.zh, TrKey(g.en)) as NSString).draw(at: NSPoint(x: 8, y: y + 4), withAttributes: [.font: Theme.ui(11, .semibold), .foregroundColor: Theme.muted])
             y += head
             for (i, n) in g.names.enumerated() {
                 let r = NSRect(x: 6 + CGFloat(i % columns) * cell, y: y + CGFloat(i / columns) * cell, width: cell, height: cell)
@@ -241,7 +266,11 @@ final class IconGridView: NSView {
     override func mouseMoved(with e: NSEvent) {
         let p = convert(e.locationInWindow, from: nil)
         let h = hits.first { $0.0.contains(p) }?.1
-        if h != hover { hover = h; toolTip = h; needsDisplay = true }
+        if h != hover {
+            hover = h
+            toolTip = h.map { n in n.hasPrefix("s:") ? shapes.first { "s:" + $0.key == n }.map { tr($0.zh, TrKey($0.en)) } ?? n : n }
+            needsDisplay = true
+        }
     }
     override func mouseExited(with e: NSEvent) { hover = nil; needsDisplay = true }
     override func mouseUp(with e: NSEvent) {

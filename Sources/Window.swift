@@ -1180,7 +1180,7 @@ final class TagShelfView: NSView, NSDraggingSource {
             let closed = hidden.contains(key)
             Icons.draw(closed ? "chevron-right" : "chevron-down", in: NSRect(x: r.minX + 3, y: r.midY - 5.5, width: 11, height: 11), color: Theme.muted, weight: 2.4)
             let n = tags.filter { $0.category == key }.count
-            let s = tr(g.zh, g.en) + (closed ? " · \(n)" : "")
+            let s = tr(g.zh, TrKey(g.en)) + (closed ? " · \(n)" : "")
             let hf = Theme.ui(11, .semibold)
             (s as NSString).draw(at: NSPoint(x: r.minX + 18, y: r.midY - s.size(hf).height / 2), withAttributes: [.font: hf, .foregroundColor: Theme.muted])
         }

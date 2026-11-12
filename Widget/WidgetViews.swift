@@ -14,6 +14,8 @@ struct WidgetState: Codable {
     struct Hour: Codable, Hashable { var start: String; var parts: [Double] }
     var updated: String
     var english: Bool
+    /// KIKUmap's language (Lang's raw value; nil from an older KIKUmap: `english` decides).
+    var lang: String? = nil
     /// KIKUmap was quitting when it wrote this (so it was no longer live from then: shown dimmed, under from when).
     var closed: Bool?
     var running: [Item]
@@ -52,7 +54,8 @@ struct WidgetState: Codable {
     /// Made-up chats for the widget gallery.
     static func sample(_ now: Date, english: Bool = !WidgetText.systemChinese) -> WidgetState {
         let hour = WidgetTime.hourStart(now)
-        let t: (String, String) -> String = { english ? $1 : $0 }
+        let lang: Lang = english ? (WidgetText.lang.isChinese ? .en : WidgetText.lang) : Lang.system == .zhHant ? .zhHant : .zhHans
+        func t(_ zh: String, _ en: TrKey) -> String { L10n.text(en, zh: zh, in: lang) }
         // a plausible day: busy afternoon, quiet night, busy again now
         let shape: [[Double]] = [
             [0, 0, 0, 0, 0, 0], [1500, 0, 0, 0, 0, 300], [2400, 900, 0, 0, 0, 0], [1200, 1800, 600, 0, 0, 0],
@@ -106,21 +109,24 @@ enum WidgetTime {
 
 enum WidgetText {
     static var systemChinese: Bool { Locale.preferredLanguages.first?.hasPrefix("zh") ?? false }
+    /// The language the widget speaks now: KIKUmap's (set from what it wrote), else the Mac's.
+    nonisolated(unsafe) static var lang: Lang = .system
+    static func t(_ zh: String, _ en: TrKey) -> String { L10n.text(en, zh: zh, in: lang) }
 
     /// "1h 20m" / "1小时20分" (any time at all is at least a minute, as in the app)
     static func duration(_ sec: Double, _ en: Bool) -> String {
         let sec = sec > 0 ? max(sec, 60) : 0
         let h = Int(sec / 3600), m = Int(sec.truncatingRemainder(dividingBy: 3600) / 60)
-        if h == 0 { return en ? "\(m)m" : "\(m)分钟" }
-        if m == 0 { return en ? "\(h)h" : "\(h)小时" }
-        return en ? "\(h)h \(m)m" : "\(h)小时\(m)分"
+        if h == 0 { return t("\(m)分钟", "\(m)m") }
+        if m == 0 { return t("\(h)小时", "\(h)h") }
+        return t("\(h)小时\(m)分", "\(h)h \(m)m")
     }
 
     /// What Edit Widgets says the widget is. Its time is everything KIKUmap counts (as Statistics and the menu's Today
     /// do): Claude's chats and Claude Code sessions, and ChatGPT's chats and Codex sessions while ChatGPT is on.
     static func gallery(_ en: Bool) -> String {
-        en ? "How long Claude, ChatGPT and Codex worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar."
-           : "最近 24 小时和 7 天 Claude、ChatGPT 和 Codex 干了多久，还有用量。在跑和未读的看菜单栏。"
+        t("最近 24 小时和 7 天 Claude、ChatGPT 和 Codex 干了多久，还有用量。在跑和未读的看菜单栏。",
+          "How long Claude, ChatGPT and Codex worked in the last 24 hours and 7 days, and your usage. What's running or unread is in the menu bar.")
     }
 
     /// Axis labels stay short in both languages.
@@ -135,30 +141,32 @@ enum WidgetText {
     static func resets(_ d: Date?, now: Date, _ en: Bool) -> String {
         guard let d = d, d > now else { return "" }
         let f = DateFormatter()
-        f.locale = Locale(identifier: en ? "en_US" : "zh_CN")
+        f.locale = lang.locale
         f.dateFormat = Calendar.current.isDate(d, inSameDayAs: now) ? "HH:mm" : "EEE HH:mm"
-        return en ? "resets " + f.string(from: d) : f.string(from: d) + " 重置"
+        let x = f.string(from: d)
+        return t("\(x) 重置", "resets \(x)")
     }
 
     /// "as of 09:00" / "09:00 时的数据" the same day, "as of Mon 09:00" in the six days before, else "as of 10/21 09:00"
     /// (the app says it the same way: UsageMonitor.stamp).
     static func asOf(_ d: Date, now: Date, _ en: Bool) -> String {
-        en ? "as of " + when(d, now: now, en) : when(d, now: now, en) + " 时的数据"
+        let w = when(d, now: now, en)
+        return t("\(w) 时的数据", "as of \(w)")
     }
 
     /// "今天" / "昨天" / "周一" ("Today", "Yesterday", "Mon"): a day as seen on `now`'s.
     static func day(_ d: Date, now: Date, _ en: Bool) -> String {
         let cal = Calendar.current
-        if cal.isDate(d, inSameDayAs: now) { return en ? "Today" : "今天" }
-        if let y = cal.date(byAdding: .day, value: -1, to: now), cal.isDate(d, inSameDayAs: y) { return en ? "Yesterday" : "昨天" }
+        if cal.isDate(d, inSameDayAs: now) { return t("今天", "Today") }
+        if let y = cal.date(byAdding: .day, value: -1, to: now), cal.isDate(d, inSameDayAs: y) { return t("昨天", "Yesterday") }
         return weekday(d, en, short: false)
     }
 
     /// "一" … "日" / "M" … "S" under a day's bar (`short: false`: "周一" / "Mon").
     static func weekday(_ d: Date, _ en: Bool, short: Bool = true) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: en ? "en_US" : "zh_CN")
-        f.dateFormat = short ? (en ? "EEEEE" : "EEEEE") : "EEE"
+        f.locale = lang.locale
+        f.dateFormat = short ? "EEEEE" : "EEE"
         return f.string(from: d)
     }
 
@@ -169,7 +177,7 @@ enum WidgetText {
         func noon(_ x: Date) -> Date { cal.date(bySettingHour: 12, minute: 0, second: 0, of: x) ?? x }
         let days = cal.dateComponents([.day], from: noon(d), to: noon(now)).day ?? 0
         let f = DateFormatter()
-        f.locale = Locale(identifier: en ? "en_US" : "zh_CN")
+        f.locale = lang.locale
         f.dateFormat = days == 0 ? "HH:mm" : (1...6).contains(days) ? "EEE HH:mm" : "M/d HH:mm"
         return f.string(from: d)
     }
@@ -216,8 +224,15 @@ struct KikumapWidgetView: View {
     var links = true
     @Environment(\.colorScheme) private var scheme
 
-    private var en: Bool { state?.english ?? !WidgetText.systemChinese }
-    private func t(_ zh: String, _ e: String) -> String { en ? e : zh }
+    /// The language: KIKUmap's, as it wrote it; from an older KIKUmap, English or Chinese as it said; else the Mac's.
+    private var lang: Lang {
+        if let l = state?.lang.flatMap(Lang.init(rawValue:)) { return l }
+        if let s = state { return s.english ? (Lang.system.isChinese ? .en : Lang.system) : .zhHans }
+        return .system
+    }
+    /// Not Chinese: the layout's wider labels.
+    private var en: Bool { !lang.isChinese }
+    private func t(_ zh: String, _ e: TrKey) -> String { WidgetText.lang = lang; return L10n.text(e, zh: zh, in: lang) }
 
     /// When KIKUmap wrote what's shown. macOS redraws a widget only so often (Apple: about every 15 to 60 minutes),
     /// so the widget keeps to what still holds when it's a while old: how long the chats and sessions worked, by the hour
@@ -228,6 +243,7 @@ struct KikumapWidgetView: View {
     private var behind: Bool { date.timeIntervalSince(asOf) > 600 }
 
     var body: some View {
+        let _ = { WidgetText.lang = lang }()          // the helpers below speak it too
         if let s = state {
             switch size {
             case .small: small(s)

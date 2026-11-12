@@ -49,11 +49,17 @@ final class ShortcutRowView: NSView {
         super.init(frame: NSRect(x: 0, y: 0, width: 504, height: 24))
         text.font = .systemFont(ofSize: 13)
         text.textColor = row.dimmed ? .secondaryLabelColor : .labelColor
-        text.lineBreakMode = .byTruncatingTail
-        text.maximumNumberOfLines = 1
+        // a longer label (some languages say it in more words) takes two lines, and the row grows to hold them
+        let room = 504 - keysWidth - 24
+        let two = (row.label as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 13)]).width > room
+        text.lineBreakMode = two ? .byWordWrapping : .byTruncatingTail
+        text.maximumNumberOfLines = two ? 2 : 1
+        text.cell?.wraps = two
+        text.cell?.truncatesLastVisibleLine = true
+        text.preferredMaxLayoutWidth = room
         [keys, text].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; addSubview($0) }
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 504), heightAnchor.constraint(equalToConstant: 24),
+            widthAnchor.constraint(equalToConstant: 504), heightAnchor.constraint(equalToConstant: two ? 40 : 24),
             keys.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4), keys.widthAnchor.constraint(equalToConstant: keysWidth),
             keys.topAnchor.constraint(equalTo: topAnchor), keys.bottomAnchor.constraint(equalTo: bottomAnchor),
             text.leadingAnchor.constraint(equalTo: leadingAnchor, constant: keysWidth + 18), text.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),

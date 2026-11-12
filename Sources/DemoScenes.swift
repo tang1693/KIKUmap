@@ -80,7 +80,7 @@ enum DemoScenes {
         DemoStep(keys: keys, lights: lights, dur: dur, change: change)
     }
     private static func k(_ c: String) -> [KeyPart] { [.keys(c)] }
-    private static func typing(_ zh: String, _ en: String) -> DemoStep { DemoStep(type: tr(zh, en)) }
+    private static func typing(_ zh: String, _ en: TrKey) -> DemoStep { DemoStep(type: tr(zh, en)) }
     private static func click(_ at: String, _ clicks: Int = 1, right: Bool = false, keys: [KeyPart]? = nil, lights: Bool = true, dur: Double = 1.1,
                               _ change: ((inout DemoWorld) -> Void)? = nil) -> DemoStep {
         DemoStep(keys: keys, lights: lights, pointAt: at, clicks: clicks, right: right, dur: dur, change: change)
@@ -90,7 +90,7 @@ enum DemoScenes {
     }
     /// What was just shown put away, or the next part set up (a still ends before it).
     private static func cut(_ change: @escaping (inout DemoWorld) -> Void) -> DemoStep { DemoStep(dur: 0.5, cut: true, change: change) }
-    private static func g(_ zh: String, _ en: String, _ symbol: String) -> [KeyPart] { [.chip(tr(zh, en), symbol: symbol)] }
+    private static func g(_ zh: String, _ en: TrKey, _ symbol: String) -> [KeyPart] { [.chip(tr(zh, en), symbol: symbol)] }
     private static func newTopic(_ id: String, under parent: String) -> DemoNode {
         DemoNode(id: id, title: "", parent: parent, kind: parent == "root" ? .topic : .sub)
     }
@@ -327,7 +327,7 @@ enum DemoScenes {
                 click("trip", right: true, keys: g("右键", "right-click", "contextualmenu.and.cursorarrow"), dur: 1.8) {
                     $0.pick("trip"); $0.menuAt = CGPoint(x: 260, y: 34)
                     // (most of a topic's menu, in its order: all of it is taller than the picture)
-                    $0.menu = [tr("新子主题  ⇥", "New subtopic  ⇥"), tr("改名  ⌘↩", "Rename  ⌘↩"), tr("分支颜色 ▸", "Branch color ▸"), tr("图标 ▸", "Icon ▸"),
+                    $0.menu = [tr("新子主题  ⇥", "New subtopic  ⇥"), tr("改名  ⌘↩", "Rename  ⌘↩"), tr("分支颜色 ▸", "Branch color ▸"), tr("图标…", "Icon…"),
                                tr("标签 ▸", "Tags ▸"), tr("折叠  ⌥.", "Collapse  ⌥."), "—", tr("删除  ⌫", "Delete  ⌫")]
                 },
                 cut { $0.menu = nil },
@@ -405,6 +405,11 @@ enum DemoScenes {
                 click("search", keys: g("在搜索框里输入", "type in the search box", "magnifyingglass")),
                 DemoStep(dur: 1.6) { $0.filter = tr("机票", "flight") },
                 press(k("esc"), lights: false) { $0.filter = "" },
+            ])
+        case "tagOff":
+            return DemoSlice(whereText: withMouse, part: .map, view: .map, setup: b, steps: [
+                click("tag:weekly", keys: g("拖标签", "drag the tag", "tag")) { $0.pick("weekly") },
+                point("off:weekly", dur: 1.3) { if let i = $0.node("weekly") { $0.nodes[i].tag = nil; $0.nodes[i].tagIcon = nil } },
             ])
         case "tags":
             return DemoSlice(whereText: tr("左栏 · 标签区", "Left column · tags"), part: .tags, view: .map, setup: b, steps: [

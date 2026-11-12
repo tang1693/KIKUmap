@@ -81,7 +81,7 @@ enum ShortcutTable {
     private static var hold: KeyPart { .word(tr("按住", "hold")) }
     private static var tap: KeyPart { .word(tr("轻按", "tap")) }
     private static var space: KeyPart { .keys(tr("空格", "space")) }
-    private static func g(_ zh: String, _ en: String, _ symbol: String) -> KeyPart { .chip(tr(zh, en), symbol: symbol) }
+    private static func g(_ zh: String, _ en: TrKey, _ symbol: String) -> KeyPart { .chip(tr(zh, en), symbol: symbol) }
     private static var click: KeyPart { g("点击", "click", "cursorarrow.click") }
 
     static func all() -> [ShortcutRow] {
@@ -91,7 +91,7 @@ enum ShortcutTable {
         // not active because KIKUmap's own menus use it (saved by an older build): why
         let own = refused ? HotKeyField.ownText(code: Prefs.hotKeyCode, mods: Prefs.hotKeyMods) : nil
         var rows: [ShortcutRow] = []
-        func add(_ id: String, _ place: ShortcutPlace, _ parts: [KeyPart], _ zh: String, _ en: String, _ noteZh: String, _ noteEn: String,
+        func add(_ id: String, _ place: ShortcutPlace, _ parts: [KeyPart], _ zh: String, _ en: TrKey, _ noteZh: String, _ noteEn: TrKey,
                  section: String? = nil, dimmed: Bool = false) {
             rows.append(ShortcutRow(id: id, place: place, section: section, parts: parts, label: tr(zh, en), note: tr(noteZh, noteEn), dimmed: dimmed))
         }
@@ -167,8 +167,8 @@ enum ShortcutTable {
             "⌥↑ ⌥↓: past the item ↑ ↓ would pick (into its topic if need be). ⌥ away from the center: into the topic just above; toward it: out of its topic. Several selected: only one moves.")
         add("fold", .mapKeys, [k("⌥.")],
             "折叠 / 展开主题", "Collapse or expand the topic",
-            "主题下面有东西才行。折叠后，旁边的小圆标显示里面有几个对话；点它或按 ⌘↓ 都能展开。",
-            "A topic with items only. Collapsed, its small pill shows how many chats it holds; click the pill, or press ⌘↓, to expand it again.")
+            "主题下面有东西才行。鼠标移到主题上，旁边会出现小圆钮「−」，点它也能折叠。折叠后，小圆钮显示里面有几个对话；点它或按 ⌘↓ 都能展开。",
+            "A topic with items only. Point at a topic and a small − button shows beside it: click it to collapse. Collapsed, the pill shows how many chats it holds; click it, or press ⌘↓, to expand it again.")
         add("open", .mapKeys, [k("⌘↓"), or, tap, space],
             "在对应的 App 里打开对话", "Open the chat in its app",
             "在 Claude、ChatGPT 里，或 Claude Code 会话所在的编辑器或终端里打开。Codex 会话：在 VS Code 里跑的就在那里打开，别的在访达里显示它的文件夹。空格要轻按、鼠标别动；按住空格是移动导图。",
@@ -213,8 +213,8 @@ enum ShortcutTable {
             "Pinching zooms only the map (40–200%), and it's remembered. ⌘0 fits the map in and centers it, at 55–100% (a very large map may not fit); it doesn't undo ⌘+ / ⌘-.")
         add("rightClick", .mapMouse, [g("右键", "right-click", "contextualmenu.and.cursorarrow")],
             "分支颜色、图标、标签、打开、折叠…", "Color, icon, tags, open, collapse and more",
-            "会先选中指针下的条目。对话上还有打开、标为未读 / 已读，Claude 对话还有「让 Claude 写总结存档…」；空白处：新主题、导出导图 PDF…。按住 ⌃ 点也行。",
-            "It selects what's under the pointer first. Chats also get Open and Mark unread / read, Claude chats Archive a summary…; empty space: New topic, Export map as PDF…. ⌃-click works too.")
+            "会先选中指针下的条目。「图标…」一次列出全部形状和图标。对话上还有打开、标为未读 / 已读，Claude 对话还有「让 Claude 写总结存档…」；空白处：新主题、导出导图 PDF…。按住 ⌃ 点也行。",
+            "It selects what's under the pointer first. Icon… shows every shape and icon at once. Chats also get Open and Mark unread / read, Claude chats Archive a summary…; empty space: New topic, Export map as PDF…. ⌃-click works too.")
         add("hoverButtons", .mapMouse, [g("悬停", "hover", "cursorarrow.rays"), dot, k("⇧⌘U")],
             "对话旁的按钮 · 标为未读 / 已读", "Buttons by a chat · mark unread / read",
             "鼠标停在对话上，或只选中它：↗ 在它的 App 里打开，✉ 标为未读 / 已读（在跑的和 Claude 显示等你确认的只有 ↗）。⇧⌘U 把选中的对话标为未读；都已是未读时标为已读。",
@@ -249,6 +249,10 @@ enum ShortcutTable {
             "按名字或标题筛选左栏", "Filter the left column by name or title",
             "不分大小写、重音和全角半角；数字是「找到的 / 全部」。按 Esc 清空。",
             "Case, accents and full- or half-width don't matter; the count shows matches / all. Esc clears it.")
+        add("tagOff", .mapMouse, [g("拖导图上的标签", "drag a tag on the map", "tag")],
+            "拖出条目就去掉 · 在条目里拖换顺序", "Drag it off an item to remove it · along the item to reorder",
+            "条目上的标签可以直接拖：拖到条目外面松手，这个标签就从它身上去掉（标签本身还在）；在条目里左右拖，换它和其他标签的先后。⌘Z 能撤销。",
+            "The tags on an item can be dragged: let go outside the item and the tag comes off it (the tag itself stays); drag it along the item to change its place among the item's tags. ⌘Z undoes it.")
         add("tags", .column, [g("拖或点标签", "drag or click a tag", "tag")],
             "拖到条目上加标签 · 点一下高亮带它的", "Tag an item · light up all with that tag",
             "标签在左栏底部的标签区。再点一次取消高亮。＋ 新建标签，点分类标题可以折叠，右键可以管理标签；拖标签区的上边调高度，⌄ 或 ⌃⌘G 收起。窗口太矮又放大了就放不下，标签区会让开：把窗口拉高，或按 ⌘- 缩小。",

@@ -18,6 +18,8 @@ final class WidgetFeed {
         struct Day: Codable { var start: String; var seconds: Double }
         var updated: String
         var english: Bool
+        /// The app's language (Lang's raw value); an older widget reads `english` only.
+        var lang: String? = nil
         var closed: Bool?
         var running: [Item]
         var unread: [Item]
@@ -112,7 +114,7 @@ final class WidgetFeed {
         // (what decides a quicker write: the lists and meters, as before; the widget itself goes by `redraw`)
         let key = [run.map { $0.id + (store.outOfSight($0.id) ? "?" : "") }.joined(separator: ","), unread.map(\.id).joined(separator: ","), note?.text ?? "",
                    meters.map { "\($0.group ?? "")\($0.label)\($0.percent)\($0.resets ?? "")\($0.asOf ?? "")" }.joined(separator: ","),
-                   Prefs.english ? "en" : "zh", closed ? "closed" : ""].joined(separator: "|")
+                   Prefs.lang.rawValue, closed ? "closed" : ""].joined(separator: "|")
         // at least every five minutes the chart moves on, and every ten the file is written again even if
         // nothing changed, so the widget always has a fresh "updated" to tell KIKUmap is running
         let heartbeat = Date().timeIntervalSince(lastBeat) >= 600
@@ -140,7 +142,7 @@ final class WidgetFeed {
 
         // (one out of KIKUmap's sight, not known to run still, is marked so)
         func items(_ cs: [Chat]) -> [State.Item] { cs.prefix(6).map { State.Item(id: $0.id, title: store.name($0.id), unsure: store.outOfSight($0.id) ? true : nil) } }
-        var state = State(updated: "", english: Prefs.english, closed: closed ? true : nil,
+        var state = State(updated: "", english: Prefs.english, lang: Prefs.lang.rawValue, closed: closed ? true : nil,
                           running: items(run), unread: items(unread), runningCount: run.count, unreadCount: unread.count,
                           meters: meters, usageOff: !UsageMonitor.enabled && !gptOn, hours: hours, legend: top.map { store.name($0) },
                           colours: top.map { id in store.map.branchColorKey(ofChat: id).flatMap { Theme.highlight($0) == nil ? nil : $0 } ?? "" },

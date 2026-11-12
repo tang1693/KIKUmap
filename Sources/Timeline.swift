@@ -101,7 +101,14 @@ final class TimelineView: NSView {
     private var stale: Bool { store.runStart != spansFrom.open || store.intervals.count != spansFrom.count }
     private var hits: [(NSRect, String, () -> Void)] = []
 
-    private let labelW: CGFloat = 70
+    /// The lanes' names column: 70, or wider where a language names them in more letters.
+    private var labelW: CGFloat {
+        if let c = labelWFor, c.lang == Prefs.lang { return c.w }   // read for every bar drawn: measured once per language
+        let w = max(70, ceil(lanes.map { $0.size(Theme.ui(11)).width }.max() ?? 0) + 22)
+        labelWFor = (Prefs.lang, w)
+        return w
+    }
+    private var labelWFor: (lang: Lang, w: CGFloat)?
     private let rowTop: CGFloat = 34
     private let laneH: CGFloat = 26
     private var lanes: [String] { [tr("在跑", "Running"), tr("计划任务", "Scheduled")] }
@@ -458,7 +465,7 @@ final class TimelineView: NSView {
         }
         let dayY = tickY + 16
         var d = cal.startOfDay(for: left)
-        let df = DateFormatter(); df.locale = Locale(identifier: Prefs.english ? "en_US" : "zh_CN"); df.dateFormat = tr("EEE d日", "EEE d")
+        let df = DateFormatter(); df.locale = Prefs.lang.locale; df.dateFormat = tr("EEE d日", "EEE d")
         while d < right {
             let next = cal.date(byAdding: .day, value: 1, to: d)!
             let a = max(x(d), labelW), b = min(x(next), bounds.width - 12)

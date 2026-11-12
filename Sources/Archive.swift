@@ -164,7 +164,7 @@ final class Archive {
         get {
             if let p = d.string(forKey: "ArchiveFolder"), !p.isEmpty { return URL(fileURLWithPath: p) }
             return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent(tr("Claude 导出", "Claude Export"))
+                .appendingPathComponent(Prefs.lang.isChinese ? "Claude 导出" : "Claude Export")   // (Chinese or English only, as `named`)
         }
         set {
             if folder.path != newValue.path { d.set(folder.path, forKey: "ArchivePreviousFolder") }
@@ -197,8 +197,8 @@ final class Archive {
         // (on an external or network disk, macOS's no is "not permitted"; "permission denied" is the disk's own owners)
         if let place = (denied ? protectedFolder(root) : nil) ?? (!away && posix == EPERM ? protectedVolume(root) : nil) {
             return (tr("macOS 不让 KIKUmap 存到导出文件夹", "macOS won't let KIKUmap save to the export folder"),
-                    root.path + "\n\n" + tr("怎么办：系统设置 → 隐私与安全性 → 文件与文件夹，给 KIKUmap 打开\(place.zh)。或者在「导出对话」窗口点「更改…」，换一个文件夹。",
-                                            "Fix: System Settings → Privacy & Security → Files and Folders: turn on \(place.en) for KIKUmap. Or click Change… in the Export chats window to pick another folder."))
+                    root.path + "\n\n" + tr("怎么办：系统设置 → 隐私与安全性 → 文件与文件夹，给 KIKUmap 打开\(Archive.placeName(place))。或者在「导出对话」窗口点「更改…」，换一个文件夹。",
+                                            "Fix: System Settings → Privacy & Security → Files and Folders: turn on \(Archive.placeName(place)) for KIKUmap. Or click Change… in the Export chats window to pick another folder."))
         }
         if !away && (failure.code == NSFileWriteVolumeReadOnlyError || posix == EROFS) {
             return (tr("导出文件夹所在的磁盘是只读的", "The export folder's disk is read-only"), root.path + "\n\n" + other)
@@ -242,6 +242,18 @@ final class Archive {
             .compactMap { d, zh, en in fm.urls(for: d, in: .userDomainMask).first.map { ($0, zh, en) } }
     }()
 
+    /// A place's name as System Settings shows it, in the app's language.
+    nonisolated static func placeName(_ p: (zh: String, en: String)) -> String {
+        switch p.en {
+        case "Documents Folder": return tr("「文稿」文件夹", "Documents Folder")
+        case "Desktop Folder": return tr("「桌面」文件夹", "Desktop Folder")
+        case "Downloads Folder": return tr("「下载」文件夹", "Downloads Folder")
+        case "Network Volumes": return tr("「网络宗卷」", "Network Volumes")
+        case "Removable Volumes": return tr("「可移除的宗卷」", "Removable Volumes")
+        default: return tr(p.zh, TrKey(p.en))
+        }
+    }
+
     /// Which of those `url` is in.
     static func protectedFolder(_ url: URL) -> (zh: String, en: String)? {
         let path = url.standardizedFileURL.path.lowercased() + "/"
@@ -260,7 +272,8 @@ final class Archive {
     }
     /// A folder KIKUmap names in its language: the one already in `dir` in the other language, if there is one.
     static func named(_ zh: String, _ en: String, in dir: URL) -> String {
-        let fm = FileManager.default, mine = tr(zh, en), other = mine == zh ? en : zh
+        // (a folder's name stays Chinese or English, whatever the language: a switch never starts a second folder)
+        let fm = FileManager.default, mine = Prefs.lang.isChinese ? zh : en, other = mine == zh ? en : zh
         return !fm.fileExists(atPath: dir.appendingPathComponent(mine).path) && fm.fileExists(atPath: dir.appendingPathComponent(other).path) ? other : mine
     }
     /// Topic ids picked in the export window (nil = everything).
@@ -347,7 +360,7 @@ final class Archive {
             seen.insert(id)
             if c.outsideClaude { others += 1; return }
             var dir = path.reduce(Archive.folder) { $0.appendingPathComponent(ClaudeExport.safeName($1)) }
-                .appendingPathComponent(ClaudeExport.safeName(store.name(id) + { d in d == 0 ? "" : tr("（续\(d > 1 ? "\(d)" : "")）", " (continued\(d > 1 ? " \(d)" : ""))") }(depth(id))))
+                .appendingPathComponent(ClaudeExport.safeName(store.name(id) + { d in d == 0 ? "" : Prefs.lang.isChinese ? "（续\(d > 1 ? "\(d)" : "")）" : " (continued\(d > 1 ? " \(d)" : ""))" }(depth(id))))
             // the Mac's disk ignores case ("Plan" and "plan" are one folder): two chats never share a folder
             if usedDirs.contains(dir.path.lowercased()) || leftBy(dir, c) { dir = dir.deletingLastPathComponent().appendingPathComponent(dir.lastPathComponent + " " + String(id.suffix(6))) }
             usedDirs.insert(dir.path.lowercased())
@@ -813,10 +826,10 @@ final class Archive {
         if !r.cutShort && r.summariesRan && r.halted == nil { Archive.lastRun = Date() }
         var parts: [String] = []
         // (English: "1 chat", "2 chats")
-        func n(_ k: Int, _ one: String, _ many: String) -> String { k == 1 ? "1 " + one : "\(k) " + many }
+        func n(_ k: Int, _ one: String, _ many: String) -> String { L10n.count(k, one, many) }
         if r.files > 0 { parts.append(tr("\(r.files) 个对话的提示词和全文，\(r.artifacts) 个 artifact", "prompts and full text of \(n(r.files, "chat", "chats")), \(n(r.artifacts, "artifact", "artifacts"))")) }
         if r.filesFailed > 0 { parts.append(tr("\(r.filesFailed) 个对话的文件没写成（看 logs/archive.log）", "files of \(n(r.filesFailed, "chat", "chats")) couldn't be saved (see logs/archive.log)")) }
-        if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", n(r.memory, "summary", "summaries"))) }
+        if r.memory > 0 { parts.append(tr("\(r.memory) 份总结", TrKey(n(r.memory, "summary", "summaries")))) }
         if r.noClaude { parts.append(tr("总结没写：Claude App 没打开，或「辅助功能」关着", "summaries not written: the Claude app isn't open, or Accessibility is off")) }
         if r.skipped > 0 { parts.append(tr("\(r.skipped) 个跳过（没变化、未读或在跑）", "\(r.skipped) skipped (unchanged, unread or running)")) }
         if !r.blocked.isEmpty { parts.append(tr("\(r.blocked.count) 个没写（文件夹里还有另一个同名对话的东西）", "\(r.blocked.count) not written (their folder still holds another chat's things)")) }
@@ -829,7 +842,7 @@ final class Archive {
         if r.zipFailed { parts.append(tr("导出包读不了（不会自己再试；点「导出」再试，或下载新的导出包）", "couldn't read the export zip (it isn't tried again by itself: click Export to try again, or download a new export)")) }
         if r.notClaude { parts.append(tr("这个 zip 不是 Claude 的官方导出包，没用它", "that zip isn't Claude's data export, so it wasn't used")) }
         if r.unreadable { parts.append(tr("认不出 Claude 的对话页面，已停下（Claude 更新了？）", "stopped: Claude's chat page couldn't be read (was Claude updated?)")) }
-        if let h = r.halted { parts.append(tr(h.title + "，已停下", "stopped: " + h.title.prefix(1).lowercased() + h.title.dropFirst())) }
+        if let h = r.halted { parts.append(tr(h.title + "，已停下", "stopped: \(Prefs.lang == .en ? h.title.prefix(1).lowercased() + h.title.dropFirst() : h.title)")) }
         if r.cutShort { parts.append(tr("你回来了，先停下；Mac 再空闲时接着做", "paused as you came back; it goes on when the Mac is idle again")) }
         if stop.isSet { parts.append(tr("中途停止", "stopped")) }
         let s = Clock.format(Date(), "M/d HH:mm", "MMM d HH:mm") + " · " + (parts.isEmpty ? tr("没有要更新的", "nothing to update") : parts.joined(separator: " · "))
@@ -1131,8 +1144,9 @@ final class Archive {
     nonisolated static func importMessage(file name: String, title: String, withFiles: Bool, left: Int) -> String {
         let rest = left <= 0 ? "" : tr("（另有 \(left) 个文件没附上，在导出文件夹里）",
                                        left == 1 ? " (1 more file wasn't attached; it's in the export folder)" : " (\(left) more files weren't attached; they're in the export folder)")
-        return tr("【接续之前的对话】附件「\(name)」是我之前一个对话的交接总结（原标题：\(title)）\(withFiles ? "；其他附件是那个对话里做出的文件" : "")\(rest)。请先读完，用两三句话确认你理解的目标、进度和下一步，然后等我继续。从现在起就当作是同一个对话。",
-                  "[Continuing an earlier chat] The attached \(name) is the hand-off summary of a previous conversation (titled \"\(title)\")\(withFiles ? "; the other attachments are the files made in it" : "")\(rest). Read it, confirm in two or three sentences the goal, where things stand and the next step, then wait for me. From now on, treat this as the same conversation.")
+        let also = withFiles ? tr("；其他附件是那个对话里做出的文件", "; the other attachments are the files made in it") : ""
+        return tr("【接续之前的对话】附件「\(name)」是我之前一个对话的交接总结（原标题：\(title)）\(also)\(rest)。请先读完，用两三句话确认你理解的目标、进度和下一步，然后等我继续。从现在起就当作是同一个对话。",
+                  "[Continuing an earlier chat] The attached \(name) is the hand-off summary of a previous conversation (titled \"\(title)\")\(also)\(rest). Read it, confirm in two or three sentences the goal, where things stand and the next step, then wait for me. From now on, treat this as the same conversation.")
     }
 
     /// For each note: a new chat in the account that's signed in now, with the artifacts attached and

@@ -3,17 +3,18 @@
   <img src="docs/banner-en-light.png" width="100%" alt="KIKUmap：Claude と ChatGPT のチャットのためのマインドマップ">
 </picture>
 
-<p align="center"><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <b>日本語</b></p>
+<p align="center"><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a></p>
 
 <p align="center">Mac のメニューバーに置ける、Claude と ChatGPT のチャットのためのマインドマップ。<br>実行中のもの、完了したもの、あなたを待っているものがひと目でわかります。</p>
 
-<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-en.svg" height="56" alt="KIKUmap for macOS をダウンロード"></a></p>
+<p align="center"><a href="https://github.com/tang1693/KIKUmap/releases/latest/download/Kikumap.dmg"><img src="docs/download-en.svg" height="56" alt="KIKUmap for macOS をダウンロード"></a>&nbsp;&nbsp;<a href="https://tang1693.github.io/KIKUmap/?lang=ja"><img src="docs/website-en.svg" height="56" alt="KIKUmap のウェブサイトへ"></a></p>
 
 <p align="center"><a href="https://www.producthunt.com/products/kikumap?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kikumap" target="_blank" rel="noopener noreferrer"><img alt="KIKUmap - A mind map for your Claude and ChatGPT chats | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1305867&amp;theme=neutral&amp;t=1793908400163"></a></p>
 
 <p align="center">
   <a href="https://github.com/tang1693/KIKUmap/releases/latest"><img src="https://img.shields.io/github/v/release/tang1693/KIKUmap?include_prereleases&label=version&color=187DFE" alt="最新リリース"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-1f1e1d?logo=apple&logoColor=white" alt="macOS 13 以降">
+  <img src="https://img.shields.io/badge/languages-9-7A5AF8" alt="9 languages">
   <img src="https://img.shields.io/badge/Swift-no%20dependencies-F05138?logo=swift&logoColor=white" alt="Swift、依存関係なし">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3a78d0" alt="MIT ライセンス"></a>
   <a href="https://github.com/tang1693/KIKUmap/stargazers"><img src="https://img.shields.io/github/stars/tang1693/KIKUmap?style=flat&color=212120" alt="GitHub のスター"></a>
@@ -21,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tang1693.github.io/KIKUmap/">ウェブサイト</a> ·
+  <a href="https://tang1693.github.io/KIKUmap/?lang=ja">ウェブサイト</a> ·
   <a href="#features">機能</a> ·
   <a href="#install">インストール</a> ·
   <a href="#privacy">プライバシー</a> ·
@@ -127,7 +128,7 @@ Claude の各チャットを、要約、プロンプト、会話、アーティ�
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/demo/theme.gif" width="100%" alt="ライトまたはダーク"><br><b>ライトまたはダーク。</b></td>
-<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="英語と中国語"><br><b>English · 中文。</b></td>
+<td width="50%" valign="top"><img src="docs/demo/language.gif" width="100%" alt="英語と中国語"><br><b>9 言語：</b> English · 简体中文 · 繁體中文 · 日本語 · 한국어 · Español · Português · Deutsch · Français</td>
 </tr>
 </table>
 

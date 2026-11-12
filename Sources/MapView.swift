@@ -14,7 +14,7 @@ final class VNode {
     var done = false
     var color: NSColor
     var colored = false
-    var tagMarks: [(color: NSColor, icon: String?)] = []
+    var tagMarks: [(color: NSColor, icon: String?, id: String)] = []
     var count = 0
     var runN = 0, unrN = 0
     /// A topic: of the `runN` running, one KIKUmap sees run now (its count's ring turns). A chat: it's seen running
@@ -103,6 +103,17 @@ final class MapView: NSView, NSTextFieldDelegate {
     private var moveTracking: NSTrackingArea?
     /// The chat under the pointer: it shows its buttons (open in Claude, unread / read).
     private var hoverChat: String?
+    /// The topic under the pointer (or on its fold handle): it shows the handle, as a selected one does.
+    private var hoverTopic: String?
+    /// A tag held on a node: dragged off the node and let go, it comes off; dragged along the node, it moves among
+    /// the node's tags.
+    private var tagDrag: (key: String, id: String, at: NSPoint, pointer: NSPoint, moved: Bool)? {
+        didSet { if tagDrag == nil { tagX = [:]; tagTimer?.invalidate(); tagTimer = nil } }
+    }
+    /// While a tag is held: where each of its node's other tags is drawn right now, gliding to its place (they move
+    /// apart to leave a gap where it would land, and close up when it's off the node, as it would come off).
+    private var tagX: [String: CGFloat] = [:]
+    private var tagTimer: Timer?
     private var tipStrings: [NSString] = []          // tool tips don't retain their text
     private enum ChatAction { case open, unread }
     /// Keys of the item being dragged and everything under it.
@@ -196,7 +207,22 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     /// Switching away while space is down: its key-up goes elsewhere, so let go here. (The picked ring pales.)
-    @objc private func lostFocus() { endSpace(); needsDisplay = true }
+    @objc private func lostFocus() {
+        endSpace()
+        endTagDrag()
+        setHover(nil); setHoverTopic(nil)   // no mouseExited comes once the window isn't key
+        needsDisplay = true
+    }
+    /// A held tag let go of without effect (Esc, or the press ended somewhere this view didn't hear).
+    private func endTagDrag() {
+        guard tagDrag != nil else { return }
+        tagDrag = nil
+        NSCursor.arrow.set()
+        needsDisplay = true
+    }
+    // the map moving under a still pointer: the hover it had is somewhere else now (the next move finds it again)
+    override func scrollWheel(with e: NSEvent) { setHover(nil); setHoverTopic(nil); super.scrollWheel(with: e) }
+    override func magnify(with e: NSEvent) { setHover(nil); setHoverTopic(nil); super.magnify(with: e) }
     @objc private func gotFocus() { needsDisplay = true }
 
     @objc private func occlusionChanged() {
@@ -333,7 +359,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     private func register(_ v: VNode) {
         all.append(v)
         byKey[v.key] = v
-        v.tagMarks = store.map.tags(of: v.key).map { (Theme.highlight($0.color) ?? Theme.muted, $0.icon) }
+        v.tagMarks = store.map.tags(of: v.key).map { (Theme.highlight($0.color) ?? Theme.muted, $0.icon, $0.id) }
         if editing?.key == v.key, let t = editingText { v.title = t }
         measure(v)
     }
@@ -668,6 +694,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         drawEdges(root)
         for v in all where !dragged.contains(v.key) && v.frame.insetBy(dx: -30, dy: -30).intersects(dirtyRect) { drawNode(v) }
         drawDragged()
+        drawHeldTag()
         if let b = band {
             let r = bandRect(b.start, b.end)
             Theme.ink.withAlphaComponent(0.06).setFill(); r.fill()
@@ -867,7 +894,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         }
         if v.kind != .chat { drawBadges(v) }
         if v.kind == .chat && showsButtons(v) { drawChatButtons(v) }
-        if (v.kind == .main || v.kind == .sub) && v.hasKids && (v.collapsed || sel == v.key) { drawFold(v) }
+        if (v.kind == .main || v.kind == .sub) && v.hasKids && (v.collapsed || sel == v.key || hoverTopic == v.key) { drawFold(v) }
     }
 
     /// Marks a real conversation, so it reads apart from a plain topic: a "Claude" tag for the Claude app's, a "GPT"
@@ -889,17 +916,123 @@ final class MapView: NSView, NSTextFieldDelegate {
         img.draw(in: NSRect(x: x, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
     }
 
+    /// Where the node's tags start: their left edge and middle line, as drawNode places them.
+    private func tagStart(_ v: VNode) -> (x: CGFloat, midY: CGFloat)? {
+        let r = v.frame
+        switch v.kind {
+        case .root: return nil
+        case .main:
+            let cx = r.minX + 13 + glyphW(v) + v.labelW + 8
+            return (cx + ceil(String(v.count).size(countF).width) + 6, r.midY)
+        case .sub:
+            return (r.minX + 4 + glyphW(v) + v.labelW + 4, r.minY + 3 + textH(subF) / 2)
+        case .chat:
+            let f = v.state == 0 ? chatF : pillF
+            let pad: CGFloat = v.state == 0 ? 4 : (v.colored ? 18 : 10)
+            let midY = v.state == 0 ? r.minY + 3 + textH(f) / 2 : r.midY
+            let tx = r.minX + pad + iconW(v) + v.labelW + 8
+            return (tx + ceil((v.time + (v.state == 2 ? "···" : "")).size(timeF).width) + 6, midY)
+        }
+    }
+
+    /// Each of the node's tags, where it's drawn.
+    private func tagRects(_ v: VNode) -> [(rect: NSRect, id: String)] {
+        guard let s = tagStart(v) else { return [] }
+        var at = s.x, out: [(NSRect, String)] = []
+        for m in v.tagMarks {
+            let w: CGFloat = m.icon == nil ? 7 : 12
+            out.append((NSRect(x: at, y: s.midY - 6, width: w, height: 12), m.id))
+            at += m.icon == nil ? 10 : 15
+        }
+        return out
+    }
+
+    /// The tag under the pointer, on the node it's on.
+    private func tagHit(_ p: NSPoint) -> (v: VNode, id: String)? {
+        for v in all.reversed() where !v.tagMarks.isEmpty && v.frame.insetBy(dx: -2, dy: -2).contains(p) {
+            if let t = tagRects(v).first(where: { $0.rect.insetBy(dx: -3, dy: -3).contains(p) }) { return (v, t.id) }
+        }
+        return nil
+    }
+
+    private func tagStep(_ m: (color: NSColor, icon: String?, id: String)) -> CGFloat { m.icon == nil ? 10 : 15 }
+
+    /// Where a held tag lands among the node's other tags: the number of them left of the pointer, measured with
+    /// the others closed up (the held one comes out of the list before it goes back in; the gap doesn't count).
+    private func tagIndex(_ v: VNode, at p: NSPoint, holding id: String) -> Int {
+        guard let s = tagStart(v) else { return 0 }
+        var at = s.x, n = 0
+        for m in v.tagMarks where m.id != id {
+            if at + (tagStep(m) - 3) / 2 < p.x { n += 1 }
+            at += tagStep(m)
+        }
+        return n
+    }
+
+    /// Where the held tag's node draws its other tags now: closed up, with a gap the held one's width where it
+    /// would land while the pointer is on the node.
+    private func tagTargets(_ d: (key: String, id: String, at: NSPoint, pointer: NSPoint, moved: Bool)) -> [String: CGFloat] {
+        guard let v = byKey[d.key], let s = tagStart(v), let held = v.tagMarks.first(where: { $0.id == d.id }) else { return [:] }
+        let on = v.frame.insetBy(dx: -6, dy: -6).contains(d.pointer)
+        let gapAt = on ? tagIndex(v, at: d.pointer, holding: d.id) : -1
+        var at = s.x, out: [String: CGFloat] = [:], i = 0
+        for m in v.tagMarks where m.id != d.id {
+            if i == gapAt { at += tagStep(held) }
+            out[m.id] = at
+            at += tagStep(m)
+            i += 1
+        }
+        return out
+    }
+
+    /// Moves the other tags a step toward their places, about 60 times a second, until they're there.
+    private func glideTags() {
+        guard let d = tagDrag, d.moved else { return }
+        let goal = tagTargets(d)
+        var still = false
+        for (id, x) in goal {
+            let now = tagX[id] ?? x, next = now + (x - now) * 0.3
+            tagX[id] = abs(x - next) < 0.3 ? x : next
+            if tagX[id] != x { still = true }
+        }
+        if let v = byKey[d.key] { setNeedsDisplay(v.frame.insetBy(dx: -8, dy: -8)) }
+        if !still { tagTimer?.invalidate(); tagTimer = nil }
+        else if tagTimer == nil {
+            let t = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.glideTags() } }
+            RunLoop.main.add(t, forMode: .common)                    // (runs while the mouse is held, too)
+            tagTimer = t
+        }
+    }
+
     private func drawTags(_ v: VNode, x: CGFloat, midY: CGFloat) {
         var at = x
+        let holding = tagDrag?.moved == true && tagDrag?.key == v.key
         for m in v.tagMarks {
+            if holding && tagDrag?.id == m.id { continue }          // it's under the pointer (drawHeldTag)
+            if holding, let gx = tagX[m.id] { at = gx }
+            let c = m.color
             if let i = m.icon {
-                Icons.draw(i, in: NSRect(x: at, y: midY - 6, width: 12, height: 12), color: m.color, weight: 2.2)
+                Icons.draw(i, in: NSRect(x: at, y: midY - 6, width: 12, height: 12), color: c, weight: 2.2)
                 at += 15
             } else {
-                m.color.setFill()
+                c.setFill()
                 NSBezierPath(ovalIn: NSRect(x: at, y: midY - 3.5, width: 7, height: 7)).fill()
                 at += 10
             }
+        }
+    }
+
+    /// The tag being dragged, under the pointer; off its node it's faded, as it'll come off when let go.
+    private func drawHeldTag() {
+        guard let d = tagDrag, d.moved, let v = byKey[d.key], let m = v.tagMarks.first(where: { $0.id == d.id }) else { return }
+        let off = !v.frame.insetBy(dx: -6, dy: -6).contains(d.pointer)
+        let c = off ? m.color.withAlphaComponent(0.5) : m.color
+        let p = d.pointer
+        if let i = m.icon {
+            Icons.draw(i, in: NSRect(x: p.x - 7, y: p.y - 7, width: 14, height: 14), color: c, weight: 2.2)
+        } else {
+            c.setFill()
+            NSBezierPath(ovalIn: NSRect(x: p.x - 4.5, y: p.y - 4.5, width: 9, height: 9)).fill()
         }
     }
 
@@ -1117,7 +1250,7 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     private func foldHit(_ p: NSPoint) -> VNode? {
-        all.first { ($0.kind == .main || $0.kind == .sub) && $0.hasKids && ($0.collapsed || sel == $0.key) && foldRect($0).insetBy(dx: -3, dy: -3).contains(p) }
+        all.first { ($0.kind == .main || $0.kind == .sub) && $0.hasKids && ($0.collapsed || sel == $0.key || hoverTopic == $0.key) && foldRect($0).insetBy(dx: -3, dy: -3).contains(p) }
     }
 
     // MARK: selection & navigation
@@ -1337,6 +1470,7 @@ final class MapView: NSView, NSTextFieldDelegate {
 
     override func keyDown(with e: NSEvent) {
         if drag?.fromMap == true, e.keyCode == 53 { cancelDrag(); return }        // esc: put it back
+        if tagDrag != nil, e.keyCode == 53 { endTagDrag(); return }               // esc: the held tag stays where it was
         if e.keyCode == 49 && e.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             if spaceHeld == nil && !e.isARepeat {
                 spaceHeld = (Date(), window?.mouseLocationOutsideOfEventStream ?? .zero, false)
@@ -1418,13 +1552,25 @@ final class MapView: NSView, NSTextFieldDelegate {
         moveTracking = t
     }
 
-    override func mouseExited(with e: NSEvent) { setHover(nil) }
+    override func mouseExited(with e: NSEvent) { setHover(nil); setHoverTopic(nil) }
+
+    /// The topic whose fold handle shows because the pointer is on it (or on the handle).
+    private func setHoverTopic(_ k: String?) {
+        guard k != hoverTopic else { return }
+        hoverTopic = k
+        needsDisplay = true
+    }
     override func mouseEntered(with e: NSEvent) { spaceHeld?.last = e.locationInWindow }
 
     override func mouseMoved(with e: NSEvent) {
         guard var h = spaceHeld else {
             // a chat under the pointer shows its buttons; they stay while the pointer is on them or on its way there
             let p = convert(e.locationInWindow, from: nil)
+            // a topic with something under it shows its fold handle while the pointer is on it or on the handle
+            if let k = hoverTopic, let v = byKey[k], foldRect(v).insetBy(dx: -4, dy: -4).contains(p) {
+            } else {
+                setHoverTopic(hit(p).flatMap { ($0.kind == .main || $0.kind == .sub) && $0.hasKids ? $0.key : nil })
+            }
             if let k = hoverChat, let v = byKey[k], hoverReach(v).contains(p) { return }
             setHover(hit(p).flatMap { $0.kind == .chat ? $0.key : nil })
             return
@@ -1563,10 +1709,16 @@ final class MapView: NSView, NSTextFieldDelegate {
         if editing != nil { finishEdit() }
         window?.makeFirstResponder(self)
         narrowOnUp = nil
+        tagDrag = nil
         if spaceHeld != nil || e.modifierFlags.contains(.option) { startPan(e); return }
         let adding = !e.modifierFlags.intersection([.shift, .command]).isEmpty
         if !adding, let (k, a) = chatButtonHit(p) { if e.clickCount == 1 { run(a, on: k) }; return }
         if !adding, let v = foldHit(p) { store.map.toggleFold(v.key); changed(select: v.key); return }
+        if !adding, e.clickCount == 1, let t = tagHit(p) {
+            select(t.v.key)
+            tagDrag = (t.v.key, t.id, p, p, false)
+            return
+        }
         if let v = hit(p) {
             if adding {
                 // ⇧/⌘-click: in or out of the selection; holding on and dragging moves the whole selection
@@ -1628,6 +1780,22 @@ final class MapView: NSView, NSTextFieldDelegate {
             return
         }
         if drag != nil { dragMoved(e); return }
+        if var t = tagDrag {
+            let p = convert(e.locationInWindow, from: nil)
+            if !t.moved && hypot(p.x - t.at.x, p.y - t.at.y) < 4 { return }
+            if !t.moved, let v = byKey[t.key] {                    // the others start where they're drawn
+                for r in tagRects(v) { tagX[r.id] = r.rect.minX }
+            }
+            t.moved = true
+            t.pointer = p
+            tagDrag = t
+            glideTags()
+            let off = byKey[t.key].map { !$0.frame.insetBy(dx: -6, dy: -6).contains(p) } ?? true
+            (off ? NSCursor.disappearingItem : NSCursor.closedHand).set()
+            autoscroll(with: e)
+            needsDisplay = true
+            return
+        }
         guard let pr = pressed else { return }
         let p = convert(e.locationInWindow, from: nil)
         if hypot(p.x - pr.at.x, p.y - pr.at.y) < 5 { return }
@@ -1637,6 +1805,21 @@ final class MapView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseUp(with e: NSEvent) {
+        if let t = tagDrag {
+            tagDrag = nil
+            NSCursor.arrow.set()
+            if t.moved, let v = byKey[t.key] {
+                let p = convert(e.locationInWindow, from: nil)
+                if v.frame.insetBy(dx: -6, dy: -6).contains(p) {
+                    store.map.moveTag(t.key, t.id, to: tagIndex(v, at: p, holding: t.id))      // along the node: a new place among its tags
+                } else {
+                    store.map.toggleTag(t.key, t.id)                           // off the node: it comes off
+                }
+                changed(select: t.key)
+            }
+            needsDisplay = true
+            return
+        }
         if pan != nil { NSCursor.pop() }
         spaceHeld?.last = e.locationInWindow
         if band != nil { band = nil; needsDisplay = true }
@@ -1700,35 +1883,17 @@ final class MapView: NSView, NSTextFieldDelegate {
             sub.addItem(none)
             sub.addItem(.separator())
             for h in Theme.highlights {
-                let it = MenuAction(title: tr(h.zh, h.en)) { [weak self] in map.setColor(k, h.key); self?.changed(select: k) }
+                let it = MenuAction(title: tr(h.zh, TrKey(h.en))) { [weak self] in map.setColor(k, h.key); self?.changed(select: k) }
                 it.image = Theme.swatch(h.color)
                 it.state = current == h.key ? .on : .off
                 sub.addItem(it)
             }
             colors.submenu = sub
             m.addItem(colors)
-            let shapes = NSMenuItem(title: tr("图标", "Icon"), action: nil, keyEquivalent: "")
-            let sm = NSMenu()
-            let own = map.locate(k)?.item.node?.shape
-            for s in MapView.shapes {
-                let it = MenuAction(title: tr(s.zh, s.en)) { [weak self] in map.setShape(k, s.key); self?.changed(select: k) }
-                it.image = MapView.shapeImage(s.key)
-                it.state = v.glyph == s.key ? .on : .off
-                sm.addItem(it)
-            }
-            sm.addItem(.separator())
-            let more = MenuAction(title: tr("更多图标…", "More icons…")) { [weak self] in self?.pickIcon(k) }
-            more.state = v.glyph?.hasPrefix("i:") == true ? .on : .off
-            sm.addItem(more)
-            sm.addItem(.separator())
-            let noShape = MenuAction(title: tr("不要图标", "No icon")) { [weak self] in map.setShape(k, "none"); self?.changed(select: k) }
-            noShape.state = v.glyph == nil ? .on : .off
-            sm.addItem(noShape)
-            if own != nil {
-                sm.addItem(MenuAction(title: tr("恢复默认", "Default")) { [weak self] in map.setShape(k, nil); self?.changed(select: k) })
-            }
-            shapes.submenu = sm
-            m.addItem(shapes)
+            // every icon at once, the shapes first: one step to pick
+            let icon = MenuAction(title: tr("图标…", "Icon…")) { [weak self] in self?.pickIcon(k) }
+            icon.image = v.glyph.map { MapView.shapeImage($0) }
+            m.addItem(icon)
         }
         if v.kind != .root { m.addItem(tagMenu(k)) }
         if v.hasKids && v.kind != .root {
@@ -1750,12 +1915,20 @@ final class MapView: NSView, NSTextFieldDelegate {
         return m
     }
 
-    /// The icon picker, beside the topic.
+    /// The icon picker, beside the topic: the simple shapes, then every line icon, and below them "No icon" (and
+    /// "Default", once the topic has one of its own).
     private func pickIcon(_ k: String) {
         guard let v = byKey[k] else { return }
-        let current = v.glyph?.hasPrefix("i:") == true ? String(v.glyph!.dropFirst(2)) : nil
-        IconPicker.show(relativeTo: v.frame, of: self, selected: current, tint: v.colored ? v.color : Theme.ink) { [weak self] name in
-            self?.store.map.setShape(k, "i:" + name)
+        let map = store.map
+        let current = v.glyph.map { $0.hasPrefix("i:") ? String($0.dropFirst(2)) : "s:" + $0 }
+        var extra: [(title: String, run: () -> Void)] = []
+        if map.locate(k)?.item.node?.shape != nil {
+            extra.append((tr("恢复默认", "Default"), { [weak self] in map.setShape(k, nil); self?.changed(select: k) }))
+        }
+        IconPicker.show(relativeTo: v.frame, of: self, selected: current, tint: v.colored ? v.color : Theme.ink, shapes: MapView.shapes,
+                        clear: (tr("不要图标", "No icon"), { [weak self] in map.setShape(k, "none"); self?.changed(select: k) }),
+                        extra: extra) { [weak self] name in
+            map.setShape(k, name.hasPrefix("s:") ? String(name.dropFirst(2)) : "i:" + name)
             self?.changed(select: k)
         }
     }
@@ -1768,7 +1941,7 @@ final class MapView: NSView, NSTextFieldDelegate {
         for g in Tag.groups {
             let list = map.tags.filter { $0.category == g.key }
             guard !list.isEmpty else { continue }
-            let head = sub.addItem(withTitle: tr(g.zh, g.en), action: nil, keyEquivalent: "")
+            let head = sub.addItem(withTitle: tr(g.zh, TrKey(g.en)), action: nil, keyEquivalent: "")
             head.isEnabled = false
             for t in list {
                 let it = MenuAction(title: t.name) { [weak self] in map.toggleTag(key, t.id); self?.changed(select: key) }
