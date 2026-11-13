@@ -654,8 +654,14 @@ enum AXScan {
                 for t in texts { userTexts.insert(t.trimmingCharacters(in: .whitespacesAndNewlines)) }
                 if str(button, "AXSelected") == "1" || str(el, "AXSelected") == "1" { flags.append("sel=1") }
                 let cur = str(button, "AXARIACurrent"); if !cur.isEmpty && cur != "0" && cur != "false" { flags.append("cur=\(cur)") }
-                let title = texts.count == 1 ? texts[0].trimmingCharacters(in: .whitespacesAndNewlines) : ""
                 let label = str(menu, "AXDescription"), english = label.hasPrefix("More options for")
+                // one text, or a title Claude draws in pieces (some rows now have two): the pieces joined as the row's
+                // menu names it, else the one piece it names (another may be an icon's)
+                let trimmed = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                let title = trimmed.count == 1 ? trimmed[0]
+                    : ([texts.joined(), texts.joined(separator: " "), trimmed.joined(separator: " ")]
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } + trimmed.sorted { $0.count > $1.count })
+                        .first { !$0.isEmpty && label.contains($0) } ?? ""
                 // (a one-character title: only where the menu reads exactly as Claude words it, or any row would pass)
                 if !title.isEmpty, english || (title.count >= 2 && label.count > title.count && label.contains(title))
                     || (title.count == 1 && knownMenus.contains { $0.replacingOccurrences(of: "{label}", with: title) == label }) {
