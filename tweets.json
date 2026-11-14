@@ -1,0 +1,175 @@
+{
+ "updated": "2026-11-14T15:31:28.510Z",
+ "tweets": [
+  {
+   "id": "2120359416117809209",
+   "text": "刷到个挺好玩的 Mac 小工具 KIKUmap，把 Claude、ChatGPT 的对话拖成一张思维导图，菜单栏上直接看哪个还在跑、哪个跑完了、哪个在等我点批准。\n\n翻了下代码，它压根没走 API。Claude 桌面端没接口，它就用辅助功能去读侧栏上的状态字；Codex 那边直接读本地 ~/.codex。没有接口就读界面，挺野的，但确实好用。\n\n同时开一堆 Agent 的人应该都懂这种痛。免费开源，Swift 写的，两周 1000★。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-11T03:34:13.000Z",
+   "author": {
+    "name": "青雲",
+    "username": "echo_vic",
+    "avatar": "https://pbs.twimg.com/profile_images/2010615068397068288/iiSlQZDu_200x200.jpg"
+   }
+  },
+  {
+   "id": "2120260323944865991",
+   "text": "KIKUmap is a free, open-source macOS menu bar app that tracks your AI chat sessions — it shows which Claude, ChatGPT and Claude Code chats are running, finished or stuck waiting for approval, and lays pinned ones out as a draggable mind map with topics, colors and tags. Native Swift AppKit, no Electron, no account, all data local. tang1693.github.io/KIKUmap/",
+   "created_at": "2026-11-10T21:00:28.000Z",
+   "author": {
+    "name": "AINotes",
+    "username": "ainotesus",
+    "avatar": "https://pbs.twimg.com/profile_images/2082656347590373376/BTeh0FmO_200x200.jpg"
+   }
+  },
+  {
+   "id": "2120195453669273986",
+   "text": "🚀Project Number 10 - KIKUmap🔥\n\n'A mind map for your AI chats'\n\n#aiagents #ai #agenticai #automation #workflowautomation #mcp #localai #ondeviceai #aisecurity #codingagents #KIKUmap",
+   "created_at": "2026-11-10T16:42:42.000Z",
+   "author": {
+    "name": "ManuAGI 🤖 - ( ManuIn )",
+    "username": "ManuAGI01",
+    "avatar": "https://pbs.twimg.com/profile_images/1792389743503929344/5NAkgng7_200x200.jpg"
+   }
+  },
+  {
+   "id": "2120148913693082106",
+   "text": "🗺 KIKUmap 把对话画成导图\n\nKIKUmap 把 Claude/ChatGPT 会话画成导图，装法是下 dmg 后授权。\n\n建库 13 天直查 977 星 100 fork，fork 比 10.2%，约 75 星/天，榜外。\n\n仅 macOS 13+，未公证要手动放行，小组件需 14+；替代是官方会话列表。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-10T13:37:46.000Z",
+   "author": {
+    "name": "Haqikamatata",
+    "username": "Haqikamatata",
+    "avatar": "https://pbs.twimg.com/profile_images/2120028522324606977/fmPEpG-6_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119996971335172560",
+   "text": "KIKUmap 能把 Claude 和 ChatGPT 的对话变成思维导图。聊天记录的可视化，或许能帮我们发现更多灵感。\nproducthunt.com/products/kikum…",
+   "created_at": "2026-11-10T03:34:00.000Z",
+   "author": {
+    "name": "AI 百球哥",
+    "username": "eustancewu",
+    "avatar": "https://pbs.twimg.com/profile_images/2110685111863881728/OXu8E6yp_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119804743224881422",
+   "text": "同时开好几个 Claude、Codex 对话，最烦的不是等，是不知道哪个跑完了、哪个在等你点通过。KIKUmap 是个免费开源的 macOS 菜单栏小工具，菜单栏上一个圆环，跑着的有几个、哪个完了、哪个等审批，红标和感叹号直接标出来，还能拖到自己的主题里排成一张图。来源：github.com/tang1693/KIKUm…",
+   "created_at": "2026-11-09T14:50:09.000Z",
+   "author": {
+    "name": "发量不多程序猿",
+    "username": "yuanbaopower",
+    "avatar": "https://pbs.twimg.com/profile_images/1841052042355490822/2C0pcyfr_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119690600144601450",
+   "text": "@awe0_io KIKUmap 是只支持 Mac，还是 Windows 也能用？我同时开一堆 Claude 会话经常找不到哪条还没回",
+   "created_at": "2026-11-09T07:16:35.000Z",
+   "author": {
+    "name": "旅人",
+    "username": "DaiLin67911",
+    "avatar": "https://pbs.twimg.com/profile_images/2048101661613477888/ZQ_Hkl6t_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119684159916622255",
+   "text": "同时开十几个 Claude 和 ChatGPT 对话，终于有人想到怎么管理了。\n\nKIKUmap 直接把所有对话变成一张思维导图，哪个 AI 在干活、哪个做完了、哪个等你回复，一眼就能看到。\n\n还能统计使用时间、整理聊天记录，甚至导出对话。\n\nMac 用户应该会很喜欢这个。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-09T06:51:00.000Z",
+   "author": {
+    "name": "awe0",
+    "username": "awe0_io",
+    "avatar": "https://pbs.twimg.com/profile_images/2108410049089445888/4-IZVtrg_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119674848729325667",
+   "text": "同时开着十几个 Claude、ChatGPT 会话，最头疼的不是任务太多，而是根本记不清哪个已经完成、哪个还在运行、哪个正等着你确认。\n\nKIKUmap 是一款 macOS 菜单栏工具，把分散的 AI 会话整理成一张可视化思维导图。\n\n🧠 会话地图：将置顶会话按照主题组织起来，不再需要反复切换窗口。\n\n⚡ 实时状态：运行中、已完成、等待确认的任务一眼就能分辨。\n\n⏱️ 耗时统计：查看不同会话的运行时间，了解任务进展。\n\n📤 对话导出：可以导出 AI 对话，方便整理和留档。\n\n🔒 本地优先：使用纯 Swift 开发，零依赖，数据全部保存在本机。\n\n⭐ 已有 771 Star。\n\n如果你习惯同时让多个 AI Agent 干活，真正需要的可能不是再开一个聊天窗口，而是一个能看清所有任务进度的控制面板。\n\nAI 会话越来越多，管理它们也应该有自己的工具。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-09T06:14:00.000Z",
+   "author": {
+    "name": "oAdam 新新",
+    "username": "0xKillCoin",
+    "avatar": "https://pbs.twimg.com/profile_images/2113759611501281280/8ONcbTIk_200x200.jpg"
+   }
+  },
+  {
+   "id": "2119437237842743708",
+   "text": "Claude Code 在等你批准，ChatGPT 另一个对话也跑完了……你还在挨个窗口找？\n\nKIKUmap 把 Claude、ChatGPT 和 Claude Code 的会话整理成 Mac 菜单栏里的状态面板和主题地图，能看到哪些任务结束、哪些还等你处理。MIT 开源。\n它需要 macOS 辅助功能权限，安装包也尚未完成苹果公证。\n\n这种工具有用，但先看清权限说明再装，别图顺手一路点允许哦。\ngithub.com/tang1693/KIKUm…⁠\n#AI效率工具\n本轮建议优先考虑 第 1、2",
+   "created_at": "2026-11-08T14:29:49.000Z",
+   "author": {
+    "name": "winner",
+    "username": "danny0dong",
+    "avatar": "https://pbs.twimg.com/profile_images/2110339271089643520/dWwDFXKs_200x200.jpg"
+   }
+  },
+  {
+   "id": "2118933641334300940",
+   "text": "x.com/i/article/2118…",
+   "created_at": "2026-11-07T05:08:42.000Z",
+   "author": {
+    "name": "出家如初",
+    "username": "chuanliang",
+    "avatar": "https://pbs.twimg.com/profile_images/1475374780819722242/QJE9eV4R_200x200.jpg"
+   }
+  },
+  {
+   "id": "2118512582080221438",
+   "text": "Trendshift live risers right now (mentions · GitHub stars):\n\n1. tang1693/KIKUmap — 67 · ~556★ — mind map for Claude/ChatGPT chats (macOS menu bar)\n2. larashero3-dotcom/lieflat-less-ai-tone — 61 · ~5.4k★ — research-backed “less AI tone” writing skill\n3. huaxialucaicaizi/ai-startup-skills — 51 · ~917★ — 7-step AI startup agent skills (CN)\n4. milind-soni/OpenMausBot — 67 · ~13.3k★ — open-source Grok Bot-style multi-agent chat app\n5. stablyai/orca — 40 · ~117k★ — fleet runner for coding agents on your own subscription\n6. deepseek-ai/deepseek-harness — 38 · ~274k★ — “everything is a plugin” agent harness\n7. microsoft/VibeVoice — 35 · (check GH) — voice-related\n8. vercel-labs/agent-browser — (rising) · ~46k★ — browser automation CLI for agents\n9. meta/astryx — 17 · ~14k★ — agent-ready open design system\n10. FengZhenfei/carrel — · ~796★ — ontology-augmented generation for agents\n\nLive board: trendshift.io",
+   "created_at": "2026-11-06T01:15:34.000Z",
+   "author": {
+    "name": "Nam Hoàng Tuấn",
+    "username": "h___t____n",
+    "avatar": "https://pbs.twimg.com/profile_images/1653773785206775808/wApzOTim_200x200.jpg"
+   }
+  },
+  {
+   "id": "2117986862317154738",
+   "text": "@ExiledonMoon The approval-waiting state is particularly useful when several conversations are open. Does Kikumap detect desktop apps as well as browser tabs, and how does it distinguish a completed response from one that is still streaming slowly?",
+   "created_at": "2026-11-04T14:26:32.000Z",
+   "author": {
+    "name": "0xAzr",
+    "username": "AzrianoY1",
+    "avatar": "https://pbs.twimg.com/profile_images/1823380437101907968/p2eJHlnQ_200x200.jpg"
+   }
+  },
+  {
+   "id": "2117957599673163890",
+   "text": "Your AI chats can announce when they're done. Someone finally built the missing Mac app.\n\nKikumap is a free, open-source Mac menu-bar app that tracks Claude and ChatGPT chats.\n\n• See which pinned chats are running, finished unread or waiting for approval.\n• Hear a completion sound, or have it announce which chat finished.\n• Drag chats onto a mind map grouped by work, home or side projects.\n\n$0. 382 GitHub stars in 7 days. Works on Intel and Apple silicon Macs running macOS 13 or later. Everything stays on your Mac; it needs Accessibility permission and a one-time \"Open Anyway\" approval.\n\ngithub.com/tang1693/KIKUm…\n\nAnthropic and OpenAI automated the work and left you in charge of attendance.",
+   "created_at": "2026-11-04T12:30:16.000Z",
+   "author": {
+    "name": "The Lunar Misfit",
+    "username": "ExiledonMoon",
+    "avatar": "https://pbs.twimg.com/profile_images/2101984207006470144/awLhMls0_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116742341952466963",
+   "text": "AI 对话开多了，想知道哪个还在跑？\n\n开源 Mac 工具 Kikumap 能把 Claude 置顶会话和 ChatGPT 的 Codex 状态放进菜单栏。\n\n项目称它读取窗口和本地记录，Claude 部分需要辅助功能权限；下载版未经苹果公证，macOS 提示无法验证。\n\n少在几个窗口之间来回切，这一点挺实在。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-11-01T04:01:16.000Z",
+   "author": {
+    "name": "Leon",
+    "username": "LeonDemonHunter",
+    "avatar": "https://pbs.twimg.com/profile_images/2116704154383224833/2Xrj-Rjq_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116724534665744826",
+   "text": "🚀 小白搞自动化，最怕状态管理乱糟糟？Kikumap 来帮你！🔍\n\n一键整合 Claude 和 ChatGPT 的置顶会话，菜单栏实时显示哪些任务在跑，哪些已完成待查看，哪些需要你确认。🎯\n\n✅ 省去翻找烦恼，效率翻倍！\n\n✅ 一键操作，小白...\n\n#实用神器 #自动化工具",
+   "created_at": "2026-11-01T02:50:30.000Z",
+   "author": {
+    "name": "离岸工具包🎒",
+    "username": "Stanllll6o",
+    "avatar": "https://pbs.twimg.com/profile_images/2108433329322373120/EmdsFz3S_200x200.jpg"
+   }
+  },
+  {
+   "id": "2116023790782067144",
+   "text": "Kikumap 把 Claude 和 ChatGPT 里一堆置顶会话的状态集中到菜单栏，随时看到哪些在跑、哪些跑完没看、哪些在等你点确认。\n\ngithub.com/tang1693/KIKUm…",
+   "created_at": "2026-10-30T04:26:00.000Z",
+   "author": {
+    "name": "Geek",
+    "username": "geekbb",
+    "avatar": "https://pbs.twimg.com/profile_images/1644898947272671233/7959WGOK_200x200.jpg"
+   }
+  }
+ ]
+}
